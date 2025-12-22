@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* モダンオレンジテーマ */
+  --bg: #F3F4F6;
+  --bg-light: #FFFFFF;
+  --card: #FFFFFF;
+  --card-hover: #F9FAFB;
+  --text: #1F2937;
+  --text-light: #6B7280;
+  --primary: #F97316;
+  --primary-dark: #EA580C;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --border: #E5E7EB;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background-color: #F3F4F6 !important;
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+/* メインコンテナ */
+.min-h-screen {
+  background-color: #F3F4F6 !important;
+}
+
+/* モダンカードスタイル */
+.modern-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modern-card:active {
+  transform: scale(0.98);
+}
+
+.modern-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* スクロールバー */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* スクロールバー非表示 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 入力フィールド */
+input, select, textarea {
+  font-family: inherit;
+  font-size: 16px;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ボタン */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* リンク */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* アニメーション */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease;
+}
+
+/* セーフエリア対応 */
+.safe-area-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.safe-area-top {
+  padding-top: max(16px, env(safe-area-inset-top));
+}
+
+/* ダークテーマ用カレンダー */
+.react-datepicker {
+  background-color: var(--bg-light) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  font-family: 'Noto Sans JP', sans-serif !important;
+}
+
+.react-datepicker__header {
+  background-color: var(--card) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: 12px 12px 0 0 !important;
+  padding-top: 12px !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name,
+.react-datepicker-time__header {
+  color: var(--text) !important;
+}
+
+.react-datepicker__day {
+  color: var(--text) !important;
+  border-radius: 8px !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: var(--card-hover) !important;
+  border-radius: 8px !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: var(--primary) !important;
+  color: white !important;
+}
+
+.react-datepicker__day--today {
+  background-color: var(--card-hover) !important;
+  font-weight: bold !important;
+}
+
+.react-datepicker__day--outside-month {
+  color: var(--text-light) !important;
+  opacity: 0.5;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: var(--text) !important;
+}
+
+.react-datepicker__year-dropdown,
+.react-datepicker__month-dropdown {
+  background-color: var(--bg-light) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.react-datepicker__year-option,
+.react-datepicker__month-option {
+  color: var(--text) !important;
+}
+
+.react-datepicker__year-option:hover,
+.react-datepicker__month-option:hover {
+  background-color: var(--card-hover) !important;
+}
+
+.react-datepicker__triangle {
+  display: none !important;
+}
+
+.react-datepicker-popper {
+  z-index: 300 !important;
+}

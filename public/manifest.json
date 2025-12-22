@@ -1,0 +1,42 @@
+{
+  "name": "S-BASE 建設業務管理",
+  "short_name": "S-BASE",
+  "description": "建設業向け総合業務管理システム",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "段取り",
+      "url": "/dantori",
+      "description": "本日の段取り確認"
+    },
+    {
+      "name": "S-BASE",
+      "url": "/sbase",
+      "description": "工事台帳"
+    },
+    {
+      "name": "天気",
+      "url": "/weather",
+      "description": "現場天気予報"
+    }
+  ]
+}
