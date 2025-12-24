@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
 import AIHelpButton from './components/AIHelpButton'
+import { useThemeStore } from './store'
 
 // Pages
 import HomePage from './pages/HomePage'
@@ -43,10 +45,19 @@ import ChatPage, { ChatListPage } from './pages/ChatPage'
 import SettingsPage, { UsersPage, IntegrationsPage, ExportPage, LineWorksPage, CompanySettingsPage } from './pages/SettingsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import BusinessCardsPage from './pages/BusinessCardsPage'
+import QuotesPage from './pages/QuotesPage'
+import HotelSearch from './components/HotelSearch'
 
 export default function App() {
+  const { initTheme } = useThemeStore()
+
+  // アプリ起動時にテーマを初期化
+  useEffect(() => {
+    initTheme()
+  }, [initTheme])
+
   return (
-    <div className="min-h-screen bg-app-bg text-slate-800">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
       <Routes>
         {/* メイン */}
         <Route path="/" element={<HomePage />} />
@@ -61,6 +72,7 @@ export default function App() {
         <Route path="/scan-result" element={<ScanResultPage />} />
 
         {/* 経理・事務 */}
+        <Route path="/quotes" element={<QuotesPage />} />
         <Route path="/invoice" element={<InvoicePage />} />
         <Route path="/price-master" element={<PriceMasterPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
@@ -104,6 +116,7 @@ export default function App() {
         <Route path="/settings/company" element={<CompanySettingsPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/business-cards" element={<BusinessCardsPage />} />
+        <Route path="/hotel" element={<HotelSearch />} />
       </Routes>
 
       <BottomNav />

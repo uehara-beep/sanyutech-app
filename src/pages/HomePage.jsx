@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { useAppStore } from '../store'
+import { useAppStore, useThemeStore } from '../store'
 import {
   BarChart3, Wrench, AlertTriangle, Calendar, FileText,
   DollarSign, Package, CreditCard, CheckCircle, Car,
@@ -10,8 +10,7 @@ import {
   Camera, Clock, MapPin, Image, FileCheck, Shield,
   MessagesSquare, TrendingUp, Contact2, Home, ChevronRight
 } from 'lucide-react'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 // アプリ定義（モダンUI用）
 const mainApps = [
@@ -22,8 +21,9 @@ const mainApps = [
 ]
 
 const officeApps = [
-  { id: 'invoice', name: '請求書AI', subtitle: '自動読取', icon: FileText, emoji: '📄', color: 'bg-orange-500', path: '/invoice' },
-  { id: 'price', name: '単価マスタ', subtitle: '価格管理', icon: DollarSign, emoji: '💰', color: 'bg-amber-500', path: '/price-master' },
+  { id: 'quotes', name: '見積書', subtitle: '受注まで一括', icon: FileText, emoji: '📝', color: 'bg-orange-500', path: '/quotes' },
+  { id: 'invoice', name: '請求書AI', subtitle: '自動読取', icon: FileText, emoji: '📄', color: 'bg-amber-500', path: '/invoice' },
+  { id: 'price', name: '単価マスタ', subtitle: '価格管理', icon: DollarSign, emoji: '💰', color: 'bg-yellow-500', path: '/price-master' },
   { id: 'inventory', name: '在庫管理', subtitle: '資材管理', icon: Package, emoji: '📦', color: 'bg-sky-500', path: '/inventory' },
   { id: 'expense', name: '経費精算', subtitle: '精算申請', icon: CreditCard, emoji: '💳', color: 'bg-violet-500', path: '/expense' },
 ]
@@ -35,6 +35,7 @@ const siteApps = [
   { id: 'inspections', name: '検査管理', icon: FileCheck, emoji: '✅', color: 'bg-amber-500', path: '/inspections' },
   { id: 'safety', name: '安全書類', icon: Shield, emoji: '🛡️', color: 'bg-green-500', path: '/safety' },
   { id: 'chat', name: 'チャット', icon: MessagesSquare, emoji: '💬', color: 'bg-purple-500', path: '/chat' },
+  { id: 'hotel', name: 'ホテル検索', icon: Home, emoji: '🏨', color: 'bg-blue-500', path: '/hotel' },
 ]
 
 const manageApps = [
@@ -55,7 +56,7 @@ const otherApps = [
   { id: 'help', name: '使い方', icon: HelpCircle, emoji: '❓', path: '/help' },
 ]
 
-// モダンカードコンポーネント
+// モダンカードコンポーネント（ダークテーマ）
 function ModernCard({ app, size = 'normal' }) {
   const navigate = useNavigate()
   const Icon = app.icon
@@ -63,20 +64,20 @@ function ModernCard({ app, size = 'normal' }) {
   if (size === 'large') {
     return (
       <motion.div
-        className="bg-white rounded-2xl shadow-md p-4 cursor-pointer"
+        className="bg-[#2c2c2e] rounded-2xl shadow-lg p-4 cursor-pointer border border-[#3c3c3e]"
         onClick={() => navigate(app.path)}
         whileTap={{ scale: 0.98 }}
-        whileHover={{ y: -2, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+        whileHover={{ y: -2, backgroundColor: '#3c3c3e' }}
       >
         <div className="flex items-center gap-4">
           <div className={`w-14 h-14 ${app.color} rounded-xl flex items-center justify-center shadow-lg`}>
             <span className="text-2xl text-white">{app.emoji}</span>
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-gray-800 text-base">{app.name}</h3>
-            <p className="text-sm text-gray-500">{app.subtitle}</p>
+            <h3 className="font-bold text-white text-base">{app.name}</h3>
+            <p className="text-sm text-gray-400">{app.subtitle}</p>
           </div>
-          <ChevronRight size={20} className="text-gray-400" />
+          <ChevronRight size={20} className="text-gray-500" />
         </div>
       </motion.div>
     )
@@ -84,56 +85,64 @@ function ModernCard({ app, size = 'normal' }) {
 
   return (
     <motion.div
-      className="bg-white rounded-xl shadow-sm p-3 cursor-pointer text-center"
+      className="bg-[#2c2c2e] rounded-xl shadow-lg p-3 cursor-pointer text-center border border-[#3c3c3e]"
       onClick={() => navigate(app.path)}
       whileTap={{ scale: 0.95 }}
-      whileHover={{ y: -2, boxShadow: '0 8px 20px -5px rgba(0,0,0,0.1)' }}
+      whileHover={{ y: -2, backgroundColor: '#3c3c3e' }}
     >
-      <div className={`w-12 h-12 ${app.color || 'bg-gray-500'} rounded-xl mx-auto mb-2 flex items-center justify-center shadow-md`}>
+      <div className={`w-12 h-12 ${app.color || 'bg-gray-600'} rounded-xl mx-auto mb-2 flex items-center justify-center shadow-md`}>
         <span className="text-xl">{app.emoji}</span>
       </div>
-      <div className="text-xs font-medium text-gray-700">{app.name}</div>
+      <div className="text-xs font-medium text-white">{app.name}</div>
       {app.subtitle && <div className="text-[10px] text-gray-400">{app.subtitle}</div>}
     </motion.div>
   )
 }
 
-// ミニカード
+// ミニカード（ダークテーマ）
 function MiniCard({ app }) {
   const navigate = useNavigate()
 
   return (
     <motion.div
-      className="bg-white rounded-lg shadow-sm p-2.5 cursor-pointer text-center"
+      className="bg-[#2c2c2e] rounded-lg shadow-lg p-2.5 cursor-pointer text-center border border-[#3c3c3e]"
       onClick={() => navigate(app.path)}
       whileTap={{ scale: 0.95 }}
+      whileHover={{ backgroundColor: '#3c3c3e' }}
     >
       <div className="text-xl mb-1">{app.emoji}</div>
-      <div className="text-[10px] font-medium text-gray-600">{app.name}</div>
+      <div className="text-[10px] font-medium text-gray-300">{app.name}</div>
     </motion.div>
   )
 }
 
-// セクションタイトル
+// セクションタイトル（ダークテーマ）
 function SectionTitle({ children }) {
   return (
     <div className="flex items-center justify-between mb-3 px-1">
-      <h3 className="text-sm font-bold text-gray-700">{children}</h3>
+      <h3 className="text-sm font-bold text-white">{children}</h3>
     </div>
   )
 }
 
-// ステータスカード
+// ステータスカード（ダークテーマ）
 function StatusCard({ value, label, color, onClick }) {
+  // CSS変数かTailwindクラスかを判定
+  const isVar = color?.startsWith('var(')
   return (
     <motion.div
-      className="bg-white rounded-xl shadow-sm p-4 text-center cursor-pointer"
+      className="bg-[#2c2c2e] rounded-xl shadow-lg p-4 text-center cursor-pointer border border-[#3c3c3e]"
       onClick={onClick}
       whileTap={{ scale: 0.95 }}
-      whileHover={{ y: -2 }}
+      whileHover={{ y: -2, backgroundColor: '#3c3c3e' }}
     >
-      <div className={`text-2xl font-bold ${color}`}>{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{label}</div>
+      <div
+        className={`text-2xl font-bold ${isVar ? '' : color}`}
+        style={isVar ? { color } : {}}
+      >
+        {value}
+      </div>
+      <div className="text-xs text-gray-400 mt-1">{label}</div>
     </motion.div>
   )
 }
@@ -141,6 +150,8 @@ function StatusCard({ value, label, color, onClick }) {
 export default function HomePage() {
   const navigate = useNavigate()
   const { unreadCount } = useAppStore()
+  const { getCurrentTheme } = useThemeStore()
+  const theme = getCurrentTheme()
   const [dashboard, setDashboard] = useState(null)
   const [pendingApprovals, setPendingApprovals] = useState(0)
   const [lowStockCount, setLowStockCount] = useState(0)
@@ -182,53 +193,60 @@ export default function HomePage() {
   }, [])
 
   return (
-    <div className="min-h-screen pb-28 bg-gray-100">
-      {/* モダンヘッダー（白背景） */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
+    <div className="min-h-screen pb-28 bg-[#1c1c1e]">
+      {/* ダークヘッダー（テーマカラーアクセント） */}
+      <header className="bg-[#1c1c1e] border-b border-[#3c3c3e] sticky top-0 z-50">
         <div className="px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
+              style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.dark})` }}
+            >
               <span className="text-lg">🏗️</span>
             </div>
             <div>
-              <h1 className="text-base font-bold text-gray-800">サンユウテック</h1>
+              <h1 className="text-base font-bold text-white">サンユウテック</h1>
               <p className="text-[10px] text-gray-400">{dateStr}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <motion.button
-              className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center relative"
+              className="w-10 h-10 bg-[#2c2c2e] rounded-xl flex items-center justify-center relative border border-[#3c3c3e]"
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/notify')}
             >
-              <Bell size={20} className="text-gray-600" />
+              <Bell size={20} className="text-gray-300" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
+                <span
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] text-white flex items-center justify-center font-bold"
+                  style={{ backgroundColor: 'var(--primary)' }}
+                >
                   {unreadCount}
                 </span>
               )}
             </motion.button>
             <motion.button
-              className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center"
+              className="w-10 h-10 bg-[#2c2c2e] rounded-xl flex items-center justify-center border border-[#3c3c3e]"
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/settings')}
             >
-              <Settings size={20} className="text-gray-600" />
+              <Settings size={20} className="text-gray-300" />
             </motion.button>
           </div>
         </div>
       </header>
 
-      {/* 撮影ステーションバナー（オレンジ） */}
+      {/* 撮影ステーションバナー（テーマカラーグラデーション） */}
       <motion.div
-        className="mx-4 mt-4 p-4 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl shadow-lg cursor-pointer"
+        className="mx-4 mt-4 p-4 rounded-2xl shadow-xl cursor-pointer"
+        style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.dark})` }}
         onClick={() => navigate('/scan')}
         whileTap={{ scale: 0.98 }}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
+          <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
             <Camera size={28} className="text-white" />
           </div>
           <div className="flex-1 text-white">
@@ -252,7 +270,7 @@ export default function HomePage() {
         <StatusCard
           value={pendingApprovals}
           label="承認待ち"
-          color="text-orange-500"
+          color="var(--primary)"
           onClick={() => navigate('/approve')}
         />
         <StatusCard
@@ -263,10 +281,10 @@ export default function HomePage() {
         />
       </div>
 
-      {/* 経営サマリー */}
+      {/* 経営サマリー（ダークテーマ） */}
       {dashboard && (
         <motion.div
-          className="mx-4 mt-4 p-4 bg-white rounded-2xl shadow-md cursor-pointer"
+          className="mx-4 mt-4 p-4 bg-[#2c2c2e] rounded-2xl shadow-lg cursor-pointer border border-[#3c3c3e]"
           onClick={() => navigate('/analytics')}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -274,27 +292,27 @@ export default function HomePage() {
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <TrendingUp size={16} className="text-orange-500" />
-              <span className="text-sm font-bold text-gray-700">今期実績</span>
+              <TrendingUp size={16} style={{ color: 'var(--primary)' }} />
+              <span className="text-sm font-bold text-white">今期実績</span>
             </div>
             <span className="text-xs text-gray-400">詳細を見る →</span>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-gray-50 rounded-lg p-2 text-center">
-              <div className="text-[10px] text-gray-500">受注高</div>
-              <div className="text-sm font-bold text-gray-800">
+            <div className="bg-[#1c1c1e] rounded-lg p-2 text-center">
+              <div className="text-[10px] text-gray-400">受注高</div>
+              <div className="text-sm font-bold text-white">
                 {dashboard.total_order ? `${Math.round(dashboard.total_order / 10000).toLocaleString()}万` : '0'}
               </div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-2 text-center">
-              <div className="text-[10px] text-gray-500">粗利</div>
-              <div className={`text-sm font-bold ${dashboard.total_profit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+            <div className="bg-[#1c1c1e] rounded-lg p-2 text-center">
+              <div className="text-[10px] text-gray-400">粗利</div>
+              <div className={`text-sm font-bold ${dashboard.total_profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {dashboard.total_profit ? `${dashboard.total_profit >= 0 ? '+' : ''}${Math.round(dashboard.total_profit / 10000).toLocaleString()}万` : '0'}
               </div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-2 text-center">
-              <div className="text-[10px] text-gray-500">粗利率</div>
-              <div className="text-sm font-bold text-blue-500">
+            <div className="bg-[#1c1c1e] rounded-lg p-2 text-center">
+              <div className="text-[10px] text-gray-400">粗利率</div>
+              <div className="text-sm font-bold" style={{ color: 'var(--primary)' }}>
                 {dashboard.total_order > 0
                   ? `${Math.round((dashboard.total_profit / dashboard.total_order) * 100)}%`
                   : '0%'}

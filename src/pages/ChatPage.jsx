@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../components/common'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 export default function ChatPage() {
   const navigate = useNavigate()

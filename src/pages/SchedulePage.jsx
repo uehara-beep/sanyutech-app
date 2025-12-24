@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 export default function SchedulePage() {
   const navigate = useNavigate()
@@ -13,6 +12,19 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState('year') // year, month, week
   const [toast, setToast] = useState({ show: false, message: '' })
+
+  // スキャン関連
+  const [showScanner, setShowScanner] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [scannedImage, setScannedImage] = useState(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [scannedData, setScannedData] = useState({
+    project_name: '',
+    start_date: '',
+    end_date: '',
+    progress_rate: 0,
+    color: '#3b82f6',
+  })
 
   // 現在の年月
   const today = new Date()
@@ -82,6 +94,130 @@ export default function SchedulePage() {
     if (rate >= 80) return 'bg-emerald-500'
     if (rate >= 50) return 'bg-amber-500'
     return 'bg-blue-500'
+  }
+
+  // ファイル選択処理
+  const handleFileSelect = async (e, type) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setShowScanner(false)
+    setIsProcessing(true)
+
+    // 画像プレビュー用URL
+    if (file.type.startsWith('image/')) {
+      const imageUrl = URL.createObjectURL(file)
+      setScannedImage(imageUrl)
+    }
+
+    // OCR処理（実際のAPIを呼び出す）
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'schedule')
+
+      const res = await fetch(`${API_BASE}/ocr/schedule`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setScannedData({
+          project_name: data.project_name || '',
+          start_date: data.start_date || '',
+          end_date: data.end_date || '',
+          progress_rate: data.progress_rate || 0,
+          color: data.color || '#3b82f6',
+        })
+      } else {
+        // デモ用のダミーデータ
+        setScannedData({
+          project_name: '新規工事',
+          start_date: `${currentYear}-04-01`,
+          end_date: `${currentYear}-09-30`,
+          progress_rate: 0,
+          color: '#3b82f6',
+        })
+      }
+    } catch (error) {
+      console.error('OCR error:', error)
+      // デモ用のダミーデータ
+      setScannedData({
+        project_name: '新規工事',
+        start_date: `${currentYear}-04-01`,
+        end_date: `${currentYear}-09-30`,
+        progress_rate: 0,
+        color: '#3b82f6',
+      })
+    } finally {
+      setIsProcessing(false)
+      setShowConfirm(true)
+    }
+  }
+
+  // スケジュール登録
+  const handleRegister = async () => {
+    if (!scannedData.project_name || !scannedData.start_date || !scannedData.end_date) {
+      showToast('必須項目を入力してください')
+      return
+    }
+
+    try {
+      // まずプロジェクトを作成または取得
+      let projectId = null
+      const existingProject = projects.find(p => p.name === scannedData.project_name)
+
+      if (existingProject) {
+        projectId = existingProject.id
+      } else {
+        // 新規プロジェクト作成
+        const projectRes = await fetch(`${API_BASE}/projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: scannedData.project_name,
+            client: '',
+            period: `${scannedData.start_date}〜${scannedData.end_date}`,
+            status: '進行中',
+          }),
+        })
+        if (projectRes.ok) {
+          const newProject = await projectRes.json()
+          projectId = newProject.id
+        }
+      }
+
+      if (!projectId) {
+        showToast('プロジェクト作成に失敗しました')
+        return
+      }
+
+      // スケジュール登録
+      const scheduleRes = await fetch(`${API_BASE}/schedules/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          start_date: scannedData.start_date,
+          end_date: scannedData.end_date,
+          progress_rate: scannedData.progress_rate,
+          color: scannedData.color,
+        }),
+      })
+
+      if (scheduleRes.ok) {
+        showToast('工程を登録しました')
+        setShowConfirm(false)
+        setScannedImage(null)
+        fetchData() // データ再読み込み
+      } else {
+        showToast('登録に失敗しました')
+      }
+    } catch (error) {
+      console.error('Register error:', error)
+      showToast('登録に失敗しました')
+    }
   }
 
   // プロジェクトからスケジュールを生成（APIにない場合のフォールバック）
@@ -237,7 +373,195 @@ export default function SchedulePage() {
             <span>80%~</span>
           </div>
         </div>
+
+        {/* 工程表読み取りボタン */}
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowScanner(true)}
+          className="w-full mt-6 py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-lg shadow-lg"
+        >
+          <span className="mr-2">📷</span>
+          工程表を読み取る
+        </motion.button>
       </div>
+
+      {/* スキャナーモーダル */}
+      {showScanner && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end"
+          onClick={() => setShowScanner(false)}
+        >
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            className="w-full bg-app-card rounded-t-3xl p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="text-center mb-6">
+              <div className="text-3xl mb-2">📷</div>
+              <div className="text-lg font-bold">工程表を読み取る</div>
+              <div className="text-xs text-slate-400">撮影または画像・PDFを選択</div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 cursor-pointer">
+                <div className="text-3xl">📸</div>
+                <div className="text-sm font-medium text-white">カメラ</div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, 'camera')}
+                />
+              </label>
+              <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 cursor-pointer">
+                <div className="text-3xl">🖼️</div>
+                <div className="text-sm font-medium text-white">画像</div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, 'gallery')}
+                />
+              </label>
+              <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-orange-600 to-orange-700 cursor-pointer">
+                <div className="text-3xl">📄</div>
+                <div className="text-sm font-medium text-white">PDF</div>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, 'pdf')}
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={() => setShowScanner(false)}
+              className="w-full py-3 rounded-xl bg-slate-700 text-slate-300"
+            >
+              キャンセル
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* 処理中 */}
+      {isProcessing && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-app-card rounded-2xl p-8 text-center">
+            <div className="animate-spin text-4xl mb-4">⏳</div>
+            <div className="font-bold">読み取り中...</div>
+          </div>
+        </div>
+      )}
+
+      {/* 確認モーダル */}
+      {showConfirm && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            className="w-full max-w-md bg-app-card rounded-2xl p-6"
+          >
+            <div className="text-center mb-4">
+              <div className="text-2xl mb-2">📋</div>
+              <div className="text-lg font-bold">工程情報を確認</div>
+            </div>
+
+            {scannedImage && (
+              <div className="mb-4 rounded-xl overflow-hidden">
+                <img src={scannedImage} alt="スキャン画像" className="w-full h-32 object-cover" />
+              </div>
+            )}
+
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">現場名 *</label>
+                <input
+                  type="text"
+                  value={scannedData.project_name}
+                  onChange={(e) => setScannedData({ ...scannedData, project_name: e.target.value })}
+                  className="w-full p-3 rounded-xl bg-[#3c3c3e] border border-[#4c4c4e] text-white placeholder-gray-400"
+                  placeholder="現場名を入力"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">開始日 *</label>
+                  <input
+                    type="date"
+                    value={scannedData.start_date}
+                    onChange={(e) => setScannedData({ ...scannedData, start_date: e.target.value })}
+                    className="w-full p-3 rounded-xl bg-[#3c3c3e] border border-[#4c4c4e] text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">終了日 *</label>
+                  <input
+                    type="date"
+                    value={scannedData.end_date}
+                    onChange={(e) => setScannedData({ ...scannedData, end_date: e.target.value })}
+                    className="w-full p-3 rounded-xl bg-[#3c3c3e] border border-[#4c4c4e] text-white"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">進捗率</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={scannedData.progress_rate}
+                  onChange={(e) => setScannedData({ ...scannedData, progress_rate: parseInt(e.target.value) })}
+                  className="w-full"
+                />
+                <div className="text-right text-sm text-slate-400">{scannedData.progress_rate}%</div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">バーの色</label>
+                <div className="flex gap-2">
+                  {['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setScannedData({ ...scannedData, color })}
+                      className={`w-8 h-8 rounded-full border-2 ${
+                        scannedData.color === color ? 'border-white' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  setShowConfirm(false)
+                  setScannedImage(null)
+                }}
+                className="py-3 rounded-xl bg-slate-700 text-slate-300"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleRegister}
+                className="py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold"
+              >
+                登録する
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
 
       <Toast message={toast.message} isVisible={toast.show} />
     </div>

@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, HeaderButton, Tabs, Card, Badge, SectionTitle, Button, Modal, Input, Select, Toast } from '../components/common'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 const tabs = [
   { id: 'today', label: '今日' },

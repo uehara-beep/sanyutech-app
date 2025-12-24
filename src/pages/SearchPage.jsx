@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle } from '../components/common'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 const SEARCH_TYPES = [
   { id: 'all', label: '全て', icon: '🔍' },

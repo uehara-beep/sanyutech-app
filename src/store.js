@@ -1,6 +1,130 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+// テーマカラー定義（10色）
+export const themeColors = [
+  { id: 'orange', name: 'オレンジ', emoji: '🟠', primary: '#FF6B00', light: '#FFF5EE', dark: '#E55A00', desc: '建設業・暖色系' },
+  { id: 'blue', name: 'ブルー', emoji: '🔵', primary: '#0066FF', light: '#E6F0FF', dark: '#0052CC', desc: 'クール・信頼感' },
+  { id: 'green', name: 'グリーン', emoji: '🟢', primary: '#00C853', light: '#E8F5E9', dark: '#00A843', desc: '現場・自然' },
+  { id: 'purple', name: 'パープル', emoji: '🟣', primary: '#7C4DFF', light: '#F3E8FF', dark: '#6B3FE0', desc: 'モダン' },
+  { id: 'dark', name: 'ダーク', emoji: '⚫', primary: '#6B7280', light: '#F3F4F6', dark: '#4B5563', desc: 'シンプル黒基調' },
+  { id: 'red', name: 'レッド', emoji: '🔴', primary: '#E53935', light: '#FFEBEE', dark: '#C62828', desc: 'エネルギッシュ' },
+  { id: 'cyan', name: 'シアン', emoji: '🩵', primary: '#00BCD4', light: '#E0F7FA', dark: '#00ACC1', desc: '爽やか' },
+  { id: 'pink', name: 'ピンク', emoji: '🩷', primary: '#EC407A', light: '#FCE4EC', dark: '#D81B60', desc: 'ポップ' },
+  { id: 'yellow', name: 'イエロー', emoji: '🟡', primary: '#FFD600', light: '#FFFDE7', dark: '#FFC400', desc: '明るい・注意喚起' },
+  { id: 'brown', name: 'ブラウン', emoji: '🤎', primary: '#795548', light: '#EFEBE9', dark: '#5D4037', desc: '落ち着き・土木系' },
+]
+
+// 背景スタイル定義
+export const backgroundStyles = [
+  { id: 'dark', name: 'ダーク', desc: '黒系', bg: '#1c1c1e', bgLight: '#2c2c2e', card: '#2c2c2e', cardHover: '#3c3c3e', border: '#3c3c3e', text: '#ffffff', textLight: '#8e8e93', shadow: '0 4px 12px rgba(0, 0, 0, 0.3)' },
+  { id: 'light', name: 'ライト', desc: '白系', bg: '#f5f5f7', bgLight: '#ffffff', card: '#ffffff', cardHover: '#f0f0f0', border: '#e5e5e5', text: '#1c1c1e', textLight: '#6e6e73', shadow: '0 4px 12px rgba(0, 0, 0, 0.1)' },
+  { id: 'gradient', name: 'グラデーション', desc: 'テーマカラー', bg: 'gradient', bgLight: '#2c2c2e', card: '#2c2c2e', cardHover: '#3c3c3e', border: '#3c3c3e', text: '#ffffff', textLight: '#8e8e93', shadow: '0 4px 12px rgba(0, 0, 0, 0.3)' },
+  { id: 'darkgray', name: 'ダークグレー', desc: 'グレー系', bg: '#2c2c2e', bgLight: '#3c3c3e', card: '#3c3c3e', cardHover: '#4c4c4e', border: '#4c4c4e', text: '#ffffff', textLight: '#8e8e93', shadow: '0 4px 12px rgba(0, 0, 0, 0.3)' },
+]
+
+// フォントサイズ定義
+export const fontSizes = [
+  { id: 'small', name: '小', base: 12, desc: '12px基準' },
+  { id: 'medium', name: '中', base: 14, desc: '14px基準' },
+  { id: 'large', name: '大', base: 16, desc: '16px基準' },
+  { id: 'xlarge', name: '特大', base: 18, desc: '18px基準' },
+]
+
+// テーマストア
+export const useThemeStore = create(
+  persist(
+    (set, get) => ({
+      themeId: 'orange', // デフォルトはオレンジ
+      backgroundId: 'dark', // デフォルトはダーク
+      fontSizeId: 'medium', // デフォルトは中
+
+      setTheme: (themeId) => {
+        const theme = themeColors.find(t => t.id === themeId)
+        if (theme) {
+          document.documentElement.style.setProperty('--primary', theme.primary)
+          document.documentElement.style.setProperty('--primary-light', theme.light)
+          document.documentElement.style.setProperty('--primary-dark', theme.dark)
+          set({ themeId })
+          // 背景がグラデーションの場合は更新
+          const state = get()
+          if (state.backgroundId === 'gradient') {
+            get().applyBackground('gradient')
+          }
+        }
+      },
+
+      setBackground: (backgroundId) => {
+        set({ backgroundId })
+        get().applyBackground(backgroundId)
+      },
+
+      setFontSize: (fontSizeId) => {
+        const fontSize = fontSizes.find(f => f.id === fontSizeId)
+        if (fontSize) {
+          document.documentElement.style.setProperty('--font-size-base', `${fontSize.base}px`)
+          document.documentElement.style.fontSize = `${fontSize.base}px`
+          set({ fontSizeId })
+        }
+      },
+
+      applyBackground: (backgroundId) => {
+        const bg = backgroundStyles.find(b => b.id === backgroundId)
+        const theme = get().getCurrentTheme()
+        if (bg) {
+          if (bg.id === 'gradient') {
+            document.documentElement.style.setProperty('--bg', `linear-gradient(135deg, ${theme.dark}, #1c1c1e)`)
+          } else {
+            document.documentElement.style.setProperty('--bg', bg.bg)
+          }
+          document.documentElement.style.setProperty('--bg-light', bg.bgLight)
+          document.documentElement.style.setProperty('--card', bg.card)
+          document.documentElement.style.setProperty('--card-hover', bg.cardHover)
+          document.documentElement.style.setProperty('--border', bg.border)
+          document.documentElement.style.setProperty('--text', bg.text)
+          document.documentElement.style.setProperty('--text-light', bg.textLight)
+          document.documentElement.style.setProperty('--shadow', bg.shadow)
+        }
+      },
+
+      getCurrentTheme: () => {
+        const state = get()
+        return themeColors.find(t => t.id === state.themeId) || themeColors[0]
+      },
+
+      getCurrentBackground: () => {
+        const state = get()
+        return backgroundStyles.find(b => b.id === state.backgroundId) || backgroundStyles[0]
+      },
+
+      getCurrentFontSize: () => {
+        const state = get()
+        return fontSizes.find(f => f.id === state.fontSizeId) || fontSizes[1]
+      },
+
+      initTheme: () => {
+        const state = get()
+        const theme = themeColors.find(t => t.id === state.themeId) || themeColors[0]
+        const fontSize = fontSizes.find(f => f.id === state.fontSizeId) || fontSizes[1]
+
+        // テーマカラー
+        document.documentElement.style.setProperty('--primary', theme.primary)
+        document.documentElement.style.setProperty('--primary-light', theme.light)
+        document.documentElement.style.setProperty('--primary-dark', theme.dark)
+
+        // 背景
+        get().applyBackground(state.backgroundId)
+
+        // フォントサイズ
+        document.documentElement.style.setProperty('--font-size-base', `${fontSize.base}px`)
+      },
+    }),
+    {
+      name: 'sanyutech-theme',
+    }
+  )
+)
+
 // メインストア
 export const useAppStore = create(
   persist(

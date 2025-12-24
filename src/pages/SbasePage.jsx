@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Header, Tabs, Card, SectionTitle, Badge, ProgressBar, Button, Modal, Input, Select, Toast, Empty, DatePickerInput } from '../components/common'
-import { Plus, FileText, Download, Trash2, Edit3, ChevronRight } from 'lucide-react'
+import { Plus, FileText, Download, Trash2, Edit3, ChevronRight, Upload, FileSpreadsheet } from 'lucide-react'
+import { useRef } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 // 金額フォーマット
 const formatMoney = (amount) => {
@@ -166,6 +166,7 @@ export default function SbasePage() {
   const [projectModal, setProjectModal] = useState({ open: false, data: null })
   const [toast, setToast] = useState({ show: false, message: '' })
   const [filter, setFilter] = useState('all') // all, confirmed, prospect, lost
+  const fileInputRef = useRef(null)
 
   const tabs = [
     { id: 'list', label: '工事一覧' },
@@ -266,18 +267,80 @@ export default function SbasePage() {
     }
   }
 
+  // 見積書Excel取込
+  const handleImportExcel = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch(`${API_BASE}/projects/import-estimate`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        showToast(`「${result.project_name}」を取込みました（工種: ${result.work_types_count}件）`)
+        fetchData()
+        // 詳細ページへ移動
+        if (result.project_id) {
+          navigate(`/sbase/${result.project_id}`)
+        }
+      } else {
+        const error = await res.json()
+        alert(`取込に失敗しました: ${error.detail || 'エラー'}`)
+      }
+    } catch (error) {
+      console.error('Failed to import:', error)
+      alert('Excelファイルの取込に失敗しました')
+    } finally {
+      // ファイル入力をリセット
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  // 見積書Excel出力
+  const handleExportEstimate = async (projectId, projectName) => {
+    try {
+      const res = await fetch(`${API_BASE}/projects/${projectId}/export-estimate`, {
+        method: 'POST'
+      })
+
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `見積書_${projectName}_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        showToast('見積書をダウンロードしました')
+      } else {
+        alert('見積書の出力に失敗しました')
+      }
+    } catch (error) {
+      console.error('Failed to export:', error)
+      alert('見積書の出力に失敗しました')
+    }
+  }
+
   return (
     <div className="min-h-screen pb-24">
       <Header
         title="S-BASE 原価管理"
         icon="📊"
-        gradient="from-slate-900 to-blue-800"
+        gradient="from-orange-500 to-orange-600"
         onBack={() => navigate('/')}
       />
 
       {/* サマリーカード */}
       <motion.div
-        className="mx-5 my-4 p-5 bg-gradient-to-br from-blue-800 to-blue-500 rounded-2xl text-center"
+        className="mx-5 my-4 p-5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl text-center"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
@@ -287,10 +350,24 @@ export default function SbasePage() {
       </motion.div>
 
       {/* 追加ボタン */}
-      <div className="px-5 mb-4">
+      <div className="px-5 mb-4 space-y-2">
         <Button block onClick={() => setProjectModal({ open: true, data: null })}>
           <Plus size={18} className="inline mr-2" />工事を追加
         </Button>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+          style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
+        >
+          <Upload size={18} />見積書Excel取込
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={handleImportExcel}
+          className="hidden"
+        />
       </div>
 
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
@@ -310,7 +387,7 @@ export default function SbasePage() {
                 onClick={() => setFilter(f.id)}
                 className={`px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                   filter === f.id
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-orange-500 text-white'
                     : 'bg-app-card border border-app-border text-slate-400'
                 }`}
               >
@@ -336,6 +413,7 @@ export default function SbasePage() {
                 filter={filter}
                 onEdit={(p) => setProjectModal({ open: true, data: p })}
                 onDelete={handleDeleteProject}
+                onExport={handleExportEstimate}
               />
             )}
             {activeTab === 'report' && <ReportView projects={projects} dashboard={dashboard} />}
@@ -357,7 +435,7 @@ export default function SbasePage() {
 }
 
 // 工事一覧
-function ProjectList({ projects, filter, onEdit, onDelete }) {
+function ProjectList({ projects, filter, onEdit, onDelete, onExport }) {
   const navigate = useNavigate()
 
   // フィルター適用
@@ -412,8 +490,15 @@ function ProjectList({ projects, filter, onEdit, onDelete }) {
                     {project.status || '未設定'}
                   </Badge>
                   <button
+                    onClick={(e) => { e.stopPropagation(); onExport(project.id, project.name); }}
+                    className="p-1.5 rounded-lg bg-app-bg text-emerald-500 hover:bg-emerald-500/20"
+                    title="見積書Excel出力"
+                  >
+                    <FileSpreadsheet size={14} />
+                  </button>
+                  <button
                     onClick={(e) => { e.stopPropagation(); onEdit(project); }}
-                    className="p-1.5 rounded-lg bg-app-bg text-blue-400 hover:bg-blue-500/20"
+                    className="p-1.5 rounded-lg bg-app-bg text-orange-500 hover:bg-orange-500/20"
                   >
                     <Edit3 size={14} />
                   </button>
@@ -461,7 +546,7 @@ function ProjectList({ projects, filter, onEdit, onDelete }) {
                   {budgetProfit !== null && (
                     <div className="flex-1 bg-app-bg rounded-lg p-2">
                       <div className="text-[9px] text-slate-500 mb-0.5">粗利（予算）</div>
-                      <div className={`text-sm font-bold ${budgetProfit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                      <div className={`text-sm font-bold ${budgetProfit >= 0 ? 'text-orange-500' : 'text-red-400'}`}>
                         {formatMoney(budgetProfit)}
                         <span className="ml-1.5 text-[10px] opacity-70">({budgetProfitRate}%)</span>
                       </div>
@@ -575,6 +660,7 @@ export function ProjectDetailPage() {
 
   const tabs = [
     { id: 'overview', label: '概要' },
+    { id: 'budget', label: '予算' },
     { id: 'worktype', label: '工種' },
     { id: 'cost', label: '原価' },
     { id: 'estimate', label: '見積' },
@@ -611,8 +697,9 @@ export function ProjectDetailPage() {
   const handleSaveWorkType = async (data) => {
     try {
       const method = data.id ? 'PUT' : 'POST'
+      // PUT: /api/work-types/{id}, POST: /api/projects/{project_id}/work-types/
       const url = data.id
-        ? `${API_BASE}/projects/${id}/work-types/${data.id}`
+        ? `${API_BASE}/work-types/${data.id}`
         : `${API_BASE}/projects/${id}/work-types/`
 
       const res = await fetch(url, {
@@ -622,34 +709,47 @@ export function ProjectDetailPage() {
           name: data.name,
           unit: data.unit || '式',
           quantity: data.quantity || 1,
-          budget_unit_price: data.budget_unit_price || 0,
-          budget_amount: data.budget_amount || 0
+          budget_unit_price: parseFloat(data.budget_unit_price) || 0,
+          budget_amount: parseFloat(data.budget_amount) || 0,
+          dimension: data.dimension || '',
+          design_qty: parseFloat(data.design_qty) || 0,
+          rate: parseFloat(data.rate) || 1,
+          remarks: data.remarks || '',
+          no: data.no || ''
         })
       })
 
       if (res.ok) {
         showToast(data.id ? '工種を更新しました' : '工種を追加しました')
         setWorkTypeModal({ open: false, data: null })
-        fetchWorkTypes()
+        await fetchWorkTypes()  // awaitで確実に待つ
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('API Error:', res.status, errorData)
+        showToast('保存に失敗しました')
       }
     } catch (error) {
       console.error('Failed to save work type:', error)
+      showToast('エラーが発生しました')
     }
   }
 
   // 工種を削除（API経由）
   const handleDeleteWorkType = async (workTypeId) => {
-    if (!confirm('この工種を削除しますか？')) return
+    if (!confirm('この工種を削除しますか？関連する明細データも削除されます。')) return
     try {
-      const res = await fetch(`${API_BASE}/projects/${id}/work-types/${workTypeId}`, {
+      const res = await fetch(`${API_BASE}/work-types/${workTypeId}`, {
         method: 'DELETE'
       })
       if (res.ok) {
         showToast('工種を削除しました')
-        fetchWorkTypes()
+        await fetchWorkTypes()  // awaitで確実に待つ
+      } else {
+        showToast('削除に失敗しました')
       }
     } catch (error) {
       console.error('Failed to delete work type:', error)
+      showToast('エラーが発生しました')
     }
   }
 
@@ -658,9 +758,11 @@ export function ProjectDetailPage() {
     try {
       // 各明細を保存
       for (const detail of details) {
-        const method = detail.id && !String(detail.id).startsWith('new_') ? 'PUT' : 'POST'
-        const url = detail.id && !String(detail.id).startsWith('new_')
-          ? `${API_BASE}/work-types/${workTypeId}/details/${detail.id}`
+        const isExisting = detail.id && !String(detail.id).startsWith('new_')
+        const method = isExisting ? 'PUT' : 'POST'
+        // PUT: /api/work-type-details/{id}, POST: /api/work-types/{work_type_id}/details/
+        const url = isExisting
+          ? `${API_BASE}/work-type-details/${detail.id}`
           : `${API_BASE}/work-types/${workTypeId}/details/`
 
         await fetch(url, {
@@ -669,18 +771,19 @@ export function ProjectDetailPage() {
           body: JSON.stringify({
             name: detail.name,
             unit: detail.unit || '式',
-            budget_quantity: detail.budget_quantity || detail.quantity || 0,
-            budget_unit_price: detail.budget_unit_price || detail.unit_price || 0,
-            budget_amount: detail.budget_amount || detail.amount || 0,
+            budget_quantity: parseFloat(detail.budget_quantity || detail.quantity) || 0,
+            budget_unit_price: parseFloat(detail.budget_unit_price || detail.unit_price) || 0,
+            budget_amount: parseFloat(detail.budget_amount || detail.amount) || 0,
             cost_category: detail.cost_category || '材料費'
           })
         })
       }
       showToast('明細を保存しました')
       setDetailModal({ open: false, workType: null })
-      fetchWorkTypes()
+      await fetchWorkTypes()  // awaitで確実に待つ
     } catch (error) {
       console.error('Failed to save details:', error)
+      showToast('明細の保存に失敗しました')
     }
   }
 
@@ -714,6 +817,34 @@ export function ProjectDetailPage() {
   const showToast = (message) => {
     setToast({ show: true, message })
     setTimeout(() => setToast({ show: false, message: '' }), 3000)
+  }
+
+  // 見積書Excel出力
+  const handleExportEstimate = async () => {
+    if (!project) return
+    try {
+      const res = await fetch(`${API_BASE}/projects/${id}/export-estimate`, {
+        method: 'POST'
+      })
+
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `見積書_${project.name}_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        showToast('見積書をダウンロードしました')
+      } else {
+        alert('見積書の出力に失敗しました')
+      }
+    } catch (error) {
+      console.error('Failed to export:', error)
+      alert('見積書の出力に失敗しました')
+    }
   }
 
   // 予算登録
@@ -850,7 +981,7 @@ export function ProjectDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen pb-24">
-        <Header title="工事詳細" icon="📊" gradient="from-slate-900 to-blue-800" onBack={() => navigate('/sbase')} />
+        <Header title="工事詳細" icon="📊" gradient="from-orange-500 to-orange-600" onBack={() => navigate('/sbase')} />
         <div className="text-center py-12 text-slate-400">読み込み中...</div>
       </div>
     )
@@ -859,7 +990,7 @@ export function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="min-h-screen pb-24">
-        <Header title="工事詳細" icon="📊" gradient="from-slate-900 to-blue-800" onBack={() => navigate('/sbase')} />
+        <Header title="工事詳細" icon="📊" gradient="from-orange-500 to-orange-600" onBack={() => navigate('/sbase')} />
         <Empty icon="❌" title="工事が見つかりません" />
       </div>
     )
@@ -875,13 +1006,13 @@ export function ProjectDetailPage() {
       <Header
         title={project.name}
         icon="📊"
-        gradient="from-slate-900 to-blue-800"
+        gradient="from-orange-500 to-orange-600"
         onBack={() => navigate('/sbase')}
       />
 
       {/* サマリー */}
       <motion.div
-        className="mx-5 my-4 p-4 bg-gradient-to-br from-blue-800 to-blue-500 rounded-2xl"
+        className="mx-5 my-4 p-4 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
@@ -908,12 +1039,32 @@ export function ProjectDetailPage() {
         </div>
       </motion.div>
 
+      {/* 見積書出力ボタン */}
+      <div className="px-5 mb-4">
+        <button
+          onClick={handleExportEstimate}
+          className="w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors bg-emerald-500 text-white hover:bg-emerald-600"
+        >
+          <FileSpreadsheet size={18} />見積書Excel出力
+        </button>
+      </div>
+
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
       <div className="px-5">
         {/* 概要タブ */}
         {activeTab === 'overview' && (
           <OverviewTab project={project} budgets={budgets} costs={costs} />
+        )}
+
+        {/* 予算タブ */}
+        {activeTab === 'budget' && (
+          <BudgetTab
+            budgets={budgets}
+            onAdd={() => setBudgetModal({ open: true, data: null })}
+            onEdit={(b) => setBudgetModal({ open: true, data: b })}
+            onDelete={(id) => handleDelete('budgets', id)}
+          />
         )}
 
         {/* 工種タブ（60社形式） */}
@@ -1219,7 +1370,7 @@ function WorkTypeTab({ workTypes, estimates, onAdd, onEdit, onDelete, onViewDeta
       )}
 
       {/* 合計サマリー */}
-      <Card className="mb-4 bg-gradient-to-r from-blue-800/30 to-blue-600/30">
+      <Card className="mb-4 bg-gradient-to-r from-orange-500/20 to-orange-600/20">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="text-xs text-slate-400">予算金額合計</div>
@@ -1268,7 +1419,7 @@ function WorkTypeTab({ workTypes, estimates, onAdd, onEdit, onDelete, onViewDeta
                     onClick={() => onViewDetails(wt)}
                   >
                     <td className="px-2 py-2.5 text-slate-400">{wt.no || idx + 1}</td>
-                    <td className="px-2 py-2.5 font-medium text-blue-400">{wt.name}</td>
+                    <td className="px-2 py-2.5 font-medium text-orange-500">{wt.name}</td>
                     <td className="px-2 py-2.5 text-slate-400">{wt.dimension}</td>
                     <td className="px-2 py-2.5 text-right">{wt.design_qty?.toLocaleString()}</td>
                     <td className="px-2 py-2.5 text-center">{wt.unit}</td>
@@ -1280,7 +1431,7 @@ function WorkTypeTab({ workTypes, estimates, onAdd, onEdit, onDelete, onViewDeta
                     <td className="px-2 py-2.5 text-slate-400 truncate">{wt.remarks}</td>
                     <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
-                        <button onClick={() => onEdit(wt)} className="p-1 text-blue-400 hover:bg-blue-500/20 rounded">
+                        <button onClick={() => onEdit(wt)} className="p-1 text-orange-500 hover:bg-orange-500/20 rounded">
                           <Edit3 size={12} />
                         </button>
                         <button onClick={() => onDelete(wt.id)} className="p-1 text-red-400 hover:bg-red-500/20 rounded">
@@ -1551,7 +1702,7 @@ function WorkTypeDetailModal({ isOpen, workType, onClose, onSave }) {
             >
               <FileText size={14} />Excel貼付
             </button>
-            <button onClick={addDetail} className="text-xs text-blue-400 flex items-center gap-1">
+            <button onClick={addDetail} className="text-xs text-orange-500 flex items-center gap-1">
               <Plus size={14} />行追加
             </button>
           </div>
@@ -1679,6 +1830,57 @@ function WorkTypeDetailModal({ isOpen, workType, onClose, onSave }) {
   )
 }
 
+// 予算タブ
+function BudgetTab({ budgets, onAdd, onEdit, onDelete }) {
+  const total = budgets.reduce((sum, b) => sum + (b.amount || 0), 0)
+
+  return (
+    <>
+      <div className="flex justify-between items-center mb-4">
+        <SectionTitle>💰 予算一覧</SectionTitle>
+        <Button size="sm" onClick={onAdd}>
+          <Plus size={16} className="inline mr-1" />追加
+        </Button>
+      </div>
+
+      <Card className="mb-4 bg-gradient-to-r from-orange-500/20 to-orange-600/20">
+        <div className="flex justify-between items-center">
+          <span className="text-sm">予算合計</span>
+          <span className="text-xl font-bold">{formatMoneyFull(total)}</span>
+        </div>
+      </Card>
+
+      {budgets.length === 0 ? (
+        <Empty icon="💰" title="予算データがありません" subtitle="予算を追加してください" />
+      ) : (
+        budgets.map((budget) => (
+          <Card key={budget.id} className="mb-2">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="text-sm font-medium">{budget.description || budget.category}</div>
+                <div className="text-xs text-slate-400">
+                  {budget.category}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold">{formatMoneyFull(budget.amount)}</div>
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => onEdit(budget)} className="text-orange-500">
+                    <Edit3 size={14} />
+                  </button>
+                  <button onClick={() => onDelete(budget.id)} className="text-red-400">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))
+      )}
+    </>
+  )
+}
+
 // 原価タブ
 function CostTab({ costs, onAdd, onEdit, onDelete }) {
   const total = costs.reduce((sum, c) => sum + (c.amount || 0), 0)
@@ -1715,7 +1917,7 @@ function CostTab({ costs, onAdd, onEdit, onDelete }) {
               <div className="text-right">
                 <div className="font-bold">{formatMoneyFull(cost.amount)}</div>
                 <div className="flex gap-2 mt-1">
-                  <button onClick={() => onEdit(cost)} className="text-blue-400">
+                  <button onClick={() => onEdit(cost)} className="text-orange-500">
                     <Edit3 size={14} />
                   </button>
                   <button onClick={() => onDelete(cost.id)} className="text-red-400">
@@ -1771,7 +1973,7 @@ function EstimateTab({ estimates, onAdd, onEdit, onDelete, onDownloadPDF }) {
               </div>
               <div className="flex justify-between text-sm font-bold border-t border-app-border pt-1">
                 <span>合計</span>
-                <span className="text-blue-400">{formatMoneyFull(estimate.total)}</span>
+                <span className="text-orange-500">{formatMoneyFull(estimate.total)}</span>
               </div>
             </div>
 
@@ -1779,7 +1981,7 @@ function EstimateTab({ estimates, onAdd, onEdit, onDelete, onDownloadPDF }) {
               <Button size="sm" variant="secondary" className="flex-1" onClick={() => onDownloadPDF(estimate.id)}>
                 <Download size={14} className="inline mr-1" />PDF出力
               </Button>
-              <button onClick={() => onEdit(estimate)} className="p-2 bg-app-bg rounded-lg text-blue-400">
+              <button onClick={() => onEdit(estimate)} className="p-2 bg-app-bg rounded-lg text-orange-500">
                 <Edit3 size={16} />
               </button>
               <button onClick={() => onDelete(estimate.id)} className="p-2 bg-app-bg rounded-lg text-red-400">
@@ -2212,7 +2414,7 @@ function EstimateModal({ isOpen, data, onClose, onSave }) {
               <button
                 type="button"
                 onClick={addItem}
-                className="text-xs text-blue-400 flex items-center gap-1"
+                className="text-xs text-orange-500 flex items-center gap-1"
               >
                 <Plus size={14} />行を追加
               </button>
@@ -2309,7 +2511,7 @@ function EstimateModal({ isOpen, data, onClose, onSave }) {
           </div>
           <div className="flex justify-between text-base font-bold border-t border-app-border pt-2">
             <span>合計</span>
-            <span className="text-blue-400">¥{total.toLocaleString()}</span>
+            <span className="text-orange-500">¥{total.toLocaleString()}</span>
           </div>
         </div>
 
@@ -2326,6 +2528,7 @@ function EstimateModal({ isOpen, data, onClose, onSave }) {
 
 // 工事追加モーダル
 function ProjectModal({ isOpen, data, onClose, onSave }) {
+  const navigate = useNavigate()
   const [form, setForm] = useState({
     name: '',
     client: '',
@@ -2340,6 +2543,44 @@ function ProjectModal({ isOpen, data, onClose, onSave }) {
   })
   const [pasteMode, setPasteMode] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const modalFileInputRef = useRef(null)
+
+  // 見積書Excelアップロードで新規案件作成
+  const handleExcelUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch(`${API_BASE}/projects/import-estimate`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        alert(`「${result.project_name}」を取込みました（工種: ${result.work_types_count}件）`)
+        onClose()
+        // 詳細ページへ移動
+        if (result.project_id) {
+          navigate(`/sbase/${result.project_id}`)
+        }
+      } else {
+        const error = await res.json()
+        alert(`取込に失敗しました: ${error.detail || 'エラー'}`)
+      }
+    } catch (error) {
+      console.error('Failed to import:', error)
+      alert('Excelファイルの取込に失敗しました')
+    } finally {
+      setUploading(false)
+      if (modalFileInputRef.current) modalFileInputRef.current.value = ''
+    }
+  }
 
   useEffect(() => {
     if (data) {
@@ -2497,8 +2738,8 @@ function ProjectModal({ isOpen, data, onClose, onSave }) {
         </>
       }
     >
-      {/* Excel貼り付けボタン */}
-      <div className="mb-4">
+      {/* Excel貼り付け・アップロードボタン */}
+      <div className="mb-4 flex gap-2">
         <button
           type="button"
           onClick={() => setPasteMode(!pasteMode)}
@@ -2506,6 +2747,21 @@ function ProjectModal({ isOpen, data, onClose, onSave }) {
         >
           <FileText size={14} />Excelから貼り付け
         </button>
+        <button
+          type="button"
+          onClick={() => modalFileInputRef.current?.click()}
+          disabled={uploading}
+          className="text-xs flex items-center gap-1 px-3 py-2 rounded-lg bg-app-bg text-emerald-400"
+        >
+          <Upload size={14} />{uploading ? '取込中...' : '見積書Excelをアップロード'}
+        </button>
+        <input
+          ref={modalFileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={handleExcelUpload}
+          className="hidden"
+        />
       </div>
 
       {/* Excel貼り付けエリア */}
@@ -2597,7 +2853,7 @@ function ProjectModal({ isOpen, data, onClose, onSave }) {
             type="button"
             onClick={handleGeocode}
             disabled={geocoding || !form.address}
-            className="px-3 py-2 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            className="px-3 py-2 bg-orange-500 text-white text-xs rounded-lg hover:bg-orange-600 disabled:opacity-50"
           >
             {geocoding ? '取得中...' : '位置取得'}
           </button>
@@ -2631,7 +2887,7 @@ function ProgressTab({ progressData, project, onAdd, onEdit, onDelete }) {
       </div>
 
       {/* サマリーカード */}
-      <Card className="mb-4 bg-gradient-to-r from-blue-800/30 to-emerald-800/30">
+      <Card className="mb-4 bg-gradient-to-r from-orange-500/20 to-emerald-500/20">
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <div className="text-xs text-slate-400">受注金額</div>
@@ -2639,7 +2895,7 @@ function ProgressTab({ progressData, project, onAdd, onEdit, onDelete }) {
           </div>
           <div>
             <div className="text-xs text-slate-400">出来高累計</div>
-            <div className="text-lg font-bold text-blue-400">{formatMoneyFull(totalProgress)}</div>
+            <div className="text-lg font-bold text-orange-500">{formatMoneyFull(totalProgress)}</div>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-4">
@@ -2667,9 +2923,9 @@ function ProgressTab({ progressData, project, onAdd, onEdit, onDelete }) {
             return (
               <Card key={p.id} className="hover:bg-app-card/80 transition">
                 <div className="flex justify-between items-start mb-2">
-                  <div className="text-lg font-bold text-blue-400">{p.year_month}</div>
+                  <div className="text-lg font-bold text-orange-500">{p.year_month}</div>
                   <div className="flex gap-2">
-                    <button onClick={() => onEdit(p)} className="p-1 text-blue-400 hover:bg-blue-500/20 rounded">
+                    <button onClick={() => onEdit(p)} className="p-1 text-orange-500 hover:bg-orange-500/20 rounded">
                       <Edit3 size={14} />
                     </button>
                     <button onClick={() => onDelete(p.id)} className="p-1 text-red-400 hover:bg-red-500/20 rounded">
@@ -2802,7 +3058,7 @@ function ProgressModal({ isOpen, data, project, onClose, onSave }) {
           </div>
         </div>
 
-        <div className="text-xs text-blue-400 bg-blue-500/10 p-2 rounded">
+        <div className="text-xs text-orange-500 bg-orange-500/10 p-2 rounded">
           💡 保存時に入金予定が自動作成されます（元請けの締め日・支払日に基づく）
         </div>
 

@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 export default function ExpensePage() {
   const navigate = useNavigate()

@@ -8,11 +8,11 @@ export default {
     extend: {
       colors: {
         'app': {
-          'bg': '#F3F4F6',
-          'bg-light': '#FFFFFF',
-          'card': '#FFFFFF',
-          'card-hover': '#F9FAFB',
-          'border': '#E5E7EB',
+          'bg': '#1c1c1e',
+          'bg-light': '#2c2c2e',
+          'card': '#3c3c3e',
+          'card-hover': '#4c4c4e',
+          'border': '#4c4c4e',
           'primary': '#F97316',
           'primary-dark': '#EA580C',
           'success': '#10b981',

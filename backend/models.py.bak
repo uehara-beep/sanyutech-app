@@ -1,0 +1,133 @@
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime
+from sqlalchemy.sql import func
+from database import Base
+
+class Project(Base):
+    __tablename__ = "projects"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True)
+    name = Column(String, nullable=False)
+    client = Column(String)
+    status = Column(String, default="見積中")
+    order_type = Column(String, default="一次請")
+    prefecture = Column(String)
+    probability = Column(String, default="確定")
+    order_amount = Column(Integer, default=0)
+    budget_amount = Column(Integer, default=0)
+    tax_rate = Column(Float, default=0.1)
+    period = Column(String)
+    sales_person = Column(String)
+    site_person = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Cost(Base):
+    __tablename__ = "costs"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, nullable=False)
+    date = Column(Date, nullable=False)
+    category = Column(String, nullable=False)  # 労務費/材料費/外注費/経費
+    work_type = Column(String)  # 工種
+    vendor = Column(String)
+    description = Column(String)
+    quantity = Column(Float, default=1)
+    unit = Column(String)
+    unit_price = Column(Integer, default=0)
+    amount = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Billing(Base):
+    __tablename__ = "billings"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, nullable=False)
+    bill_type = Column(String, nullable=False)
+    date = Column(Date, nullable=False)
+    amount = Column(Integer, default=0)
+    done = Column(Integer, default=0)
+    note = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class FixedCost(Base):
+    __tablename__ = "fixed_costs"
+    id = Column(Integer, primary_key=True, index=True)
+    year_month = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    description = Column(String)
+    amount = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+# マスタテーブル
+class Client(Base):
+    """元請けマスタ"""
+    __tablename__ = "clients"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    contact_person = Column(String)
+    phone = Column(String)
+    address = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Vendor(Base):
+    """業者マスタ"""
+    __tablename__ = "vendors"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    category = Column(String)  # 外注/材料/機械
+    default_price = Column(Integer, default=0)
+    unit = Column(String)
+    phone = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Material(Base):
+    """材料マスタ"""
+    __tablename__ = "materials"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    category = Column(String)
+    unit = Column(String)
+    unit_price = Column(Integer, default=0)
+    vendor = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Machine(Base):
+    """機械マスタ"""
+    __tablename__ = "machines"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    category = Column(String)
+    unit = Column(String, default="台")
+    unit_price = Column(Integer, default=0)
+    vendor = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class WorkType(Base):
+    """工種マスタ"""
+    __tablename__ = "work_types"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    category = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class BudgetDetail(Base):
+    """予算明細"""
+    __tablename__ = "budget_details"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, nullable=False)
+    category = Column(String)
+    work_type = Column(String)
+    vendor = Column(String)
+    description = Column(String)
+    quantity = Column(Float, default=0)
+    unit = Column(String)
+    unit_price = Column(Integer, default=0)
+    amount = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Settings(Base):
+    """設定"""
+    __tablename__ = "settings"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, nullable=False, unique=True)
+    value = Column(String)
+    created_at = Column(DateTime, server_default=func.now())

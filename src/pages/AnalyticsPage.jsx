@@ -5,8 +5,7 @@ import {
   BarChart3, ArrowUpRight, ArrowDownRight
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 export default function AnalyticsPage() {
   const navigate = useNavigate()

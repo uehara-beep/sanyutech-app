@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle } from '../components/common'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 export default function SitePage() {
   const navigate = useNavigate()

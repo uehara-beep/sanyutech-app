@@ -1,0 +1,632 @@
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from pydantic import BaseModel
+from typing import Optional
+from datetime import date
+from database import engine, get_db, Base
+from models import Project, Cost, Billing, FixedCost, Client, Vendor, Material, Machine, WorkType, Settings, BudgetDetail
+
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="S-BASE API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Pydantic Models
+class ProjectCreate(BaseModel):
+    code: str
+    name: str
+    client: Optional[str] = None
+    status: Optional[str] = "見積中"
+    order_type: Optional[str] = "一次請"
+    prefecture: Optional[str] = None
+    probability: Optional[str] = "確定"
+    order_amount: Optional[int] = 0
+    budget_amount: Optional[int] = 0
+    tax_rate: Optional[float] = 0.1
+    period: Optional[str] = None
+    sales_person: Optional[str] = None
+    site_person: Optional[str] = None
+
+class CostCreate(BaseModel):
+    project_id: int
+    date: date
+    category: str
+    work_type: Optional[str] = None
+    vendor: Optional[str] = None
+    description: Optional[str] = None
+    quantity: Optional[float] = 1
+    unit: Optional[str] = None
+    unit_price: Optional[int] = 0
+    amount: Optional[int] = 0
+
+class ClientCreate(BaseModel):
+    name: str
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+
+class VendorCreate(BaseModel):
+    name: str
+    category: Optional[str] = None
+    default_price: Optional[int] = 0
+    unit: Optional[str] = None
+    phone: Optional[str] = None
+
+class MaterialCreate(BaseModel):
+    name: str
+    category: Optional[str] = None
+    unit: Optional[str] = None
+    unit_price: Optional[int] = 0
+    vendor: Optional[str] = None
+
+class MachineCreate(BaseModel):
+    name: str
+    category: Optional[str] = None
+    unit: Optional[str] = "台"
+    unit_price: Optional[int] = 0
+    vendor: Optional[str] = None
+
+class WorkTypeCreate(BaseModel):
+    name: str
+    category: Optional[str] = None
+
+class SettingUpdate(BaseModel):
+    key: str
+    value: str
+
+# ========== Projects ==========
+@app.get("/api/projects")
+def get_projects(db: Session = Depends(get_db)):
+    projects = db.query(Project).order_by(Project.id.desc()).all()
+    result = []
+    for p in projects:
+        total_cost = db.query(func.sum(Cost.amount)).filter(Cost.project_id == p.id).scalar() or 0
+        result.append({
+            "id": p.id, "code": p.code, "name": p.name, "client": p.client, "status": p.status,
+            "order_type": p.order_type, "prefecture": p.prefecture, "probability": p.probability,
+            "order_amount": p.order_amount, "budget_amount": p.budget_amount, "tax_rate": p.tax_rate,
+            "period": p.period, "sales_person": p.sales_person, "site_person": p.site_person,
+            "total_cost": total_cost,
+            "sales_profit": (p.order_amount or 0) - (p.budget_amount or 0),
+            "construction_profit": (p.budget_amount or 0) - total_cost,
+        })
+    return result
+
+@app.post("/api/projects")
+def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
+    db_project = Project(**project.dict())
+    db.add(db_project)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+@app.put("/api/projects/{project_id}")
+def update_project(project_id: int, project: ProjectCreate, db: Session = Depends(get_db)):
+    db_project = db.query(Project).filter(Project.id == project_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    for key, value in project.dict().items():
+        setattr(db_project, key, value)
+    db.commit()
+    return db_project
+
+@app.delete("/api/projects/{project_id}")
+def delete_project(project_id: int, db: Session = Depends(get_db)):
+    db_project = db.query(Project).filter(Project.id == project_id).first()
+    if db_project:
+        db.query(Cost).filter(Cost.project_id == project_id).delete()
+        db.delete(db_project)
+        db.commit()
+    return {"ok": True}
+
+# ========== Costs ==========
+@app.get("/api/costs")
+def get_costs(project_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(Cost)
+    if project_id:
+        query = query.filter(Cost.project_id == project_id)
+    return query.order_by(Cost.date.desc()).all()
+
+@app.post("/api/costs")
+def create_cost(cost: CostCreate, db: Session = Depends(get_db)):
+    db_cost = Cost(**cost.dict())
+    db.add(db_cost)
+    db.commit()
+    db.refresh(db_cost)
+    return db_cost
+
+@app.delete("/api/costs/{cost_id}")
+def delete_cost(cost_id: int, db: Session = Depends(get_db)):
+    db_cost = db.query(Cost).filter(Cost.id == cost_id).first()
+    if db_cost:
+        db.delete(db_cost)
+        db.commit()
+    return {"ok": True}
+
+# ========== Monthly Data ==========
+@app.get("/api/projects/{project_id}/monthly")
+def get_monthly_data(project_id: int, db: Session = Depends(get_db)):
+    costs = db.query(Cost).filter(Cost.project_id == project_id).all()
+    cost_by_month = {}
+    for c in costs:
+        if c.date:
+            key = c.date.strftime("%Y-%m")
+            if key not in cost_by_month:
+                cost_by_month[key] = {"労務費": 0, "材料費": 0, "外注費": 0, "経費": 0, "合計": 0}
+            cost_by_month[key][c.category] = cost_by_month[key].get(c.category, 0) + (c.amount or 0)
+            cost_by_month[key]["合計"] += (c.amount or 0)
+    return [{"month": k, **v} for k, v in sorted(cost_by_month.items())]
+
+# ========== Work Type Stats ==========
+@app.get("/api/projects/{project_id}/worktype-stats")
+def get_worktype_stats(project_id: int, db: Session = Depends(get_db)):
+    costs = db.query(Cost).filter(Cost.project_id == project_id).all()
+    stats = {}
+    for c in costs:
+        wt = c.work_type or "未分類"
+        if wt not in stats:
+            stats[wt] = {"労務費": 0, "材料費": 0, "外注費": 0, "経費": 0, "合計": 0}
+        stats[wt][c.category] = stats[wt].get(c.category, 0) + (c.amount or 0)
+        stats[wt]["合計"] += (c.amount or 0)
+    return [{"work_type": k, **v} for k, v in stats.items()]
+
+# ========== Dashboard ==========
+@app.get("/api/dashboard")
+def get_dashboard(db: Session = Depends(get_db)):
+    projects = db.query(Project).all()
+    total_order = sum(p.order_amount or 0 for p in projects)
+    total_budget = sum(p.budget_amount or 0 for p in projects)
+    total_cost = db.query(func.sum(Cost.amount)).scalar() or 0
+    
+    confirmed = [p for p in projects if p.probability == "確定"]
+    likely = [p for p in projects if p.probability == "見込み有"]
+    
+    return {
+        "total_order": total_order,
+        "total_budget": total_budget,
+        "total_cost": total_cost,
+        "total_profit": total_order - total_cost,
+        "sales_profit": total_order - total_budget,
+        "construction_profit": total_budget - total_cost,
+        "project_count": len(projects),
+        "confirmed_count": len(confirmed),
+        "confirmed_amount": sum(p.order_amount or 0 for p in confirmed),
+        "likely_count": len(likely),
+        "likely_amount": sum(p.order_amount or 0 for p in likely),
+    }
+
+# ========== Clients (元請けマスタ) ==========
+@app.get("/api/clients")
+def get_clients(db: Session = Depends(get_db)):
+    return db.query(Client).order_by(Client.name).all()
+
+@app.post("/api/clients")
+def create_client(client: ClientCreate, db: Session = Depends(get_db)):
+    db_client = Client(**client.dict())
+    db.add(db_client)
+    db.commit()
+    db.refresh(db_client)
+    return db_client
+
+
+@app.put("/api/clients/{client_id}")
+def update_client(client_id: int, client: dict, db: Session = Depends(get_db)):
+    db_client = db.query(Client).filter(Client.id == client_id).first()
+    if db_client:
+        db_client.name = client.get("name", db_client.name)
+        db_client.contact_person = client.get("contact_person", db_client.contact_person)
+        db_client.phone = client.get("phone", db_client.phone)
+        db.commit()
+        db.refresh(db_client)
+    return db_client
+
+@app.delete("/api/clients/{client_id}")
+def delete_client(client_id: int, db: Session = Depends(get_db)):
+    db_client = db.query(Client).filter(Client.id == client_id).first()
+    if db_client:
+        db.delete(db_client)
+        db.commit()
+    return {"ok": True}
+
+# ========== Vendors (業者マスタ) ==========
+@app.get("/api/vendors")
+def get_vendors(db: Session = Depends(get_db)):
+    return db.query(Vendor).order_by(Vendor.name).all()
+
+@app.post("/api/vendors")
+def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db)):
+    db_vendor = Vendor(**vendor.dict())
+    db.add(db_vendor)
+    db.commit()
+    db.refresh(db_vendor)
+    return db_vendor
+
+@app.put("/api/vendors/{vendor_id}")
+def update_vendor(vendor_id: int, vendor: VendorCreate, db: Session = Depends(get_db)):
+    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if db_vendor:
+        for key, value in vendor.dict().items():
+            setattr(db_vendor, key, value)
+        db.commit()
+    return db_vendor
+
+@app.delete("/api/vendors/{vendor_id}")
+def delete_vendor(vendor_id: int, db: Session = Depends(get_db)):
+    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if db_vendor:
+        db.delete(db_vendor)
+        db.commit()
+    return {"ok": True}
+
+# ========== Materials (材料マスタ) ==========
+@app.get("/api/materials")
+def get_materials(db: Session = Depends(get_db)):
+    return db.query(Material).order_by(Material.name).all()
+
+@app.post("/api/materials")
+def create_material(material: MaterialCreate, db: Session = Depends(get_db)):
+    db_material = Material(**material.dict())
+    db.add(db_material)
+    db.commit()
+    db.refresh(db_material)
+    return db_material
+
+@app.put("/api/materials/{material_id}")
+def update_material(material_id: int, material: MaterialCreate, db: Session = Depends(get_db)):
+    db_material = db.query(Material).filter(Material.id == material_id).first()
+    if db_material:
+        for key, value in material.dict().items():
+            setattr(db_material, key, value)
+        db.commit()
+    return db_material
+
+@app.delete("/api/materials/{material_id}")
+def delete_material(material_id: int, db: Session = Depends(get_db)):
+    db_material = db.query(Material).filter(Material.id == material_id).first()
+    if db_material:
+        db.delete(db_material)
+        db.commit()
+    return {"ok": True}
+
+# ========== Machines (機械マスタ) ==========
+@app.get("/api/machines")
+def get_machines(db: Session = Depends(get_db)):
+    return db.query(Machine).order_by(Machine.name).all()
+
+@app.post("/api/machines")
+def create_machine(machine: MachineCreate, db: Session = Depends(get_db)):
+    db_machine = Machine(**machine.dict())
+    db.add(db_machine)
+    db.commit()
+    db.refresh(db_machine)
+    return db_machine
+
+@app.put("/api/machines/{machine_id}")
+def update_machine(machine_id: int, machine: MachineCreate, db: Session = Depends(get_db)):
+    db_machine = db.query(Machine).filter(Machine.id == machine_id).first()
+    if db_machine:
+        for key, value in machine.dict().items():
+            setattr(db_machine, key, value)
+        db.commit()
+    return db_machine
+
+@app.delete("/api/machines/{machine_id}")
+def delete_machine(machine_id: int, db: Session = Depends(get_db)):
+    db_machine = db.query(Machine).filter(Machine.id == machine_id).first()
+    if db_machine:
+        db.delete(db_machine)
+        db.commit()
+    return {"ok": True}
+
+# ========== Work Types (工種マスタ) ==========
+@app.get("/api/work-types")
+def get_work_types(db: Session = Depends(get_db)):
+    return db.query(WorkType).order_by(WorkType.name).all()
+
+@app.post("/api/work-types")
+def create_work_type(work_type: WorkTypeCreate, db: Session = Depends(get_db)):
+    db_wt = WorkType(**work_type.dict())
+    db.add(db_wt)
+    db.commit()
+    db.refresh(db_wt)
+    return db_wt
+
+@app.delete("/api/work-types/{wt_id}")
+def delete_work_type(wt_id: int, db: Session = Depends(get_db)):
+    db_wt = db.query(WorkType).filter(WorkType.id == wt_id).first()
+    if db_wt:
+        db.delete(db_wt)
+        db.commit()
+    return {"ok": True}
+
+# ========== Settings ==========
+@app.get("/api/settings")
+def get_settings(db: Session = Depends(get_db)):
+    settings = db.query(Settings).all()
+    return {s.key: s.value for s in settings}
+
+@app.post("/api/settings")
+def update_setting(setting: SettingUpdate, db: Session = Depends(get_db)):
+    db_setting = db.query(Settings).filter(Settings.key == setting.key).first()
+    if db_setting:
+        db_setting.value = setting.value
+    else:
+        db_setting = Settings(key=setting.key, value=setting.value)
+        db.add(db_setting)
+    db.commit()
+    return {"ok": True}
+
+
+# 予算明細 API
+@app.get("/api/budget-details/{project_id}")
+def get_budget_details(project_id: int, db: Session = Depends(get_db)):
+    return db.query(BudgetDetail).filter(BudgetDetail.project_id == project_id).all()
+
+@app.post("/api/budget-details")
+def create_budget_detail(detail: dict, db: Session = Depends(get_db)):
+    db_detail = BudgetDetail(
+        project_id=detail.get("project_id"),
+        category=detail.get("category"),
+        work_type=detail.get("work_type"),
+        vendor=detail.get("vendor"),
+        description=detail.get("description"),
+        quantity=detail.get("quantity", 0),
+        unit=detail.get("unit"),
+        unit_price=detail.get("unit_price", 0),
+        amount=detail.get("quantity", 0) * detail.get("unit_price", 0)
+    )
+    db.add(db_detail)
+    db.commit()
+    db.refresh(db_detail)
+    return db_detail
+
+@app.delete("/api/budget-details/{detail_id}")
+def delete_budget_detail(detail_id: int, db: Session = Depends(get_db)):
+    db_detail = db.query(BudgetDetail).filter(BudgetDetail.id == detail_id).first()
+    if db_detail:
+        db.delete(db_detail)
+        db.commit()
+    return {"ok": True}
+
+@app.put("/api/budget-details/{detail_id}")
+def update_budget_detail(detail_id: int, detail: dict, db: Session = Depends(get_db)):
+    db_detail = db.query(BudgetDetail).filter(BudgetDetail.id == detail_id).first()
+    if db_detail:
+        db_detail.category = detail.get("category", db_detail.category)
+        db_detail.work_type = detail.get("work_type", db_detail.work_type)
+        db_detail.vendor = detail.get("vendor", db_detail.vendor)
+        db_detail.description = detail.get("description", db_detail.description)
+        db_detail.quantity = detail.get("quantity", db_detail.quantity)
+        db_detail.unit = detail.get("unit", db_detail.unit)
+        db_detail.unit_price = detail.get("unit_price", db_detail.unit_price)
+        db_detail.amount = detail.get("quantity", 0) * detail.get("unit_price", 0)
+        db.commit()
+        db.refresh(db_detail)
+    return db_detail
+
+
+
+
+# Excelファイルアップロード用
+from fastapi import File, UploadFile
+import openpyxl
+from io import BytesIO
+
+@app.post("/api/budget-details/upload/{project_id}")
+async def upload_budget_excel(project_id: int, file: UploadFile = File(...), vendor: str = "", category: str = "外注費", db: Session = Depends(get_db)):
+    contents = await file.read()
+    wb = openpyxl.load_workbook(BytesIO(contents), data_only=True)
+    
+    items = []
+    for sheet in wb.worksheets:
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            # 空行スキップ
+            if not row or all(cell is None for cell in row):
+                continue
+            
+            # 名称を探す（最初の文字列セル）
+            name = None
+            spec = ""
+            qty = 0
+            unit = "式"
+            price = 0
+            amount = 0
+            note = ""
+            
+            # 列を解析
+            for i, cell in enumerate(row):
+                if cell is None:
+                    continue
+                cell_str = str(cell).strip()
+                
+                # スキップする行
+                skip_words = ['直接工事費', '諸経費', '機械回送費', '小計', '合計', '端数調整', '法定福利費', '労働災害', '内訳', '名称', '規格', '数量', '単位', '単価', '金額', '備考']
+                if any(skip in cell_str for skip in skip_words):
+                    name = None
+                    break
+                
+                # 数値判定
+                if isinstance(cell, (int, float)):
+                    if name and qty == 0 and cell > 0:
+                        qty = float(cell)
+                    elif name and qty > 0 and price == 0 and cell > 100:
+                        price = int(cell)
+                    elif name and price > 0 and amount == 0:
+                        amount = int(cell)
+                elif isinstance(cell, str) and cell.strip():
+                    if name is None:
+                        name = cell.strip()
+                    elif not spec:
+                        spec = cell.strip()
+                    elif cell in ['m2', 'ｍ2', 'm3', 'ｍ3', '式', '日', '日/式', '往復', 't', 'L', '人工', '台', '個', '本', 'kg', 'm', 'ｍ']:
+                        unit = cell.strip()
+                    else:
+                        note = cell.strip()
+            
+            if name and (qty > 0 or amount > 0):
+                items.append({
+                    "project_id": project_id,
+                    "category": category,
+                    "work_type": name,
+                    "vendor": vendor,
+                    "description": f"{spec}（{note}）" if note else spec,
+                    "quantity": qty,
+                    "unit": unit.replace('/式', '').replace('日/式', '日'),
+                    "unit_price": price,
+                    "amount": amount if amount > 0 else int(qty * price)
+                })
+    
+    # DB登録
+    for item in items:
+        db_detail = BudgetDetail(**item)
+        db.add(db_detail)
+    db.commit()
+    
+    return {"count": len(items), "items": items}
+
+@app.post("/api/projects/upload-excel")
+async def upload_project_excel(file: UploadFile = File(...), vendor: str = "", category: str = "外注費", db: Session = Depends(get_db)):
+    contents = await file.read()
+    wb = openpyxl.load_workbook(BytesIO(contents), data_only=True)
+    
+    project_name = ""
+    order_amount = 0
+    client = ""
+    budget_items = []
+    
+    for sheet in wb.worksheets:
+        for row_num, row in enumerate(sheet.iter_rows(values_only=True), 1):
+            if not row:
+                continue
+            
+            for i, cell in enumerate(row):
+                if cell is None:
+                    continue
+                cell_str = str(cell).strip()
+                
+                # 工事名を探す
+                if '工事名' in cell_str or '工　事　名' in cell_str:
+                    for j in range(i+1, len(row)):
+                        if row[j] and str(row[j]).strip():
+                            project_name = str(row[j]).strip()
+                            break
+                
+                # 発注者を探す
+                if '御中' in cell_str and i > 0:
+                    for j in range(i-1, -1, -1):
+                        if row[j] and str(row[j]).strip():
+                            client = str(row[j]).strip().replace('御中', '').strip()
+                            break
+                
+                # 合計金額を探す
+                if ('合計' in cell_str or '小計' in cell_str) and '税' not in cell_str:
+                    for j in range(i+1, len(row)):
+                        if isinstance(row[j], (int, float)) and row[j] > 10000:
+                            if order_amount == 0:
+                                order_amount = int(row[j])
+                            break
+            
+            # 明細行を探す（名称、規格、数量、単位、単価、金額の並び）
+            if len(row) >= 5:
+                name = None
+                spec = ""
+                qty = 0
+                unit = "式"
+                price = 0
+                amount = 0
+                note = ""
+                
+                skip_words = ['直接工事費', '諸経費', '機械回送費', '小計', '合計', '端数調整', '法定福利費', '労働災害', '内訳', '名称', '規格', '数量', '単位', '単価', '金額', '備考', '御見積', '工事名', '工事場所', '条件']
+                
+                should_skip = False
+                for cell in row:
+                    if cell and any(skip in str(cell) for skip in skip_words):
+                        should_skip = True
+                        break
+                
+                if should_skip:
+                    continue
+                
+                for cell in row:
+                    if cell is None:
+                        continue
+                    
+                    if isinstance(cell, (int, float)) and cell != 0:
+                        if qty == 0 and 0 < cell < 100000:
+                            qty = float(cell)
+                        elif price == 0 and cell >= 100:
+                            price = int(cell)
+                        elif amount == 0 and cell > price:
+                            amount = int(cell)
+                    elif isinstance(cell, str) and cell.strip():
+                        cell_clean = cell.strip()
+                        if cell_clean in ['m2', 'ｍ2', 'm3', 'ｍ3', '式', '日', '日/式', '往復', 't', 'L', '人工', '台', '個', '本', 'kg', 'm', 'ｍ']:
+                            unit = cell_clean
+                        elif name is None and len(cell_clean) > 1:
+                            name = cell_clean
+                        elif not spec and len(cell_clean) > 1:
+                            spec = cell_clean
+                
+                if name and (qty > 0 or amount > 0):
+                    budget_items.append({
+                        "category": category,
+                        "work_type": name,
+                        "vendor": vendor,
+                        "description": spec,
+                        "quantity": qty,
+                        "unit": unit.replace('/式', '').replace('日/式', '日'),
+                        "unit_price": price,
+                        "amount": amount if amount > 0 else int(qty * price)
+                    })
+    
+    # 案件作成
+    if not project_name:
+        project_name = file.filename.replace('.xlsx', '').replace('.xls', '')
+    
+    new_project = Project(
+        code=str(db.query(Project).count() + 1001),
+        name=project_name,
+        client=client,
+        status="見積中",
+        order_type="一次請",
+        prefecture="",
+        probability="見込み有",
+        order_amount=order_amount,
+        budget_amount=int(order_amount * 0.8) if order_amount else 0,
+        tax_rate=0.1,
+        period="",
+        sales_person="",
+        site_person=""
+    )
+    db.add(new_project)
+    db.commit()
+    db.refresh(new_project)
+    
+    # 予算明細登録
+    for item in budget_items:
+        db_detail = BudgetDetail(project_id=new_project.id, **item)
+        db.add(db_detail)
+    db.commit()
+    
+    return {
+        "project_id": new_project.id,
+        "project_name": project_name,
+        "client": client,
+        "order_amount": order_amount,
+        "budget_count": len(budget_items)
+    }
+
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

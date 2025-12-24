@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 const TAGS = [
   { value: 'client', label: '元請け', color: 'bg-blue-500/20 text-blue-400' },

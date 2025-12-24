@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Tabs, Card, SectionTitle, Button, Modal, Input, Select, Toast, Empty } from '../components/common'
 import { Plus, Trash2, Edit3, ArrowLeft } from 'lucide-react'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 export default function PriceMasterPage() {
   const navigate = useNavigate()

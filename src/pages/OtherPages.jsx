@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Button, Badge, Toast } from '../components/common'
 import { useAppStore } from '../store'
-
-const API_BASE = '/api'
+import { API_BASE } from '../config/api'
 
 // 承認センター
 export function ApprovePage() {

@@ -3,20 +3,25 @@
 @tailwind utilities;
 
 :root {
-  /* モダンオレンジテーマ */
-  --bg: #F3F4F6;
-  --bg-light: #FFFFFF;
-  --card: #FFFFFF;
-  --card-hover: #F9FAFB;
-  --text: #1F2937;
-  --text-light: #6B7280;
-  --primary: #F97316;
-  --primary-dark: #EA580C;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --border: #E5E7EB;
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  /* ダークテーマ基本色 */
+  --bg: #1c1c1e;
+  --bg-light: #2c2c2e;
+  --card: #2c2c2e;
+  --card-hover: #3c3c3e;
+  --text: #ffffff;
+  --text-light: #8e8e93;
+  --border: #3c3c3e;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+
+  /* テーマカラー（動的に変更される） */
+  --primary: #FF6B00;
+  --primary-dark: #E55A00;
+  --primary-light: #FFF5EE;
+
+  /* 固定カラー */
+  --success: #30d158;
+  --warning: #ff9f0a;
+  --danger: #ff453a;
 }
 
 * {
@@ -32,22 +37,24 @@ html, body, #root {
 
 body {
   font-family: 'Noto Sans JP', sans-serif;
-  background-color: #F3F4F6 !important;
+  background-color: var(--bg) !important;
   color: var(--text);
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* メインコンテナ */
 .min-h-screen {
-  background-color: #F3F4F6 !important;
+  background-color: var(--bg) !important;
+  transition: background-color 0.3s ease;
 }
 
 /* モダンカードスタイル */
 .modern-card {
-  background: white;
+  background: var(--card);
   border-radius: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
 }
 
 .modern-card:active {
@@ -55,7 +62,8 @@ body {
 }
 
 .modern-card:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+  background: var(--card-hover);
 }
 
 /* スクロールバー */

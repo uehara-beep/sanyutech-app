@@ -2,6 +2,14 @@ const CACHE_NAME = 'sbase-v1';
 const STATIC_CACHE = 'sbase-static-v1';
 const API_CACHE = 'sbase-api-v1';
 
+// 開発環境かどうかを判定
+const isDev = () => {
+  return self.location.hostname === 'localhost' ||
+         self.location.hostname === '127.0.0.1' ||
+         self.location.port === '3000' ||
+         self.location.port === '5173';
+};
+
 // 静的ファイルのキャッシュ
 const STATIC_FILES = [
   '/',
@@ -9,8 +17,13 @@ const STATIC_FILES = [
   '/manifest.json',
 ];
 
-// インストール時にキャッシュ
+// インストール時にキャッシュ（本番のみ）
 self.addEventListener('install', (event) => {
+  if (isDev()) {
+    // 開発環境ではキャッシュしない
+    self.skipWaiting();
+    return;
+  }
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(STATIC_FILES);
@@ -21,6 +34,16 @@ self.addEventListener('install', (event) => {
 
 // アクティベート時に古いキャッシュを削除
 self.addEventListener('activate', (event) => {
+  if (isDev()) {
+    // 開発環境ではすべてのキャッシュを削除
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(cacheNames.map((name) => caches.delete(name)));
+      })
+    );
+    self.clients.claim();
+    return;
+  }
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -35,6 +58,12 @@ self.addEventListener('activate', (event) => {
 
 // フェッチイベント
 self.addEventListener('fetch', (event) => {
+  // 開発環境ではキャッシュを使わず常にネットワークから取得
+  if (isDev()) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   const url = new URL(event.request.url);
 
   // APIリクエストの場合
