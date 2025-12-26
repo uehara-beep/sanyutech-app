@@ -16,6 +16,9 @@ export default function KYPage() {
   const [showForm, setShowForm] = useState(false)
   const [selectedReport, setSelectedReport] = useState(null)
   const [toast, setToast] = useState({ show: false, message: '' })
+  const [scanningKY, setScanningKY] = useState(false)
+  const [ocrFields, setOcrFields] = useState([])
+  const [showOcrResult, setShowOcrResult] = useState(false)
 
   const [form, setForm] = useState({
     project_id: '',
@@ -104,6 +107,53 @@ export default function KYPage() {
     setTimeout(() => setToast({ show: false, message: '' }), 2000)
   }
 
+  const handleKYSheetOCR = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setScanningKY(true)
+    setShowOcrResult(true)
+    setOcrFields([])
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch(`${API_BASE}/ocr/ky-sheet`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        if (result.success && result.data) {
+          setOcrFields(result.data.fields || [])
+
+          // summaryからフォームに自動入力
+          const summary = result.data.summary || {}
+          setForm(prev => ({
+            ...prev,
+            date: summary.date || prev.date,
+            work_content: summary.work_content || '',
+            hazards: summary.hazards || '',
+            countermeasures: summary.countermeasures || '',
+          }))
+
+          showToast('KYシートを読み取りました')
+        } else {
+          showToast(result.error || 'KYシートの読み取りに失敗しました')
+        }
+      } else {
+        showToast('サーバーエラーが発生しました')
+      }
+    } catch (error) {
+      console.error('KY OCR Error:', error)
+      showToast('通信エラーが発生しました')
+    } finally {
+      setScanningKY(false)
+    }
+  }
+
   const toggleParticipant = (workerId) => {
     setForm(prev => ({
       ...prev,
@@ -136,6 +186,18 @@ export default function KYPage() {
       />
 
       <div className="px-5 py-4">
+        {/* KYシート撮影ボタン */}
+        <label className="flex items-center justify-center gap-2 py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-sm font-bold cursor-pointer text-white">
+          📷 元請けKYシートを撮影して読取
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleKYSheetOCR}
+          />
+        </label>
+
         {/* 今日のKY状況 */}
         <Card className="mb-4 bg-gradient-to-r from-red-900/50 to-red-800/50">
           <div className="flex items-center justify-between">
@@ -368,6 +430,73 @@ export default function KYPage() {
             >
               サインする
             </button>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* OCR結果モーダル */}
+      {showOcrResult && (
+        <motion.div
+          className="fixed inset-0 bg-black/70 z-50 flex items-end"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => setShowOcrResult(false)}
+        >
+          <motion.div
+            className="w-full bg-app-bg-light rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div className="text-lg font-bold">
+                {scanningKY ? '🔍 KYシートを読み取り中...' : '📋 KYシート読み取り結果'}
+              </div>
+              <button onClick={() => setShowOcrResult(false)} className="text-2xl text-slate-400">×</button>
+            </div>
+
+            {scanningKY ? (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4 animate-pulse">📋</div>
+                <div className="text-slate-400">AIがKYシートを解析しています...</div>
+                <div className="text-xs mt-2 text-slate-500">手書き文字も読み取ります</div>
+              </div>
+            ) : (
+              <>
+                {ocrFields.length > 0 ? (
+                  <div className="space-y-3 mb-6">
+                    {ocrFields.map((field, idx) => (
+                      <div key={idx} className="bg-app-card rounded-xl p-3">
+                        <div className="text-xs text-slate-400 mb-1">{field.key}</div>
+                        <div className="text-sm text-white">{field.value || '（空欄）'}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-400">
+                    読み取り結果がありません
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowOcrResult(false)}
+                    className="flex-1 py-3 bg-app-card rounded-xl font-bold text-slate-300"
+                  >
+                    閉じる
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowOcrResult(false)
+                      setShowForm(true)
+                    }}
+                    className="flex-1 py-3 bg-red-500 rounded-xl font-bold text-white"
+                  >
+                    KYレポートとして保存
+                  </button>
+                </div>
+              </>
+            )}
           </motion.div>
         </motion.div>
       )}

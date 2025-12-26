@@ -150,6 +150,7 @@ const categories = {
           { name: '天気予報', description: '14日間予報', path: '/weather', icon: Cloud },
           { name: '年間工程', description: 'ガントチャート', path: '/schedule', icon: ListIcon },
           { name: '在庫管理', description: '部材・消耗品', path: '/inventory', icon: Package },
+          { name: '材料伝票', description: '廃材・建材・産廃', path: '/material-slip', icon: FileText },
           { name: '車両管理', description: '車検・給油記録', path: '/car', icon: Car },
         ]
       },

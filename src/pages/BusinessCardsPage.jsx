@@ -79,27 +79,35 @@ export default function BusinessCardsPage() {
     setScanning(true)
     setShowModal(true)
 
-    // 名刺AI読み取りシミュレーション
-    await new Promise(resolve => setTimeout(resolve, 2500))
+    try {
+      // 画像をOCR APIに送信
+      const formData = new FormData()
+      formData.append('file', file)
 
-    // OCR結果をシミュレート
-    const ocrResult = {
-      company_name: '株式会社サンプル建設',
-      person_name: '田中 一郎',
-      department: '工事部',
-      position: '部長',
-      phone: '03-1234-5678',
-      mobile: '090-1234-5678',
-      email: 'tanaka@sample.co.jp',
-      address: '東京都千代田区丸の内1-1-1',
-      url: 'https://sample.co.jp',
-      tag: 'client',
-      memo: '',
+      const res = await fetch(`${API_BASE}/ocr/business-card`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+
+        if (result.success && result.data) {
+          setForm(result.data)
+          showToast('名刺を読み取りました')
+        } else {
+          // エラー時はフォームを空で表示（手動入力を促す）
+          showToast(result.error || 'OCR処理に失敗しました。手動で入力してください。')
+        }
+      } else {
+        showToast('サーバーエラーが発生しました')
+      }
+    } catch (error) {
+      console.error('OCR Error:', error)
+      showToast('通信エラーが発生しました。手動で入力してください。')
+    } finally {
+      setScanning(false)
     }
-
-    setForm(ocrResult)
-    setScanning(false)
-    showToast('名刺を読み取りました')
   }
 
   const handleSubmit = async () => {

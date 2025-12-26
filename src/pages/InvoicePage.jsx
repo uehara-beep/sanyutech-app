@@ -55,21 +55,53 @@ export default function InvoicePage() {
     }
   }
 
-  const handleFileUpload = () => {
-    // AI解析のシミュレーション
+  const handleFileUpload = async (e) => {
+    const file = e?.target?.files?.[0]
+    if (!file) {
+      // ファイル選択ダイアログを開く
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*,application/pdf'
+      input.capture = 'environment'
+      input.onchange = (ev) => handleFileUpload(ev)
+      input.click()
+      return
+    }
+
     setAnalyzing(true)
-    setTimeout(() => {
-      setForm({
-        ...form,
-        vendor_name: '〇〇建材株式会社',
-        amount: '350000',
-        date: '2024-12-18',
-        items: 'アスファルト合材 35t',
-        category: 'material',
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch(`${API_BASE}/ocr/invoice`, {
+        method: 'POST',
+        body: formData,
       })
+
+      if (res.ok) {
+        const result = await res.json()
+        if (result.success && result.data) {
+          setForm({
+            ...form,
+            vendor_name: result.data.vendor_name || '',
+            amount: result.data.total_amount ? String(result.data.total_amount) : '',
+            date: result.data.invoice_date || new Date().toISOString().split('T')[0],
+            items: result.data.items_text || result.data.items?.map(i => i.name).join(', ') || '',
+            category: result.data.category || 'material',
+          })
+          showToast('AI解析完了')
+        } else {
+          showToast(result.error || '解析に失敗しました')
+        }
+      } else {
+        showToast('サーバーエラーが発生しました')
+      }
+    } catch (error) {
+      console.error('Invoice OCR Error:', error)
+      showToast('通信エラーが発生しました')
+    } finally {
       setAnalyzing(false)
-      showToast('AI解析完了')
-    }, 1500)
+    }
   }
 
   const handleSubmit = async () => {

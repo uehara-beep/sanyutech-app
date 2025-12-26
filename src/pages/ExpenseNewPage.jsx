@@ -17,6 +17,7 @@ export default function ExpenseNewPage() {
   const [categories, setCategories] = useState([])
   const [fuelPrice, setFuelPrice] = useState(170)
   const [saving, setSaving] = useState(false)
+  const [scanningReceipt, setScanningReceipt] = useState(false)
   const [toast, setToast] = useState({ show: false, message: '' })
 
   const [form, setForm] = useState({
@@ -64,6 +65,46 @@ export default function ExpenseNewPage() {
   const showToast = (message) => {
     setToast({ show: true, message })
     setTimeout(() => setToast({ show: false, message: '' }), 2000)
+  }
+
+  const handleReceiptOCR = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setScanningReceipt(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch(`${API_BASE}/ocr/receipt`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        if (result.success && result.data) {
+          // 金額を設定
+          if (result.data.total_amount) {
+            setForm(prev => ({ ...prev, amount: String(result.data.total_amount) }))
+          }
+          // 店舗名を設定
+          if (result.data.store_name) {
+            setForm(prev => ({ ...prev, store_name: result.data.store_name }))
+          }
+          showToast('レシートを読み取りました')
+        } else {
+          showToast(result.error || 'レシートの読み取りに失敗しました')
+        }
+      } else {
+        showToast('サーバーエラーが発生しました')
+      }
+    } catch (error) {
+      console.error('Receipt OCR Error:', error)
+      showToast('通信エラーが発生しました')
+    } finally {
+      setScanningReceipt(false)
+    }
   }
 
   const selectedCategory = categories.find(c => c.id === parseInt(form.category_id))
@@ -263,18 +304,31 @@ export default function ExpenseNewPage() {
           />
         </Card>
 
-        {/* レシート写真 */}
+        {/* レシート写真OCR */}
         <Card>
           <label className="text-sm font-bold block mb-2" style={{ color: currentBg.text }}>
-            レシート写真（任意）
+            レシート撮影（AIで自動入力）
           </label>
-          <button
-            className="w-full py-4 border-2 border-dashed rounded-xl flex items-center justify-center gap-2"
+          <label
+            className="w-full py-4 border-2 border-dashed rounded-xl flex items-center justify-center gap-2 cursor-pointer"
             style={{ borderColor: currentBg.border, color: currentBg.textLight }}
           >
             <Camera size={24} />
-            <span>写真を追加</span>
-          </button>
+            <span>レシートを撮影</span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleReceiptOCR}
+            />
+          </label>
+          {scanningReceipt && (
+            <div className="mt-3 text-center">
+              <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-xs mt-2" style={{ color: currentBg.textLight }}>レシートを読み取り中...</p>
+            </div>
+          )}
         </Card>
 
         {/* 送信ボタン */}

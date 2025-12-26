@@ -62,6 +62,7 @@ import ClientRankingPage from './pages/ClientRankingPage'
 import WorkersPage from './pages/WorkersPage'
 import SitesPage from './pages/SitesPage'
 import ExpenseNewPage from './pages/ExpenseNewPage'
+import MaterialSlipPage from './pages/MaterialSlipPage'
 import HotelSearch from './components/HotelSearch'
 
 export default function App() {
@@ -109,6 +110,7 @@ export default function App() {
         <Route path="/invoice" element={<InvoicePage />} />
         <Route path="/price-master" element={<PriceMasterPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/material-slip" element={<MaterialSlipPage />} />
         <Route path="/expense" element={<ExpensePage />} />
         <Route path="/expense/new" element={<ExpenseNewPage />} />
         <Route path="/approve" element={<ApprovePage />} />
