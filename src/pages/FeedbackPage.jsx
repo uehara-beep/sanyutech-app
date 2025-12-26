@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Button, Select, Textarea, Toast } from '../components/common'
-import { useAppStore } from '../store'
+import { useAppStore, useThemeStore, backgroundStyles } from '../store'
 
 // 問い合わせページ
 export function FeedbackPage() {
   const navigate = useNavigate()
   const { feedbacks, addFeedback } = useAppStore()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [category, setCategory] = useState('')
   const [app, setApp] = useState('')
   const [content, setContent] = useState('')
@@ -69,12 +71,12 @@ export function FeedbackPage() {
   }
   
   return (
-    <div className="min-h-screen pb-24">
-      <Header 
-        title="問い合わせ・要望" 
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
+      <Header
+        title="問い合わせ・要望"
         icon="💬"
         gradient="from-emerald-700 to-emerald-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
       
       <div className="px-5 py-4">
@@ -152,6 +154,8 @@ export function FeedbackPage() {
 // ヘルプページ
 export function HelpPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [openItems, setOpenItems] = useState([])
   
   const toggleItem = (id) => {
@@ -231,12 +235,12 @@ export function HelpPage() {
   ]
   
   return (
-    <div className="min-h-screen pb-24">
-      <Header 
-        title="使い方ガイド" 
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
+      <Header
+        title="使い方ガイド"
         icon="❓"
         gradient="from-indigo-700 to-indigo-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
       
       <div className="px-5 py-4">

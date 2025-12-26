@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, Toast } from '../components/common'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 export default function QRPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState('')
   const [mode, setMode] = useState(null) // 'checkin' | 'checkout'
@@ -73,12 +76,12 @@ export default function QRPage() {
   const dateString = now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="QR出退勤"
         icon="📱"
         gradient="from-slate-700 to-slate-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-5 py-4">

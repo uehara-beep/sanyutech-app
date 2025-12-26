@@ -2,10 +2,21 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/common'
+import { useThemeStore, backgroundStyles } from '../store'
 import { API_BASE } from '../config/api'
 
 export default function DrawingsPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  // カードスタイル
+  const cardBg = isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.95)'
+  const cardBorder = isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(60,60,62,1)'
+  const inputBg = isOcean ? 'rgba(255,255,255,0.1)' : isLightTheme ? 'rgba(0,0,0,0.05)' : '#1f1f1f'
+
   const [drawings, setDrawings] = useState([])
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState('')
@@ -55,14 +66,15 @@ export default function DrawingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-app-bg pb-20">
+    <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
       <PageHeader title="図面管理" onBack={() => navigate(-1)} />
 
       <div className="px-4 space-y-4">
         {/* フィルター */}
         <div className="flex gap-2">
           <select
-            className="flex-1 p-3 bg-card rounded-lg text-white border-0"
+            className="flex-1 p-3 rounded-lg border-0"
+            style={{ background: cardBg, color: currentBg.text, border: `1px solid ${cardBorder}` }}
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
           >
@@ -86,7 +98,8 @@ export default function DrawingsPage() {
               key={d.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-card p-4 rounded-lg"
+              className="p-4 rounded-lg"
+              style={{ background: cardBg, border: `1px solid ${cardBorder}` }}
             >
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -95,13 +108,13 @@ export default function DrawingsPage() {
                       {d.file_type === 'pdf' ? '📄' : d.file_type === 'dwg' ? '📐' : '🖼️'}
                     </span>
                     <div>
-                      <div className="font-bold text-white">{d.name}</div>
-                      <div className="text-xs text-gray-400">
+                      <div className="font-bold" style={{ color: currentBg.text }}>{d.name}</div>
+                      <div className="text-xs" style={{ color: currentBg.textLight }}>
                         v{d.version} {d.is_latest && <span className="text-green-400">最新</span>}
                       </div>
                     </div>
                   </div>
-                  <div className="text-sm text-gray-400 mt-2">
+                  <div className="text-sm mt-2" style={{ color: currentBg.textLight }}>
                     {new Date(d.uploaded_at).toLocaleDateString('ja-JP')} by {d.uploaded_by || '-'}
                   </div>
                 </div>
@@ -121,7 +134,7 @@ export default function DrawingsPage() {
           ))}
 
           {drawings.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12" style={{ color: currentBg.textLight }}>
               図面がありません
             </div>
           )}
@@ -134,36 +147,37 @@ export default function DrawingsPage() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-card p-6 rounded-xl w-full max-w-md"
+            className="p-6 rounded-xl w-full max-w-md"
+            style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
           >
-            <h3 className="text-lg font-bold text-white mb-4">図面アップロード</h3>
+            <h3 className="text-lg font-bold mb-4" style={{ color: currentBg.text }}>図面アップロード</h3>
             <form onSubmit={handleUpload} className="space-y-4">
               <div>
-                <label className="text-sm text-gray-400">案件</label>
-                <select name="project_id" required className="w-full p-3 bg-gray-800 rounded-lg text-white">
+                <label className="text-sm" style={{ color: currentBg.textLight }}>案件</label>
+                <select name="project_id" required className="w-full p-3 rounded-lg" style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }}>
                   {projects.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-sm text-gray-400">図面名</label>
-                <input name="name" required className="w-full p-3 bg-gray-800 rounded-lg text-white" />
+                <label className="text-sm" style={{ color: currentBg.textLight }}>図面名</label>
+                <input name="name" required className="w-full p-3 rounded-lg" style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }} />
               </div>
               <div>
-                <label className="text-sm text-gray-400">ファイル形式</label>
-                <select name="file_type" className="w-full p-3 bg-gray-800 rounded-lg text-white">
+                <label className="text-sm" style={{ color: currentBg.textLight }}>ファイル形式</label>
+                <select name="file_type" className="w-full p-3 rounded-lg" style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }}>
                   <option value="pdf">PDF</option>
                   <option value="dwg">DWG</option>
                   <option value="jpg">画像</option>
                 </select>
               </div>
               <div>
-                <label className="text-sm text-gray-400">アップロード者</label>
-                <input name="uploaded_by" className="w-full p-3 bg-gray-800 rounded-lg text-white" />
+                <label className="text-sm" style={{ color: currentBg.textLight }}>アップロード者</label>
+                <input name="uploaded_by" className="w-full p-3 rounded-lg" style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }} />
               </div>
               <div className="flex gap-3">
-                <button type="button" onClick={() => setShowUpload(false)} className="flex-1 py-3 bg-gray-700 rounded-lg">
+                <button type="button" onClick={() => setShowUpload(false)} className="flex-1 py-3 rounded-lg" style={{ background: inputBg, color: currentBg.text }}>
                   キャンセル
                 </button>
                 <button type="submit" className="flex-1 py-3 bg-blue-500 rounded-lg text-white">

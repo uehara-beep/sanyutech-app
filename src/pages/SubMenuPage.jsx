@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
   ArrowLeft, ChevronRight,
   // 営業
-  FilePlus, FolderOpen, FileSpreadsheet, Users, Trophy, Briefcase,
+  FilePlus, FolderOpen, FileSpreadsheet, Users, Trophy, Briefcase, CreditCard, CalendarDays,
   // 工事
   Calendar, HardHat, FileEdit, AlertTriangle, Camera, FileText, MapPin,
   Cloud, List as ListIcon, Package, Car, User, ClipboardEdit,
@@ -97,14 +97,21 @@ const categories = {
       {
         title: '顧客管理',
         items: [
-          { name: '顧客管理', description: '元請けマスタ', path: '/business-cards', icon: Users },
+          { name: '顧客管理', description: '元請け・発注者の管理', path: '/clients', icon: Users },
           { name: '顧客別ランキング', description: '受注分析', path: '/analytics?view=clients', icon: Trophy },
+          { name: '名刺管理', description: '写真読み込み・保管（表裏対応）', path: '/business-cards', icon: CreditCard },
+        ]
+      },
+      {
+        title: '営業活動',
+        items: [
+          { name: '営業スケジュール', description: '商談・訪問予定', path: '/sales-schedule', icon: CalendarDays },
         ]
       },
       {
         title: 'S-BASE',
         items: [
-          { name: '案件一覧', description: '工事一覧・検索・利益確認', path: '/sbase', icon: Briefcase },
+          { name: '案件一覧', description: '利益確認・受注金額', path: '/sbase', icon: Briefcase },
         ]
       }
     ]
@@ -134,16 +141,16 @@ const categories = {
         items: [
           { name: '工事写真', description: '電子黒板対応', path: '/photos', icon: Camera },
           { name: '書類管理', description: '元請けPDF保存・閲覧', path: '/documents', icon: FileText },
-          { name: '現場位置', description: 'Googleマップ連携', path: '/weather', icon: MapPin },
+          { name: '現場位置', description: 'Googleマップ連携', path: '/sbase', icon: MapPin },
         ]
       },
       {
         title: 'その他',
         items: [
           { name: '天気予報', description: '14日間予報', path: '/weather', icon: Cloud },
-          { name: '年間工程', description: 'ガントチャート', path: '/gantt', icon: ListIcon },
+          { name: '年間工程', description: 'ガントチャート', path: '/schedule', icon: ListIcon },
           { name: '在庫管理', description: '部材・消耗品', path: '/inventory', icon: Package },
-          { name: '車両管理', description: '車検・給油記録', path: '/vehicles', icon: Car },
+          { name: '車両管理', description: '車検・給油記録', path: '/car', icon: Car },
         ]
       },
       {
@@ -171,8 +178,8 @@ const categories = {
         title: '請求・入出金',
         items: [
           { name: '請求書AI', description: 'PDF読取・自動仕分け', path: '/invoice', icon: Bot, badge: 'NEW' },
-          { name: '入金管理', description: '入金予定・消込', path: '/payments?type=income', icon: DollarSign },
-          { name: '支払管理', description: '支払予定・協力会社', path: '/payments?type=expense', icon: DollarSign },
+          { name: '入金管理', description: '入金予定・消込', path: '/income', icon: DollarSign },
+          { name: '支払管理', description: '支払予定・協力会社', path: '/expense-pay', icon: DollarSign },
         ]
       },
       {
@@ -184,7 +191,7 @@ const categories = {
       {
         title: 'マスタ',
         items: [
-          { name: '業者マスタ', description: '協力会社情報', path: '/vendors', icon: Building },
+          { name: '業者マスタ', description: '協力会社情報', path: '/subcon', icon: Building },
         ]
       }
     ]

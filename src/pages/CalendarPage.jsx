@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle } from '../components/common'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 export default function CalendarPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(null)
   const [schedules, setSchedules] = useState([])
@@ -105,12 +108,12 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="カレンダー"
         icon="📆"
         gradient="from-pink-700 to-pink-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-5 py-4">

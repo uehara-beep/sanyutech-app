@@ -37,15 +37,15 @@ html, body, #root {
 
 body {
   font-family: 'Noto Sans JP', sans-serif;
-  background-color: var(--bg) !important;
+  /* デフォルトは海のグラデーション（スプラッシュ時のチラつき防止） */
+  background: linear-gradient(180deg, rgba(0, 210, 220, 0.85) 0%, rgba(0, 190, 200, 0.8) 30%, rgba(0, 170, 185, 0.75) 60%, rgba(0, 155, 170, 0.8) 100%);
   color: var(--text);
   overflow-x: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* メインコンテナ */
+/* メインコンテナ - インラインスタイルでテーマ背景を適用 */
 .min-h-screen {
-  background-color: var(--bg) !important;
+  /* background is set via inline style for theme support */
   transition: background-color 0.3s ease;
 }
 

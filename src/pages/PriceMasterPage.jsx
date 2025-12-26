@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Tabs, Card, SectionTitle, Button, Modal, Input, Select, Toast, Empty } from '../components/common'
 import { Plus, Trash2, Edit3, ArrowLeft } from 'lucide-react'
+import { useThemeStore, backgroundStyles } from '../store'
 import { API_BASE } from '../config/api'
 
 export default function PriceMasterPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+
   const [activeTab, setActiveTab] = useState('clients')
   const [toast, setToast] = useState({ show: false, message: '' })
 
@@ -24,12 +28,12 @@ export default function PriceMasterPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24 bg-app-bg">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="単価マスタ"
         icon="💰"
         showBack
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-4 pt-4">

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle } from '../components/common'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 const SEARCH_TYPES = [
   { id: 'all', label: '全て', icon: '🔍' },
@@ -13,6 +14,8 @@ const SEARCH_TYPES = [
 
 export default function SearchPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [query, setQuery] = useState('')
   const [searchType, setSearchType] = useState('all')
   const [results, setResults] = useState(null)
@@ -55,12 +58,12 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="検索"
         icon="🔍"
         gradient="from-blue-700 to-blue-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-5 py-4">

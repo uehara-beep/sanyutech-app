@@ -384,8 +384,10 @@ function SettingItem({ icon, title, subtitle, onClick, themeStyle, isOcean, isLi
 
 // プレースホルダーページ
 function PlaceholderPage({ title, icon }) {
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   return (
-    <div className="min-h-screen pb-20" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
       <PageHeader title={title} icon={icon} />
       <div className="p-4 text-center text-gray-400 mt-20">
         <div className="text-4xl mb-4">{icon}</div>

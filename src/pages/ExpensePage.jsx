@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 export default function ExpensePage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [expenses, setExpenses] = useState([])
   const [projects, setProjects] = useState([])
   const [categories, setCategories] = useState([])
@@ -133,12 +136,12 @@ export default function ExpensePage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="経費精算"
         icon="💳"
         gradient="from-purple-800 to-purple-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
         action={
           <button
             onClick={() => setShowForm(true)}

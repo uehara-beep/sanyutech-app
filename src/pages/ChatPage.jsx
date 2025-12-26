@@ -2,11 +2,21 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../components/common'
+import { useThemeStore, backgroundStyles } from '../store'
 import { API_BASE } from '../config/api'
 
 export default function ChatPage() {
   const navigate = useNavigate()
   const { projectId } = useParams()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const cardBg = isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.95)'
+  const cardBorder = isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(60,60,62,1)'
+  const inputBg = isOcean ? 'rgba(255,255,255,0.1)' : isLightTheme ? 'rgba(0,0,0,0.05)' : '#1f1f1f'
+
   const [messages, setMessages] = useState([])
   const [project, setProject] = useState(null)
   const [newMessage, setNewMessage] = useState('')
@@ -17,7 +27,7 @@ export default function ChatPage() {
     if (projectId) {
       fetchProject()
       fetchMessages()
-      const interval = setInterval(fetchMessages, 5000) // ポーリング
+      const interval = setInterval(fetchMessages, 5000)
       return () => clearInterval(interval)
     }
   }, [projectId])
@@ -78,7 +88,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-app-bg flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: currentBg.bg }}>
       <PageHeader
         title={project?.name || 'チャット'}
         onBack={() => navigate(-1)}
@@ -94,7 +104,7 @@ export default function ChatPage() {
           return (
             <div key={msg.id}>
               {showDate && (
-                <div className="text-center text-gray-500 text-xs py-4">
+                <div className="text-center text-xs py-4" style={{ color: currentBg.textLight }}>
                   {formatDate(msg.sent_at)}
                 </div>
               )}
@@ -104,25 +114,25 @@ export default function ChatPage() {
                 className={`flex mb-3 ${isMe ? 'justify-end' : 'justify-start'}`}
               >
                 {!isMe && (
-                  <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm mr-2">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm mr-2" style={{ background: inputBg, color: currentBg.text }}>
                     {msg.sender_name?.[0] || '?'}
                   </div>
                 )}
                 <div className={`max-w-[70%] ${isMe ? 'text-right' : ''}`}>
                   {!isMe && (
-                    <div className="text-xs text-gray-400 mb-1">{msg.sender_name}</div>
+                    <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>{msg.sender_name}</div>
                   )}
                   <div className={`inline-block p-3 rounded-2xl ${
                     isMe
                       ? 'bg-blue-500 text-white rounded-br-sm'
-                      : 'bg-card text-white rounded-bl-sm'
-                  }`}>
+                      : 'rounded-bl-sm'
+                  }`} style={!isMe ? { background: cardBg, color: currentBg.text, border: `1px solid ${cardBorder}` } : {}}>
                     <div className="whitespace-pre-wrap">{msg.content}</div>
                     {msg.attachment_path && (
                       <div className="mt-2 text-sm text-blue-200">📎 添付ファイル</div>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs mt-1" style={{ color: currentBg.textLight }}>
                     {formatTime(msg.sent_at)}
                   </div>
                 </div>
@@ -134,9 +144,9 @@ export default function ChatPage() {
       </div>
 
       {/* 入力エリア */}
-      <div className="bg-card border-t border-gray-700 p-4 pb-24">
+      <div className="p-4 pb-24" style={{ background: cardBg, borderTop: `1px solid ${cardBorder}` }}>
         <div className="flex gap-2">
-          <button className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
+          <button className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: inputBg, color: currentBg.text }}>
             📎
           </button>
           <input
@@ -145,14 +155,16 @@ export default function ChatPage() {
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="メッセージを入力..."
-            className="flex-1 bg-gray-800 rounded-full px-4 py-2 text-white"
+            className="flex-1 rounded-full px-4 py-2"
+            style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }}
           />
           <button
             onClick={handleSend}
             disabled={!newMessage.trim()}
             className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              newMessage.trim() ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-500'
+              newMessage.trim() ? 'bg-blue-500 text-white' : ''
             }`}
+            style={!newMessage.trim() ? { background: inputBg, color: currentBg.textLight } : {}}
           >
             ➤
           </button>
@@ -165,6 +177,14 @@ export default function ChatPage() {
 // チャット一覧ページ
 export function ChatListPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const cardBg = isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.95)'
+  const cardBorder = isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(60,60,62,1)'
+
   const [projects, setProjects] = useState([])
   const [unreadCounts, setUnreadCounts] = useState({})
 
@@ -177,7 +197,6 @@ export function ChatListPage() {
     const data = await res.json()
     setProjects(data.filter(p => ['施工中', '受注確定'].includes(p.status)))
 
-    // 各案件の未読数を取得
     const counts = {}
     for (const p of data) {
       const countRes = await fetch(`${API_BASE}/messages/unread-count?project_id=${p.id}`)
@@ -188,7 +207,7 @@ export function ChatListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-app-bg pb-20">
+    <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
       <PageHeader title="案件チャット" onBack={() => navigate(-1)} />
 
       <div className="px-4 space-y-3">
@@ -198,14 +217,15 @@ export function ChatListPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={() => navigate(`/chat/${p.id}`)}
-            className="bg-card p-4 rounded-lg flex items-center gap-3 cursor-pointer active:bg-gray-700"
+            className="p-4 rounded-lg flex items-center gap-3 cursor-pointer"
+            style={{ background: cardBg, border: `1px solid ${cardBorder}` }}
           >
             <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center text-2xl">
               🏗️
             </div>
             <div className="flex-1">
-              <div className="text-white font-bold">{p.name}</div>
-              <div className="text-gray-400 text-sm">{p.client}</div>
+              <div className="font-bold" style={{ color: currentBg.text }}>{p.name}</div>
+              <div className="text-sm" style={{ color: currentBg.textLight }}>{p.client}</div>
             </div>
             {unreadCounts[p.id] > 0 && (
               <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs text-white">
@@ -216,7 +236,7 @@ export function ChatListPage() {
         ))}
 
         {projects.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12" style={{ color: currentBg.textLight }}>
             進行中の案件がありません
           </div>
         )}

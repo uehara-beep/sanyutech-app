@@ -1,20 +1,22 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, HeaderButton, Card } from '../components/common'
-import { useWeatherStore, useAppStore } from '../store'
+import { useWeatherStore, useAppStore, useThemeStore, backgroundStyles } from '../store'
 
 export default function WeatherPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const { weatherData, lastUpdated, refreshWeather } = useWeatherStore()
   const { sites } = useAppStore()
   
   return (
-    <div className="min-h-screen pb-24">
-      <Header 
-        title="現場天気予報" 
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
+      <Header
+        title="現場天気予報"
         icon="🌤️"
         gradient="from-sky-700 to-sky-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
         rightAction={<HeaderButton onClick={refreshWeather}>🔄</HeaderButton>}
       />
       

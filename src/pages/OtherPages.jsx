@@ -2,12 +2,20 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Button, Badge, Toast } from '../components/common'
-import { useAppStore } from '../store'
+import { useAppStore, useThemeStore, backgroundStyles } from '../store'
 import { API_BASE } from '../config/api'
+
+// テーマフック
+const useTheme = () => {
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  return currentBg
+}
 
 // 承認センター
 export function ApprovePage() {
   const navigate = useNavigate()
+  const currentBg = useTheme()
   const [toast, setToast] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
   const [approvals, setApprovals] = useState([])
@@ -63,21 +71,21 @@ export function ApprovePage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="承認センター"
         icon="✅"
         gradient="from-amber-700 to-amber-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-5 py-4">
         <SectionTitle>📋 承認待ち（{approvals.length}件）</SectionTitle>
 
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
         ) : approvals.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>
             <div className="text-4xl mb-2">✅</div>
             <div>承認待ちはありません</div>
           </div>
@@ -91,13 +99,13 @@ export function ApprovePage() {
             >
               <Card className="mb-3">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs" style={{ color: currentBg.textLight }}>
                     {getTypeIcon(item.type)} {getTypeLabel(item.type)}
                   </span>
-                  <span className="text-xs text-slate-400">{item.requested_at?.split('T')[0]}</span>
+                  <span className="text-xs" style={{ color: currentBg.textLight }}>{item.requested_at?.split('T')[0]}</span>
                 </div>
-                <div className="text-[15px] font-semibold mb-1">申請 #{item.reference_id}</div>
-                <div className="text-xs text-slate-400 mb-3">申請者: {item.requested_by || '不明'}</div>
+                <div className="text-[15px] font-semibold mb-1" style={{ color: currentBg.text }}>申請 #{item.reference_id}</div>
+                <div className="text-xs mb-3" style={{ color: currentBg.textLight }}>申請者: {item.requested_by || '不明'}</div>
                 <div className="flex gap-2.5">
                   <button
                     className="flex-1 py-2.5 bg-red-500/20 text-red-400 rounded-lg text-sm font-semibold"
@@ -126,6 +134,7 @@ export function ApprovePage() {
 // 通知
 export function NotifyPage() {
   const navigate = useNavigate()
+  const currentBg = useTheme()
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -169,12 +178,12 @@ export function NotifyPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="通知"
         icon="🔔"
         gradient="from-pink-700 to-pink-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
         action={
           notifications.some(n => !n.is_read) && (
             <button
@@ -189,9 +198,9 @@ export function NotifyPage() {
 
       <div className="px-5 py-4">
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
         ) : notifications.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>
             <div className="text-4xl mb-2">🔔</div>
             <div>通知はありません</div>
           </div>
@@ -211,9 +220,9 @@ export function NotifyPage() {
                   notif.is_read ? 'bg-app-border' : 'bg-app-primary'
                 }`} />
                 <div className="flex-1">
-                  <div className="text-sm font-medium mb-1">{notif.title}</div>
-                  <div className="text-xs text-slate-400 mb-1">{notif.message}</div>
-                  <div className="text-[11px] text-slate-500">
+                  <div className="text-sm font-medium mb-1" style={{ color: currentBg.text }}>{notif.title}</div>
+                  <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>{notif.message}</div>
+                  <div className="text-[11px]" style={{ color: currentBg.textLight }}>
                     {notif.created_at?.split('T')[0]}
                   </div>
                 </div>
@@ -229,6 +238,7 @@ export function NotifyPage() {
 // 緊急連絡先
 export function EmergencyPage() {
   const navigate = useNavigate()
+  const currentBg = useTheme()
   const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -262,12 +272,12 @@ export function EmergencyPage() {
   }, {})
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="緊急連絡先"
         icon="🚨"
         gradient="from-red-800 to-red-500"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-5 py-4">
@@ -275,7 +285,7 @@ export function EmergencyPage() {
         <div className="grid grid-cols-2 gap-3 mb-6">
           <a
             href="tel:119"
-            className="flex flex-col items-center py-6 bg-gradient-to-br from-red-800 to-red-500 rounded-2xl"
+            className="flex flex-col items-center py-6 bg-gradient-to-br from-red-800 to-red-500 rounded-2xl text-white"
           >
             <span className="text-4xl mb-2">🚒</span>
             <span className="text-sm font-medium">消防・救急</span>
@@ -283,7 +293,7 @@ export function EmergencyPage() {
           </a>
           <a
             href="tel:110"
-            className="flex flex-col items-center py-6 bg-gradient-to-br from-blue-800 to-blue-500 rounded-2xl"
+            className="flex flex-col items-center py-6 bg-gradient-to-br from-blue-800 to-blue-500 rounded-2xl text-white"
           >
             <span className="text-4xl mb-2">🚔</span>
             <span className="text-sm font-medium">警察</span>
@@ -292,7 +302,7 @@ export function EmergencyPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
         ) : (
           <>
             {groupedContacts.hospital?.length > 0 && (
@@ -356,6 +366,7 @@ function ContactCard({ icon, name, detail, tel }) {
 // チェックリスト
 export function ChecklistPage() {
   const navigate = useNavigate()
+  const currentBg = useTheme()
   const [checklists, setChecklists] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeChecklist, setActiveChecklist] = useState(null)
@@ -429,19 +440,19 @@ export function ChecklistPage() {
   const today = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="チェックリスト"
         icon="📋"
         gradient="from-lime-700 to-lime-400"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-5 py-4">
         <SectionTitle>✅ 朝礼前チェック - {today}</SectionTitle>
 
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
         ) : checklists.length === 0 ? (
           // デフォルトチェックリスト表示
           <>
@@ -528,6 +539,7 @@ export function ChecklistPage() {
 // 車両管理
 export function CarPage() {
   const navigate = useNavigate()
+  const currentBg = useTheme()
   const [vehicles, setVehicles] = useState([])
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -635,18 +647,18 @@ export function CarPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="車両管理"
         icon="🚗"
         gradient="from-slate-700 to-slate-500"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-5 py-4">
         {/* 追加ボタン */}
         <div className="flex gap-2 mb-4">
-          <label className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-center text-sm font-bold cursor-pointer">
+          <label className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-center text-sm font-bold cursor-pointer text-white">
             📷 車検証を撮影
             <input
               type="file"
@@ -658,7 +670,8 @@ export function CarPage() {
           </label>
           <button
             onClick={() => setShowModal(true)}
-            className="flex-1 py-3 bg-slate-700 rounded-xl text-sm font-bold"
+            className="flex-1 py-3 rounded-xl text-sm font-bold"
+            style={{ background: currentBg.bg, color: currentBg.text }}
           >
             ✏️ 手動で追加
           </button>
@@ -832,6 +845,7 @@ export function CarPage() {
 // 機材管理
 export function EquipmentPage() {
   const navigate = useNavigate()
+  const currentBg = useTheme()
   const [equipment, setEquipment] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('list')
@@ -933,12 +947,12 @@ export function EquipmentPage() {
   const maintenanceItems = equipment.filter(e => e.status === 'maintenance')
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="機材管理"
         icon="🔧"
         gradient="from-orange-700 to-orange-500"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
         action={
           <button
             onClick={() => setShowModal(true)}

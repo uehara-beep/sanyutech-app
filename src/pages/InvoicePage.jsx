@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 const BILLING_CATEGORIES = [
   { id: 'material', label: '材料費', icon: '🧱' },
@@ -13,6 +14,8 @@ const BILLING_CATEGORIES = [
 
 export default function InvoicePage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [billings, setBillings] = useState([])
   const [projects, setProjects] = useState([])
   const [vendors, setVendors] = useState([])
@@ -127,12 +130,12 @@ export default function InvoicePage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="請求書AI"
         icon="📄"
         gradient="from-orange-900 to-orange-500"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
         action={
           <button
             onClick={() => setShowForm(true)}

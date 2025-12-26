@@ -4,7 +4,26 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Edit3, FileText, CheckCircle, Send, ChevronRight, X } from 'lucide-react'
 import { PageHeader, Card, SectionTitle, Button, Modal, Input, Toast, Empty } from '../components/common'
 import { API_BASE } from '../config/api'
-import { useThemeStore } from '../store'
+import { useThemeStore, backgroundStyles } from '../store'
+
+// テーマ対応スタイル生成
+const useThemeStyles = () => {
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  return {
+    currentBg,
+    isOcean,
+    isLightTheme,
+    cardBg: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.95)',
+    cardBorder: isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(60,60,62,1)',
+    inputBg: isOcean ? 'rgba(255,255,255,0.1)' : isLightTheme ? 'rgba(0,0,0,0.05)' : '#1f1f1f',
+    secondaryBg: isOcean ? 'rgba(255,255,255,0.08)' : isLightTheme ? 'rgba(0,0,0,0.03)' : 'rgba(60,60,62,0.5)',
+    backdropFilter: isOcean ? 'blur(10px)' : 'none',
+  }
+}
 
 // 金額フォーマット
 const formatMoney = (amount) => {
@@ -16,6 +35,8 @@ export default function QuotesPage() {
   const navigate = useNavigate()
   const { getCurrentTheme } = useThemeStore()
   const theme = getCurrentTheme()
+  const styles = useThemeStyles()
+  const { currentBg, cardBg, cardBorder, inputBg, isOcean } = styles
   const [quotes, setQuotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -131,7 +152,7 @@ export default function QuotesPage() {
   }
 
   return (
-    <div className="min-h-screen pb-20 bg-[#1c1c1e]">
+    <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
       <PageHeader title="見積書一覧" icon="📝" />
 
       <div className="p-4">
@@ -146,7 +167,7 @@ export default function QuotesPage() {
         {/* 説明 */}
         <Card className="mb-4 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-orange-500/30">
           <div className="text-sm text-orange-400 font-medium mb-1">💡 新しいフロー</div>
-          <div className="text-xs text-gray-400">
+          <div className="text-xs" style={{ color: currentBg.textLight }}>
             1. 見積書を作成（工事名・元請け・明細を入力）<br />
             2. 「受注する」ボタンで工事・工種を自動作成<br />
             3. 工事詳細で原価管理を開始
@@ -155,7 +176,7 @@ export default function QuotesPage() {
 
         {/* 見積一覧 */}
         {loading ? (
-          <div className="text-center text-gray-400 py-8">読み込み中...</div>
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
         ) : quotes.length === 0 ? (
           <Empty
             icon="📝"
@@ -167,28 +188,29 @@ export default function QuotesPage() {
             {quotes.map((quote) => (
               <motion.div
                 key={quote.id}
-                className="bg-[#2c2c2e] rounded-xl p-4 border border-[#3c3c3e]"
+                className="rounded-xl p-4"
+                style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-gray-500">{quote.quote_no}</span>
+                      <span className="text-xs" style={{ color: currentBg.textLight }}>{quote.quote_no}</span>
                       {getStatusBadge(quote.status, quote.project_id)}
                     </div>
-                    <div className="font-medium text-white">{quote.title || '無題'}</div>
-                    <div className="text-sm text-gray-400">{quote.client_name || '元請け未設定'}</div>
+                    <div className="font-medium" style={{ color: currentBg.text }}>{quote.title || '無題'}</div>
+                    <div className="text-sm" style={{ color: currentBg.textLight }}>{quote.client_name || '元請け未設定'}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold" style={{ color: theme.primary }}>
                       {formatMoney(quote.total)}
                     </div>
-                    <div className="text-xs text-gray-500">{quote.items?.length || 0}項目</div>
+                    <div className="text-xs" style={{ color: currentBg.textLight }}>{quote.items?.length || 0}項目</div>
                   </div>
                 </div>
 
                 {/* アクションボタン */}
-                <div className="flex gap-2 mt-3 pt-3 border-t border-[#3c3c3e]">
+                <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
                   {!quote.project_id && (
                     <>
                       <button
@@ -201,13 +223,15 @@ export default function QuotesPage() {
                       </button>
                       <button
                         onClick={() => { setEditData(quote); setShowModal(true) }}
-                        className="p-2 bg-[#3c3c3e] rounded-lg text-gray-400 hover:text-white"
+                        className="p-2 rounded-lg hover:opacity-80"
+                        style={{ background: inputBg, color: currentBg.textLight }}
                       >
                         <Edit3 size={16} />
                       </button>
                       <button
                         onClick={() => handleDelete(quote.id)}
-                        className="p-2 bg-[#3c3c3e] rounded-lg text-red-400 hover:text-red-300"
+                        className="p-2 rounded-lg text-red-400 hover:text-red-300"
+                        style={{ background: inputBg }}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -250,6 +274,8 @@ export default function QuotesPage() {
 
 // 見積作成/編集モーダル
 function QuoteModal({ data, onClose, onSave }) {
+  const styles = useThemeStyles()
+  const { currentBg, cardBg, cardBorder, inputBg, isOcean } = styles
   const [form, setForm] = useState({
     title: '',
     client_name: '',
@@ -315,13 +341,14 @@ function QuoteModal({ data, onClose, onSave }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-[#2c2c2e] rounded-xl w-full max-w-lg my-8"
+        className="rounded-xl w-full max-w-lg my-8"
+        style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
       >
-        <div className="p-4 border-b border-[#3c3c3e] flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">
+        <div className="p-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${cardBorder}` }}>
+          <h2 className="text-lg font-bold" style={{ color: currentBg.text }}>
             {data ? '見積書を編集' : '見積書を作成'}
           </h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white">
+          <button onClick={onClose} className="p-2 hover:opacity-80" style={{ color: currentBg.textLight }}>
             <X size={20} />
           </button>
         </div>
@@ -359,7 +386,7 @@ function QuoteModal({ data, onClose, onSave }) {
           {/* 明細 */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-300">明細</label>
+              <label className="text-sm font-medium" style={{ color: currentBg.textLight }}>明細</label>
               <button
                 onClick={addItem}
                 className="text-xs px-2 py-1 bg-orange-500/20 text-orange-400 rounded-lg"
@@ -370,15 +397,16 @@ function QuoteModal({ data, onClose, onSave }) {
 
             <div className="space-y-3">
               {form.items.map((item, index) => (
-                <div key={index} className="bg-[#1c1c1e] rounded-lg p-3 border border-[#3c3c3e]">
+                <div key={index} className="rounded-lg p-3" style={{ background: inputBg, border: `1px solid ${cardBorder}` }}>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs text-gray-500 w-6">{index + 1}</span>
+                    <span className="text-xs w-6" style={{ color: currentBg.textLight }}>{index + 1}</span>
                     <input
                       type="text"
                       value={item.name}
                       onChange={(e) => updateItem(index, 'name', e.target.value)}
                       placeholder="品名・工種"
-                      className="flex-1 px-2 py-1.5 bg-transparent border border-[#3c3c3e] rounded text-sm text-white"
+                      className="flex-1 px-2 py-1.5 bg-transparent rounded text-sm"
+                      style={{ border: `1px solid ${cardBorder}`, color: currentBg.text }}
                     />
                     {form.items.length > 1 && (
                       <button
@@ -396,23 +424,26 @@ function QuoteModal({ data, onClose, onSave }) {
                       value={item.quantity}
                       onChange={(e) => updateItem(index, 'quantity', e.target.value)}
                       placeholder="数量"
-                      className="px-2 py-1.5 bg-transparent border border-[#3c3c3e] rounded text-sm text-white text-right"
+                      className="px-2 py-1.5 bg-transparent rounded text-sm text-right"
+                      style={{ border: `1px solid ${cardBorder}`, color: currentBg.text }}
                     />
                     <input
                       type="text"
                       value={item.unit}
                       onChange={(e) => updateItem(index, 'unit', e.target.value)}
                       placeholder="単位"
-                      className="px-2 py-1.5 bg-transparent border border-[#3c3c3e] rounded text-sm text-white text-center"
+                      className="px-2 py-1.5 bg-transparent rounded text-sm text-center"
+                      style={{ border: `1px solid ${cardBorder}`, color: currentBg.text }}
                     />
                     <input
                       type="number"
                       value={item.unit_price}
                       onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
                       placeholder="単価"
-                      className="px-2 py-1.5 bg-transparent border border-[#3c3c3e] rounded text-sm text-white text-right"
+                      className="px-2 py-1.5 bg-transparent rounded text-sm text-right"
+                      style={{ border: `1px solid ${cardBorder}`, color: currentBg.text }}
                     />
-                    <div className="px-2 py-1.5 bg-[#3c3c3e] rounded text-sm text-white text-right font-medium">
+                    <div className="px-2 py-1.5 rounded text-sm text-right font-medium" style={{ background: cardBorder, color: currentBg.text }}>
                       ¥{(item.amount || 0).toLocaleString()}
                     </div>
                   </div>
@@ -422,17 +453,17 @@ function QuoteModal({ data, onClose, onSave }) {
           </div>
 
           {/* 合計 */}
-          <div className="bg-[#1c1c1e] rounded-lg p-3 border border-[#3c3c3e]">
+          <div className="rounded-lg p-3" style={{ background: inputBg, border: `1px solid ${cardBorder}` }}>
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-400">小計</span>
-              <span className="text-white">¥{subtotal.toLocaleString()}</span>
+              <span style={{ color: currentBg.textLight }}>小計</span>
+              <span style={{ color: currentBg.text }}>¥{subtotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-400">消費税 (10%)</span>
-              <span className="text-white">¥{taxAmount.toLocaleString()}</span>
+              <span style={{ color: currentBg.textLight }}>消費税 (10%)</span>
+              <span style={{ color: currentBg.text }}>¥{taxAmount.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between text-lg font-bold pt-2 border-t border-[#3c3c3e]">
-              <span className="text-white">合計</span>
+            <div className="flex justify-between text-lg font-bold pt-2" style={{ borderTop: `1px solid ${cardBorder}` }}>
+              <span style={{ color: currentBg.text }}>合計</span>
               <span className="text-orange-500">¥{total.toLocaleString()}</span>
             </div>
           </div>
@@ -445,10 +476,11 @@ function QuoteModal({ data, onClose, onSave }) {
           />
         </div>
 
-        <div className="p-4 border-t border-[#3c3c3e] flex gap-3">
+        <div className="p-4 flex gap-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
           <button
             onClick={onClose}
-            className="flex-1 py-3 bg-[#3c3c3e] text-gray-300 rounded-xl font-medium"
+            className="flex-1 py-3 rounded-xl font-medium"
+            style={{ background: inputBg, color: currentBg.textLight }}
           >
             キャンセル
           </button>

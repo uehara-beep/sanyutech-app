@@ -6,9 +6,14 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 export default function AnalyticsPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
   const [year, setYear] = useState(new Date().getFullYear())
   const [monthlySales, setMonthlySales] = useState([])
   const [clientBreakdown, setClientBreakdown] = useState([])
@@ -51,15 +56,22 @@ export default function AnalyticsPage() {
   const maxSales = Math.max(...monthlySales.map(m => m.sales || 0), 1)
   const totalClientSales = clientBreakdown.reduce((sum, c) => sum + (c.sales || 0), 0)
 
+  // カードスタイル
+  const cardStyle = {
+    background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.9)',
+    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'}`,
+    backdropFilter: isOcean ? 'blur(10px)' : 'none',
+  }
+
   return (
-    <div className="min-h-screen bg-gray-900 pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-1">
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="w-6 h-6 text-white" />
           </button>
-          <h1 className="text-xl font-bold">経営分析</h1>
+          <h1 className="text-xl font-bold text-white">経営分析</h1>
         </div>
         <div className="flex justify-center mt-2">
           <div className="flex bg-white/20 rounded-lg p-1">
@@ -67,7 +79,7 @@ export default function AnalyticsPage() {
               <button
                 key={y}
                 onClick={() => setYear(y)}
-                className={`px-4 py-1 rounded ${year === y ? 'bg-white text-purple-600' : ''}`}
+                className={`px-4 py-1 rounded text-white ${year === y ? 'bg-white !text-purple-600' : ''}`}
               >
                 {y}
               </button>
@@ -87,27 +99,28 @@ export default function AnalyticsPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-gray-800 rounded-xl p-4"
+              className="rounded-xl p-4"
+              style={cardStyle}
             >
               <div className="flex items-center gap-2 mb-3">
                 <Target className="w-5 h-5 text-purple-400" />
-                <h2 className="font-bold">年間売上目標 vs 実績</h2>
+                <h2 className="font-bold" style={{ color: currentBg.text }}>年間売上目標 vs 実績</h2>
               </div>
               <div className="flex justify-between items-end mb-2">
                 <div>
-                  <p className="text-xs text-gray-400">実績</p>
+                  <p className="text-xs" style={{ color: currentBg.textLight }}>実績</p>
                   <p className="text-2xl font-bold text-green-400">
                     {formatAmount(targetVsActual.actual)}円
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-gray-400">目標</p>
-                  <p className="text-lg text-gray-300">
+                  <p className="text-xs" style={{ color: currentBg.textLight }}>目標</p>
+                  <p className="text-lg" style={{ color: currentBg.text }}>
                     {formatAmount(targetVsActual.target)}円
                   </p>
                 </div>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-4 mb-2">
+              <div className="w-full rounded-full h-4 mb-2" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : isLightTheme ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }}>
                 <div
                   className="bg-gradient-to-r from-purple-500 to-pink-500 h-4 rounded-full transition-all"
                   style={{ width: `${Math.min(targetVsActual.achievement_rate, 100)}%` }}
@@ -117,7 +130,7 @@ export default function AnalyticsPage() {
                 <span className="text-purple-400 font-bold">
                   達成率 {targetVsActual.achievement_rate}%
                 </span>
-                <span className="text-gray-400">
+                <span style={{ color: currentBg.textLight }}>
                   残り {formatAmount(targetVsActual.remaining)}円
                 </span>
               </div>
@@ -129,11 +142,12 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-gray-800 rounded-xl p-4"
+            className="rounded-xl p-4"
+            style={cardStyle}
           >
             <div className="flex items-center gap-2 mb-3">
               <BarChart3 className="w-5 h-5 text-blue-400" />
-              <h2 className="font-bold">月別売上推移</h2>
+              <h2 className="font-bold" style={{ color: currentBg.text }}>月別売上推移</h2>
             </div>
             <div className="flex items-end gap-1 h-32">
               {monthlySales.map((m, i) => {
@@ -146,12 +160,12 @@ export default function AnalyticsPage() {
                         style={{ height: `${height}%`, minHeight: height > 0 ? '4px' : '0' }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500 mt-1">{i + 1}</span>
+                    <span className="text-xs mt-1" style={{ color: currentBg.textLight }}>{i + 1}</span>
                   </div>
                 )
               })}
             </div>
-            <div className="flex justify-between mt-2 text-xs text-gray-400">
+            <div className="flex justify-between mt-2 text-xs" style={{ color: currentBg.textLight }}>
               <span>1月</span>
               <span>12月</span>
             </div>
@@ -162,11 +176,12 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-gray-800 rounded-xl p-4"
+            className="rounded-xl p-4"
+            style={cardStyle}
           >
             <div className="flex items-center gap-2 mb-3">
               <PieChart className="w-5 h-5 text-green-400" />
-              <h2 className="font-bold">顧客別売上比率</h2>
+              <h2 className="font-bold" style={{ color: currentBg.text }}>顧客別売上比率</h2>
             </div>
             <div className="space-y-2">
               {clientBreakdown.slice(0, 5).map((c, i) => {
@@ -175,10 +190,10 @@ export default function AnalyticsPage() {
                 return (
                   <div key={i}>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="truncate">{c.client}</span>
-                      <span className="text-gray-400">{formatAmount(c.sales)}円</span>
+                      <span className="truncate" style={{ color: currentBg.text }}>{c.client}</span>
+                      <span style={{ color: currentBg.textLight }}>{formatAmount(c.sales)}円</span>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div className="w-full rounded-full h-2" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : isLightTheme ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }}>
                       <div
                         className={`${colors[i]} h-2 rounded-full`}
                         style={{ width: `${percent}%` }}
@@ -195,11 +210,12 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-gray-800 rounded-xl p-4"
+            className="rounded-xl p-4"
+            style={cardStyle}
           >
             <div className="flex items-center gap-2 mb-3">
               <Users className="w-5 h-5 text-yellow-400" />
-              <h2 className="font-bold">担当者別粗利ランキング</h2>
+              <h2 className="font-bold" style={{ color: currentBg.text }}>担当者別粗利ランキング</h2>
             </div>
             <div className="space-y-2">
               {personRanking.slice(0, 5).map((p, i) => (
@@ -207,12 +223,12 @@ export default function AnalyticsPage() {
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold
                     ${i === 0 ? 'bg-yellow-500 text-black' :
                       i === 1 ? 'bg-gray-400 text-black' :
-                      i === 2 ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300'}`}>
+                      i === 2 ? 'bg-orange-600 text-white' : 'bg-gray-600 text-gray-300'}`}>
                     {i + 1}
                   </span>
                   <div className="flex-1">
-                    <p className="font-medium">{p.person}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="font-medium" style={{ color: currentBg.text }}>{p.person}</p>
+                    <p className="text-xs" style={{ color: currentBg.textLight }}>
                       売上 {formatAmount(p.sales)}円
                     </p>
                   </div>
@@ -226,7 +242,7 @@ export default function AnalyticsPage() {
                       ) : (
                         <ArrowDownRight className="w-3 h-3 text-red-400" />
                       )}
-                      <span className="text-gray-400">粗利</span>
+                      <span style={{ color: currentBg.textLight }}>粗利</span>
                     </div>
                   </div>
                 </div>
@@ -239,11 +255,12 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-gray-800 rounded-xl p-4"
+            className="rounded-xl p-4"
+            style={cardStyle}
           >
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="w-5 h-5 text-pink-400" />
-              <h2 className="font-bold">月別粗利率推移</h2>
+              <h2 className="font-bold" style={{ color: currentBg.text }}>月別粗利率推移</h2>
             </div>
             <div className="flex items-end gap-1 h-24">
               {profitTrend.map((m, i) => {
@@ -257,25 +274,25 @@ export default function AnalyticsPage() {
                         style={{ height: `${Math.max(rate, 0)}px` }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500 mt-1">{i + 1}</span>
+                    <span className="text-xs mt-1" style={{ color: currentBg.textLight }}>{i + 1}</span>
                   </div>
                 )
               })}
             </div>
             <div className="flex justify-between mt-2 text-xs">
-              <span className="text-gray-400">目標ライン: 20%</span>
+              <span style={{ color: currentBg.textLight }}>目標ライン: 20%</span>
               <div className="flex gap-3">
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 bg-green-500 rounded"></span>
-                  <span className="text-gray-400">20%+</span>
+                  <span style={{ color: currentBg.textLight }}>20%+</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 bg-yellow-500 rounded"></span>
-                  <span className="text-gray-400">10-20%</span>
+                  <span style={{ color: currentBg.textLight }}>10-20%</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 bg-red-500 rounded"></span>
-                  <span className="text-gray-400">10%未満</span>
+                  <span style={{ color: currentBg.textLight }}>10%未満</span>
                 </span>
               </div>
             </div>

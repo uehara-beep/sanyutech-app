@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, Image, FileText, X, Check, Loader2, ChevronRight, AlertCircle } from 'lucide-react'
 import { PageHeader, Card, SectionTitle, Button, Input, Select, Modal, Toast } from '../components/common'
-import { useThemeStore } from '../store'
+import { useThemeStore, backgroundStyles } from '../store'
 import { API_BASE } from '../config/api'
 
 // 書類タイプ定義
@@ -35,8 +35,17 @@ const categories = [
 
 export default function ScanPage() {
   const navigate = useNavigate()
-  const { getCurrentTheme } = useThemeStore()
+  const { getCurrentTheme, backgroundId } = useThemeStore()
   const theme = getCurrentTheme()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  // カードスタイル
+  const cardBg = isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.95)'
+  const cardBorder = isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(60,60,62,1)'
+  const inputBg = isOcean ? 'rgba(255,255,255,0.1)' : isLightTheme ? 'rgba(0,0,0,0.05)' : '#1c1c1e'
+  const inputBorder = isOcean ? 'rgba(255,255,255,0.2)' : isLightTheme ? 'rgba(0,0,0,0.1)' : '#3c3c3e'
 
   // Refs
   const cameraInputRef = useRef(null)
@@ -259,11 +268,11 @@ export default function ScanPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24 bg-[#1c1c1e]">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <PageHeader
         title="撮影ステーション"
         icon="📸"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-4 py-4">
@@ -314,27 +323,35 @@ export default function ScanPage() {
         />
 
         {/* AI判定タイプ */}
-        <Card className="mb-6">
-          <div className="text-sm font-semibold text-center mb-4 text-white">📋 AIが自動判定して振り分け</div>
+        <div
+          className="mb-6 rounded-2xl p-4"
+          style={{
+            background: cardBg,
+            border: `1px solid ${cardBorder}`,
+            backdropFilter: isOcean ? 'blur(10px)' : 'none',
+          }}
+        >
+          <div className="text-sm font-semibold text-center mb-4" style={{ color: currentBg.text }}>📋 AIが自動判定して振り分け</div>
           <div className="grid grid-cols-3 gap-3">
             {documentTypes.map((type, i) => (
               <motion.div
                 key={type.id}
-                className="text-center p-3 bg-[#1c1c1e] rounded-xl"
+                className="text-center p-3 rounded-xl"
+                style={{ background: inputBg }}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
               >
                 <div className="text-2xl mb-1">{type.icon}</div>
-                <div className="text-[11px] font-semibold text-white mb-0.5">{type.name}</div>
-                <div className="text-[9px] text-gray-400">→ {type.dest}</div>
+                <div className="text-[11px] font-semibold mb-0.5" style={{ color: currentBg.text }}>{type.name}</div>
+                <div className="text-[9px]" style={{ color: currentBg.textLight }}>→ {type.dest}</div>
               </motion.div>
             ))}
           </div>
-        </Card>
+        </div>
 
         {/* 最近の読取 */}
-        <SectionTitle>🕐 最近の読取</SectionTitle>
+        <div className="text-sm font-semibold mb-3" style={{ color: currentBg.text }}>🕐 最近の読取</div>
         {recentScans.map((scan, i) => (
           <motion.div
             key={scan.id}
@@ -342,20 +359,24 @@ export default function ScanPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.1 }}
           >
-            <Card
-              className="mb-2.5 flex items-center gap-3"
-              onClick={() => {}}
+            <div
+              className="mb-2.5 flex items-center gap-3 p-4 rounded-2xl cursor-pointer"
+              style={{
+                background: cardBg,
+                border: `1px solid ${cardBorder}`,
+                backdropFilter: isOcean ? 'blur(10px)' : 'none',
+              }}
             >
               <span className="text-2xl">{scan.icon}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-[11px] font-semibold" style={{ color: theme.primary }}>{scan.type}</div>
-                <div className="text-sm font-medium text-white truncate">{scan.name}</div>
-                <div className="text-[11px] text-gray-400">{scan.date}</div>
+                <div className="text-sm font-medium truncate" style={{ color: currentBg.text }}>{scan.name}</div>
+                <div className="text-[11px]" style={{ color: currentBg.textLight }}>{scan.date}</div>
               </div>
               <div className="w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs">
                 ✓
               </div>
-            </Card>
+            </div>
           </motion.div>
         ))}
       </div>
@@ -368,7 +389,8 @@ export default function ScanPage() {
       >
         <div className="space-y-3">
           <motion.button
-            className="w-full p-4 bg-[#1c1c1e] rounded-xl flex items-center gap-4 border border-[#3c3c3e]"
+            className="w-full p-4 rounded-xl flex items-center gap-4"
+            style={{ background: inputBg, border: `1px solid ${inputBorder}` }}
             onClick={handleCamera}
             whileTap={{ scale: 0.98 }}
           >
@@ -376,14 +398,15 @@ export default function ScanPage() {
               <Camera size={24} className="text-white" />
             </div>
             <div className="flex-1 text-left">
-              <div className="font-semibold text-white">カメラで撮影</div>
-              <div className="text-xs text-gray-400">その場で書類を撮影</div>
+              <div className="font-semibold" style={{ color: currentBg.text }}>カメラで撮影</div>
+              <div className="text-xs" style={{ color: currentBg.textLight }}>その場で書類を撮影</div>
             </div>
-            <ChevronRight size={20} className="text-gray-500" />
+            <ChevronRight size={20} style={{ color: currentBg.textLight }} />
           </motion.button>
 
           <motion.button
-            className="w-full p-4 bg-[#1c1c1e] rounded-xl flex items-center gap-4 border border-[#3c3c3e]"
+            className="w-full p-4 rounded-xl flex items-center gap-4"
+            style={{ background: inputBg, border: `1px solid ${inputBorder}` }}
             onClick={handleGallery}
             whileTap={{ scale: 0.98 }}
           >
@@ -391,14 +414,15 @@ export default function ScanPage() {
               <Image size={24} className="text-white" />
             </div>
             <div className="flex-1 text-left">
-              <div className="font-semibold text-white">ギャラリーから選択</div>
-              <div className="text-xs text-gray-400">保存済みの画像を選択</div>
+              <div className="font-semibold" style={{ color: currentBg.text }}>ギャラリーから選択</div>
+              <div className="text-xs" style={{ color: currentBg.textLight }}>保存済みの画像を選択</div>
             </div>
-            <ChevronRight size={20} className="text-gray-500" />
+            <ChevronRight size={20} style={{ color: currentBg.textLight }} />
           </motion.button>
 
           <motion.button
-            className="w-full p-4 bg-[#1c1c1e] rounded-xl flex items-center gap-4 border border-[#3c3c3e]"
+            className="w-full p-4 rounded-xl flex items-center gap-4"
+            style={{ background: inputBg, border: `1px solid ${inputBorder}` }}
             onClick={handlePdf}
             whileTap={{ scale: 0.98 }}
           >
@@ -406,10 +430,10 @@ export default function ScanPage() {
               <FileText size={24} className="text-white" />
             </div>
             <div className="flex-1 text-left">
-              <div className="font-semibold text-white">PDFを選択</div>
-              <div className="text-xs text-gray-400">PDF書類を読み込み</div>
+              <div className="font-semibold" style={{ color: currentBg.text }}>PDFを選択</div>
+              <div className="text-xs" style={{ color: currentBg.textLight }}>PDF書類を読み込み</div>
             </div>
-            <ChevronRight size={20} className="text-gray-500" />
+            <ChevronRight size={20} style={{ color: currentBg.textLight }} />
           </motion.button>
         </div>
       </Modal>
@@ -439,7 +463,7 @@ export default function ScanPage() {
             🤖 AI判定: {getDocTypeInfo(editData.docType).name}
           </span>
           {ocrResult?.confidence && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs" style={{ color: currentBg.textLight }}>
               信頼度: {Math.round(ocrResult.confidence * 100)}%
             </span>
           )}
@@ -447,9 +471,9 @@ export default function ScanPage() {
 
         {/* プレビュー画像 */}
         {scannedImage && (
-          <div className="w-full h-32 bg-[#1c1c1e] rounded-xl flex items-center justify-center mb-5 overflow-hidden">
+          <div className="w-full h-32 rounded-xl flex items-center justify-center mb-5 overflow-hidden" style={{ background: inputBg }}>
             {scannedImage === '/pdf-icon.png' ? (
-              <FileText size={48} className="text-gray-500" />
+              <FileText size={48} style={{ color: currentBg.textLight }} />
             ) : (
               <img src={scannedImage} alt="スキャン画像" className="max-h-full max-w-full object-contain" />
             )}
@@ -458,17 +482,16 @@ export default function ScanPage() {
 
         {/* 書類タイプ選択 */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-300 mb-2">書類タイプ</label>
+          <label className="block text-sm font-medium mb-2" style={{ color: currentBg.textLight }}>書類タイプ</label>
           <div className="flex flex-wrap gap-2">
             {documentTypes.map((type) => (
               <button
                 key={type.id}
-                className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-colors ${
-                  editData.docType === type.id
-                    ? 'border-transparent text-white'
-                    : 'border-[#3c3c3e] text-gray-400 bg-[#1c1c1e]'
-                }`}
-                style={editData.docType === type.id ? { backgroundColor: theme.primary } : {}}
+                className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-colors"
+                style={editData.docType === type.id
+                  ? { backgroundColor: theme.primary, borderColor: 'transparent', color: '#fff' }
+                  : { background: inputBg, borderColor: inputBorder, color: currentBg.textLight }
+                }
                 onClick={() => setEditData({ ...editData, docType: type.id, category: mapDocTypeToCategory(type.id) })}
               >
                 <span>{type.icon}</span>
@@ -494,17 +517,19 @@ export default function ScanPage() {
         />
 
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-300 mb-1.5">単価</label>
+          <label className="block text-sm font-medium mb-1.5" style={{ color: currentBg.textLight }}>単価</label>
           <div className="flex gap-2">
             <input
               type="text"
-              className="flex-1 px-4 py-3 bg-[#1c1c1e] border border-[#3c3c3e] rounded-xl text-white"
+              className="flex-1 px-4 py-3 rounded-xl"
+              style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
               value={editData.price}
               onChange={(e) => setEditData({ ...editData, price: e.target.value })}
               placeholder="0"
             />
             <select
-              className="w-24 px-3 py-3 bg-[#1c1c1e] border border-[#3c3c3e] rounded-xl text-white"
+              className="w-24 px-3 py-3 rounded-xl"
+              style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
               value={editData.unit}
               onChange={(e) => setEditData({ ...editData, unit: e.target.value })}
             >
@@ -540,8 +565,8 @@ export default function ScanPage() {
         />
 
         {/* 自動連携先 */}
-        <div className="bg-[#1c1c1e] rounded-xl p-4 mt-4">
-          <div className="text-xs font-semibold text-white mb-2.5">🔗 自動連携先</div>
+        <div className="rounded-xl p-4 mt-4" style={{ background: inputBg }}>
+          <div className="text-xs font-semibold mb-2.5" style={{ color: currentBg.text }}>🔗 自動連携先</div>
           <div className="flex flex-wrap gap-2">
             <span className="bg-emerald-500/15 text-emerald-400 px-2.5 py-1.5 rounded-lg text-[11px]">
               {getDocTypeInfo(editData.docType).icon} {getDocTypeInfo(editData.docType).dest}
@@ -601,14 +626,17 @@ export default function ScanPage() {
 // 読取結果ページ（別ルートからのアクセス用）
 export function ScanResultPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+
   return (
-    <div className="min-h-screen pb-24 bg-[#1c1c1e]">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <PageHeader
         title="読取結果"
         icon="📸"
         onBack={() => navigate('/scan')}
       />
-      <div className="p-4 text-center text-gray-400 mt-20">
+      <div className="p-4 text-center mt-20" style={{ color: currentBg.textLight }}>
         <div className="text-4xl mb-4">📸</div>
         <div>撮影ステーションから書類をスキャンしてください</div>
         <Button className="mt-6" onClick={() => navigate('/scan')}>

@@ -36,37 +36,82 @@ const categories = [
   },
 ]
 
-// 浅瀬の海背景（オーシャンテーマ用）- 光芒とコースティクス
+// 浅瀬の海背景（オーシャンテーマ用）- 光芒とコースティクスと泡
 function OceanBackground() {
+  // 泡のデータ（10個、様々なサイズと位置）
+  const bubbles = [
+    { left: 5, size: 6, duration: 10, delay: 0 },
+    { left: 15, size: 4, duration: 12, delay: 1.5 },
+    { left: 25, size: 8, duration: 11, delay: 0.5 },
+    { left: 35, size: 5, duration: 13, delay: 2 },
+    { left: 45, size: 7, duration: 10, delay: 1 },
+    { left: 55, size: 4, duration: 14, delay: 3 },
+    { left: 65, size: 9, duration: 11, delay: 0.8 },
+    { left: 75, size: 5, duration: 12, delay: 2.5 },
+    { left: 85, size: 6, duration: 13, delay: 1.2 },
+    { left: 95, size: 4, duration: 11, delay: 3.5 },
+  ]
+
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-      {/* 光芒（ゴッドレイ）- 6秒周期 */}
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: -1 }}>
+      {/* 光芒（ゴッドレイ）- 8秒周期、ゆっくり揺れる */}
       <motion.div
         className="absolute"
         style={{
-          top: '-20%',
+          top: '-30%',
           left: '50%',
-          width: '180%',
-          height: '70%',
+          width: '200%',
+          height: '80%',
           transformOrigin: 'top center',
           background: `conic-gradient(
             from 180deg at 50% 0%,
-            transparent 35%,
-            rgba(255, 255, 255, 0.08) 40%,
-            rgba(255, 255, 255, 0.12) 43%,
-            rgba(255, 255, 255, 0.08) 46%,
-            transparent 51%,
-            transparent 55%,
-            rgba(255, 255, 255, 0.05) 59%,
-            rgba(255, 255, 255, 0.08) 62%,
-            rgba(255, 255, 255, 0.05) 65%,
-            transparent 70%
+            transparent 30%,
+            rgba(255, 255, 255, 0.06) 35%,
+            rgba(255, 255, 255, 0.12) 40%,
+            rgba(255, 255, 255, 0.06) 45%,
+            transparent 50%,
+            transparent 52%,
+            rgba(255, 255, 255, 0.04) 56%,
+            rgba(255, 255, 255, 0.10) 60%,
+            rgba(255, 255, 255, 0.04) 64%,
+            transparent 70%,
+            transparent 75%,
+            rgba(255, 255, 255, 0.03) 78%,
+            rgba(255, 255, 255, 0.08) 82%,
+            rgba(255, 255, 255, 0.03) 86%,
+            transparent 92%
           )`,
         }}
         animate={{
-          x: ['-50%', '-48%', '-52%', '-50%'],
-          rotate: [-2, 1, -1, -2],
-          opacity: [0.4, 0.6, 0.3, 0.4],
+          x: ['-50%', '-47%', '-53%', '-50%'],
+          rotate: [-3, 2, -2, -3],
+          opacity: [0.5, 0.7, 0.4, 0.5],
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+      />
+
+      {/* コースティクス（水面の光の揺らぎ）- 6秒周期 */}
+      <motion.div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `
+            radial-gradient(ellipse 120px 90px at 15% 10%, rgba(255,255,255,0.10) 0%, transparent 60%),
+            radial-gradient(ellipse 100px 75px at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 55%),
+            radial-gradient(ellipse 90px 70px at 25% 45%, rgba(255,255,255,0.06) 0%, transparent 60%),
+            radial-gradient(ellipse 110px 85px at 70% 55%, rgba(255,255,255,0.07) 0%, transparent 55%),
+            radial-gradient(ellipse 80px 60px at 40% 75%, rgba(255,255,255,0.05) 0%, transparent 60%),
+            radial-gradient(ellipse 95px 72px at 85% 85%, rgba(255,255,255,0.06) 0%, transparent 55%)
+          `,
+        }}
+        animate={{
+          scale: [1, 1.08, 0.97, 1],
+          x: ['0%', '1%', '-0.5%', '0%'],
+          y: ['0%', '0.5%', '-0.3%', '0%'],
+          opacity: [0.6, 0.8, 0.5, 0.6],
         }}
         transition={{
           duration: 6,
@@ -75,50 +120,66 @@ function OceanBackground() {
         }}
       />
 
-      {/* コースティクス - 5秒周期 */}
-      <motion.div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `
-            radial-gradient(ellipse 100px 80px at 20% 15%, rgba(255,255,255,0.08) 0%, transparent 60%),
-            radial-gradient(ellipse 80px 65px at 75% 25%, rgba(255,255,255,0.06) 0%, transparent 55%),
-            radial-gradient(ellipse 90px 70px at 35% 60%, rgba(255,255,255,0.05) 0%, transparent 60%),
-            radial-gradient(ellipse 70px 55px at 65% 80%, rgba(255,255,255,0.04) 0%, transparent 55%)
-          `,
-        }}
-        animate={{
-          scale: [1, 1.05, 1],
-          x: ['0%', '0.5%', '0%'],
-          y: ['0%', '0.5%', '0%'],
-          opacity: [0.5, 0.7, 0.5],
-        }}
-        transition={{
-          duration: 5,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
-
-      {/* 泡（ゆっくり、薄く）- 12秒周期 */}
-      {[10, 30, 50, 70, 90].map((left, i) => (
+      {/* 泡（10個、ゆっくり上昇）*/}
+      {bubbles.map((bubble, i) => (
         <motion.div
           key={i}
           className="absolute rounded-full"
           style={{
-            width: 4 + i,
-            height: 4 + i,
-            left: `${left}%`,
+            width: bubble.size,
+            height: bubble.size,
+            left: `${bubble.left}%`,
             bottom: '-20px',
-            background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.5), rgba(255,255,255,0.1))',
+            background: `radial-gradient(circle at 30% 30%,
+              rgba(255,255,255,0.7),
+              rgba(255,255,255,0.3) 50%,
+              rgba(255,255,255,0.1) 100%)`,
+            boxShadow: '0 0 4px rgba(255,255,255,0.3)',
           }}
           animate={{
-            y: [0, -800],
-            opacity: [0, 0.3, 0.3, 0],
-            x: [0, 10 - i * 2, -5 + i, 0],
+            y: [0, -900],
+            opacity: [0, 0.6, 0.5, 0.4, 0],
+            x: [0, 15 * Math.sin(i), -10 * Math.cos(i), 8 * Math.sin(i), 0],
+            scale: [1, 1.1, 1.05, 0.95, 0.9],
           }}
           transition={{
-            duration: 12,
-            delay: i * 2,
+            duration: bubble.duration,
+            delay: bubble.delay,
+            repeat: Infinity,
+            ease: 'easeOut',
+          }}
+        />
+      ))}
+
+      {/* 追加の大きな泡（3個、よりゆっくり）*/}
+      {[
+        { left: 20, size: 12, duration: 16, delay: 4 },
+        { left: 50, size: 14, duration: 18, delay: 6 },
+        { left: 80, size: 10, duration: 15, delay: 2 },
+      ].map((bubble, i) => (
+        <motion.div
+          key={`big-${i}`}
+          className="absolute rounded-full"
+          style={{
+            width: bubble.size,
+            height: bubble.size,
+            left: `${bubble.left}%`,
+            bottom: '-30px',
+            background: `radial-gradient(circle at 25% 25%,
+              rgba(255,255,255,0.5),
+              rgba(255,255,255,0.2) 60%,
+              rgba(255,255,255,0.05) 100%)`,
+            boxShadow: '0 0 8px rgba(255,255,255,0.2), inset 0 0 4px rgba(255,255,255,0.1)',
+          }}
+          animate={{
+            y: [0, -1000],
+            opacity: [0, 0.4, 0.35, 0.3, 0],
+            x: [0, 20, -15, 10, 0],
+            scale: [0.8, 1, 1.1, 1, 0.9],
+          }}
+          transition={{
+            duration: bubble.duration,
+            delay: bubble.delay,
             repeat: Infinity,
             ease: 'easeOut',
           }}
@@ -135,10 +196,11 @@ function CategoryCard({ category, index, themeStyle }) {
   const isOcean = themeStyle?.hasOceanEffect
 
   const cardStyle = isOcean ? {
-    background: 'rgba(255,255,255,0.15)',
-    backdropFilter: 'blur(20px)',
-    border: '1px solid rgba(255,255,255,0.25)',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+    background: 'rgba(255,255,255,0.25)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255,255,255,0.35)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
   } : {
     background: `linear-gradient(145deg, ${category.color}, ${category.color}dd)`,
     boxShadow: themeStyle?.shadow || '0 4px 20px rgba(0,0,0,0.08)',
@@ -146,13 +208,15 @@ function CategoryCard({ category, index, themeStyle }) {
 
   return (
     <motion.div
-      className="relative overflow-hidden rounded-2xl cursor-pointer"
+      className="relative overflow-hidden rounded-2xl cursor-pointer w-full"
       style={{
         ...cardStyle,
         aspectRatio: '1 / 0.75',
+        minHeight: '120px',
+        maxWidth: '400px',
       }}
       onClick={() => navigate(`/menu/${category.id}`)}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0.8, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08, duration: 0.3, ease: 'easeOut' }}
       whileTap={{ scale: 0.98 }}
@@ -253,7 +317,7 @@ export default function HomePage() {
           borderBottom: `1px solid ${currentBg.border}`,
         }}
       >
-        <div className="px-6 py-5 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-5 flex items-center justify-between max-w-[900px] mx-auto">
           <div>
             <h1
               className="text-base font-medium tracking-wide"
@@ -310,8 +374,8 @@ export default function HomePage() {
       </header>
 
       {/* メインコンテンツ：4カテゴリグリッド */}
-      <div className="px-6 pt-6 relative z-10">
-        <div className="grid grid-cols-2 gap-3.5">
+      <div className="px-4 sm:px-6 pt-6 max-w-[900px] mx-auto">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 justify-items-center">
           {categories.map((category, index) => (
             <CategoryCard
               key={category.id}
@@ -325,7 +389,7 @@ export default function HomePage() {
 
       {/* フッターメッセージ */}
       <motion.div
-        className="text-center mt-10 px-4"
+        className="text-center mt-10 px-4 max-w-[900px] mx-auto"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}

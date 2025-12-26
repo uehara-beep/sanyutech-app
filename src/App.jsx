@@ -3,7 +3,7 @@ import { Routes, Route } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
 import AIHelpButton from './components/AIHelpButton'
 import SplashScreen from './components/SplashScreen'
-import { useThemeStore } from './store'
+import { useThemeStore, backgroundStyles } from './store'
 
 // Pages
 import HomePage from './pages/HomePage'
@@ -38,6 +38,14 @@ import SearchPage from './pages/SearchPage'
 import CalendarPage from './pages/CalendarPage'
 import SitePage from './pages/SitePage'
 
+// 追加ページ
+import ClientsPage from './pages/ClientsPage'
+import SalesSchedulePage from './pages/SalesSchedulePage'
+import DailyReportPage from './pages/DailyReportPage'
+import DocumentsPage from './pages/DocumentsPage'
+import IncomePage from './pages/IncomePage'
+import ExpensePayPage from './pages/ExpensePayPage'
+
 // タスク17-24の新ページ
 import DrawingsPage from './pages/DrawingsPage'
 import PhotosPage from './pages/PhotosPage'
@@ -51,13 +59,15 @@ import QuotesPage from './pages/QuotesPage'
 import HotelSearch from './components/HotelSearch'
 
 export default function App() {
-  const { initTheme } = useThemeStore()
+  const { initTheme, backgroundId } = useThemeStore()
   const [showSplash, setShowSplash] = useState(true)
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
 
-  // アプリ起動時にテーマを初期化
+  // アプリ起動時にテーマを初期化（一度だけ実行）
   useEffect(() => {
     initTheme()
-  }, [initTheme])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // スプラッシュスクリーンを2秒後に非表示
   useEffect(() => {
@@ -68,7 +78,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
+    <div className="min-h-screen" style={{ background: currentBg.bg, color: 'var(--text)' }}>
       {/* スプラッシュスクリーン */}
       <SplashScreen isVisible={showSplash} />
 
@@ -115,6 +125,14 @@ export default function App() {
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
+
+        {/* 追加機能 */}
+        <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/sales-schedule" element={<SalesSchedulePage />} />
+        <Route path="/daily-report" element={<DailyReportPage />} />
+        <Route path="/documents" element={<DocumentsPage />} />
+        <Route path="/income" element={<IncomePage />} />
+        <Route path="/expense-pay" element={<ExpensePayPage />} />
 
         {/* タスク17-24: 新機能 */}
         <Route path="/drawings" element={<DrawingsPage />} />

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, HeaderButton, Tabs, Card, Badge, SectionTitle, Button, Modal, Input, Select, Toast } from '../components/common'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 const tabs = [
   { id: 'today', label: '今日' },
@@ -13,6 +14,8 @@ const tabs = [
 
 export default function DantoriPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [activeTab, setActiveTab] = useState('today')
   const [showAddModal, setShowAddModal] = useState(false)
   const [projects, setProjects] = useState([])
@@ -67,12 +70,12 @@ export default function DantoriPage() {
   }))
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="段取りくん"
         icon="🚧"
         gradient="from-emerald-900 to-emerald-500"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
         rightAction={<HeaderButton onClick={() => setShowAddModal(true)}>＋ 現場</HeaderButton>}
       />
 
@@ -80,7 +83,7 @@ export default function DantoriPage() {
 
       <div className="px-5">
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
         ) : (
           <>
             {activeTab === 'today' && <TodayView sites={sites} workers={workers} assignments={assignments} onRefresh={fetchData} showToast={showToast} />}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 const TAGS = [
   { value: 'client', label: '元請け', color: 'bg-blue-500/20 text-blue-400' },
@@ -13,6 +14,15 @@ const TAGS = [
 
 export default function BusinessCardsPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const cardBg = isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.95)'
+  const cardBorder = isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(60,60,62,1)'
+  const inputBg = isOcean ? 'rgba(255,255,255,0.1)' : isLightTheme ? 'rgba(0,0,0,0.05)' : '#1f1f1f'
+
   const [cards, setCards] = useState([])
   const [grouped, setGrouped] = useState({})
   const [loading, setLoading] = useState(true)
@@ -194,17 +204,17 @@ export default function BusinessCardsPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="名刺図書館"
         icon="📇"
         gradient="from-purple-700 to-purple-500"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       <div className="px-5 py-4">
         {/* 名刺撮影ボタン */}
-        <label className="flex items-center justify-center gap-2 py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-sm font-bold cursor-pointer">
+        <label className="flex items-center justify-center gap-2 py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-sm font-bold cursor-pointer text-white">
           📷 名刺を撮影して登録
           <input
             type="file"
@@ -222,9 +232,10 @@ export default function BusinessCardsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="会社名・氏名・メモで検索"
-            className="w-full bg-slate-800 rounded-xl px-4 py-3 pl-10 text-sm"
+            className="w-full rounded-xl px-4 py-3 pl-10 text-sm"
+            style={{ background: inputBg, color: currentBg.text }}
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: currentBg.textLight }}>🔍</span>
         </div>
 
         {/* フィルター */}
@@ -232,16 +243,18 @@ export default function BusinessCardsPage() {
           <button
             onClick={() => setShowFavorites(!showFavorites)}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
-              showFavorites ? 'bg-yellow-500/20 text-yellow-400' : 'bg-slate-700 text-slate-400'
+              showFavorites ? 'bg-yellow-500/20 text-yellow-400' : ''
             }`}
+            style={!showFavorites ? { background: inputBg, color: currentBg.textLight } : {}}
           >
             ⭐ お気に入り
           </button>
           <button
             onClick={() => setActiveTag('')}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
-              !activeTag ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-400'
+              !activeTag ? 'bg-blue-500/20 text-blue-400' : ''
             }`}
+            style={activeTag ? { background: inputBg, color: currentBg.textLight } : {}}
           >
             すべて
           </button>
@@ -250,8 +263,9 @@ export default function BusinessCardsPage() {
               key={tag.value}
               onClick={() => setActiveTag(tag.value)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
-                activeTag === tag.value ? tag.color : 'bg-slate-700 text-slate-400'
+                activeTag === tag.value ? tag.color : ''
               }`}
+              style={activeTag !== tag.value ? { background: inputBg, color: currentBg.textLight } : {}}
             >
               {tag.label}
             </button>
@@ -260,9 +274,9 @@ export default function BusinessCardsPage() {
 
         {/* 名刺一覧（会社別グループ） */}
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
+          <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
         ) : Object.keys(grouped).length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
+          <div className="text-center py-12" style={{ color: currentBg.textLight }}>
             <div className="text-5xl mb-3">📇</div>
             <div className="text-lg mb-1">名刺がありません</div>
             <div className="text-xs">名刺を撮影して登録しましょう</div>
@@ -270,10 +284,10 @@ export default function BusinessCardsPage() {
         ) : (
           Object.entries(grouped).map(([company, companyCards]) => (
             <div key={company} className="mb-6">
-              <div className="text-sm font-bold text-slate-300 mb-2 flex items-center gap-2">
+              <div className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: currentBg.textLight }}>
                 <span className="text-lg">🏢</span>
                 {company}
-                <span className="text-xs text-slate-500">({companyCards.length})</span>
+                <span className="text-xs" style={{ color: currentBg.textLight }}>({companyCards.length})</span>
               </div>
               {companyCards.map((card, i) => (
                 <motion.div
@@ -283,17 +297,17 @@ export default function BusinessCardsPage() {
                   transition={{ delay: i * 0.05 }}
                   onClick={() => openCardDetail(card)}
                 >
-                  <Card className="mb-2 cursor-pointer hover:bg-slate-700/50">
+                  <Card className="mb-2 cursor-pointer hover:opacity-80">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-purple-400 flex items-center justify-center text-xl font-bold">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-purple-400 flex items-center justify-center text-xl font-bold text-white">
                         {card.person_name?.charAt(0) || '?'}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm truncate">{card.person_name}</span>
+                          <span className="font-semibold text-sm truncate" style={{ color: currentBg.text }}>{card.person_name}</span>
                           {card.is_favorite && <span>⭐</span>}
                         </div>
-                        <div className="text-xs text-slate-400 truncate">
+                        <div className="text-xs truncate" style={{ color: currentBg.textLight }}>
                           {[card.department, card.position].filter(Boolean).join(' / ')}
                         </div>
                       </div>
@@ -310,7 +324,7 @@ export default function BusinessCardsPage() {
                       </div>
                     </div>
                     {/* クイックアクション */}
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-slate-700">
+                    <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
                       {card.phone && (
                         <a
                           href={`tel:${card.phone}`}
@@ -358,121 +372,131 @@ export default function BusinessCardsPage() {
             onClick={() => { setShowModal(false); resetForm(); setScanning(false) }}
           >
             <motion.div
-              className="w-full bg-slate-800 rounded-t-2xl p-5 max-h-[85vh] overflow-auto"
+              className="w-full rounded-t-2xl p-5 max-h-[85vh] overflow-auto"
+              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold">
+                <h3 className="text-lg font-bold" style={{ color: currentBg.text }}>
                   {scanning ? '🔍 名刺を読み取り中...' : selectedCard ? '📇 名刺を編集' : '📇 名刺を登録'}
                 </h3>
-                <button onClick={() => { setShowModal(false); resetForm(); setScanning(false) }} className="text-2xl">×</button>
+                <button onClick={() => { setShowModal(false); resetForm(); setScanning(false) }} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
               </div>
 
               {scanning ? (
                 <div className="text-center py-16">
                   <div className="text-6xl mb-4 animate-pulse">📇</div>
-                  <div className="text-slate-300">AIが名刺を解析しています...</div>
-                  <div className="text-xs text-slate-500 mt-2">会社名・氏名・連絡先を自動認識</div>
+                  <div style={{ color: currentBg.textLight }}>AIが名刺を解析しています...</div>
+                  <div className="text-xs mt-2" style={{ color: currentBg.textLight }}>会社名・氏名・連絡先を自動認識</div>
                 </div>
               ) : (
                 <>
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
-                        <label className="text-xs text-slate-400 mb-1 block">会社名</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>会社名</label>
                         <input
                           type="text"
                           value={form.company_name}
                           onChange={(e) => setForm({ ...form, company_name: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="株式会社サンプル"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-slate-400 mb-1 block">氏名 *</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>氏名 *</label>
                         <input
                           type="text"
                           value={form.person_name}
                           onChange={(e) => setForm({ ...form, person_name: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="山田 太郎"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-slate-400 mb-1 block">役職</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>役職</label>
                         <input
                           type="text"
                           value={form.position}
                           onChange={(e) => setForm({ ...form, position: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="部長"
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="text-xs text-slate-400 mb-1 block">部署</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>部署</label>
                         <input
                           type="text"
                           value={form.department}
                           onChange={(e) => setForm({ ...form, department: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="営業部"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-slate-400 mb-1 block">電話番号</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>電話番号</label>
                         <input
                           type="tel"
                           value={form.phone}
                           onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="03-1234-5678"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-slate-400 mb-1 block">携帯番号</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>携帯番号</label>
                         <input
                           type="tel"
                           value={form.mobile}
                           onChange={(e) => setForm({ ...form, mobile: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="090-1234-5678"
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="text-xs text-slate-400 mb-1 block">メールアドレス</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>メールアドレス</label>
                         <input
                           type="email"
                           value={form.email}
                           onChange={(e) => setForm({ ...form, email: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="example@company.co.jp"
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="text-xs text-slate-400 mb-1 block">住所</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>住所</label>
                         <input
                           type="text"
                           value={form.address}
                           onChange={(e) => setForm({ ...form, address: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="東京都千代田区..."
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="text-xs text-slate-400 mb-1 block">URL</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>URL</label>
                         <input
                           type="url"
                           value={form.url}
                           onChange={(e) => setForm({ ...form, url: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                          className="w-full rounded-lg px-4 py-3 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
                           placeholder="https://example.com"
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="text-xs text-slate-400 mb-1 block">タグ</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>タグ</label>
                         <div className="flex gap-2 flex-wrap">
                           {TAGS.map(tag => (
                             <button
@@ -480,8 +504,9 @@ export default function BusinessCardsPage() {
                               type="button"
                               onClick={() => setForm({ ...form, tag: tag.value })}
                               className={`px-3 py-2 rounded-lg text-xs font-semibold ${
-                                form.tag === tag.value ? tag.color : 'bg-slate-700 text-slate-400'
+                                form.tag === tag.value ? tag.color : ''
                               }`}
+                              style={form.tag !== tag.value ? { background: inputBg, color: currentBg.textLight } : {}}
                             >
                               {tag.label}
                             </button>
@@ -489,11 +514,12 @@ export default function BusinessCardsPage() {
                         </div>
                       </div>
                       <div className="col-span-2">
-                        <label className="text-xs text-slate-400 mb-1 block">メモ</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>メモ</label>
                         <textarea
                           value={form.memo}
                           onChange={(e) => setForm({ ...form, memo: e.target.value })}
-                          className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm resize-none"
+                          className="w-full rounded-lg px-4 py-3 text-sm resize-none"
+                          style={{ background: inputBg, color: currentBg.text }}
                           rows={2}
                           placeholder="メモを入力"
                         />
@@ -511,13 +537,14 @@ export default function BusinessCardsPage() {
                       )}
                       <button
                         onClick={() => { setShowModal(false); resetForm() }}
-                        className="flex-1 py-3 bg-slate-700 rounded-xl font-bold"
+                        className="flex-1 py-3 rounded-xl font-bold"
+                        style={{ background: inputBg, color: currentBg.textLight }}
                       >
                         キャンセル
                       </button>
                       <button
                         onClick={handleSubmit}
-                        className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold"
+                        className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-white"
                       >
                         {selectedCard ? '更新する' : '登録する'}
                       </button>

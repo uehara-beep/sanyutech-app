@@ -7,6 +7,7 @@ import {
   UserPlus, MessageSquare
 } from 'lucide-react'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 // 宿泊予約サイト
 const bookingSites = [
@@ -66,6 +67,15 @@ const bookingSites = [
 
 export default function HotelSearch() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const cardBg = isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.95)'
+  const cardBorder = isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(60,60,62,1)'
+  const inputBg = isOcean ? 'rgba(255,255,255,0.1)' : isLightTheme ? 'rgba(0,0,0,0.05)' : '#1f1f1f'
+
   const [projects, setProjects] = useState([])
   const [members, setMembers] = useState([])
   const [selectedProject, setSelectedProject] = useState(null)
@@ -231,71 +241,74 @@ export default function HotelSearch() {
   }
 
   return (
-    <div className="min-h-screen pb-24 bg-[#1c1c1e]">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       {/* ヘッダー */}
-      <header className="bg-[#2c2c2e] border-b border-[#3c3c3e] sticky top-0 z-50">
+      <header className="sticky top-0 z-50" style={{ background: cardBg, borderBottom: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}>
         <div className="px-4 py-3 flex items-center gap-3">
           <motion.button
-            className="w-10 h-10 bg-[#3c3c3e] rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: inputBg }}
             onClick={() => navigate(-1)}
             whileTap={{ scale: 0.95 }}
           >
-            <ArrowLeft size={20} className="text-white" />
+            <ArrowLeft size={20} style={{ color: currentBg.text }} />
           </motion.button>
           <div className="flex items-center gap-2">
             <Hotel size={20} className="text-blue-400" />
-            <h1 className="text-lg font-bold text-white">ホテル検索</h1>
+            <h1 className="text-lg font-bold" style={{ color: currentBg.text }}>ホテル検索</h1>
           </div>
         </div>
       </header>
 
       <div className="p-4 space-y-4">
         {/* 工事から選択 */}
-        <div className="bg-[#2c2c2e] rounded-2xl p-4 border border-[#3c3c3e]">
+        <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}>
           <div className="flex items-center gap-2 mb-3">
             <Building2 size={18} className="text-orange-400" />
-            <span className="text-sm font-bold text-white">工事現場から選択</span>
+            <span className="text-sm font-bold" style={{ color: currentBg.text }}>工事現場から選択</span>
           </div>
 
           <div className="relative">
             <button
-              className="w-full bg-[#3c3c3e] rounded-xl p-3 text-left flex items-center justify-between"
+              className="w-full rounded-xl p-3 text-left flex items-center justify-between"
+              style={{ background: inputBg }}
               onClick={() => setShowProjectDropdown(!showProjectDropdown)}
             >
               <div className="flex-1">
                 {selectedProject ? (
                   <div>
-                    <div className="text-white font-medium">{selectedProject.name}</div>
-                    <div className="text-gray-400 text-xs flex items-center gap-1 mt-0.5">
+                    <div className="font-medium" style={{ color: currentBg.text }}>{selectedProject.name}</div>
+                    <div className="text-xs flex items-center gap-1 mt-0.5" style={{ color: currentBg.textLight }}>
                       <MapPin size={10} />
                       {selectedProject.address}
                     </div>
                   </div>
                 ) : (
-                  <span className="text-gray-400">工事を選択...</span>
+                  <span style={{ color: currentBg.textLight }}>工事を選択...</span>
                 )}
               </div>
-              <ChevronDown size={18} className="text-gray-400" />
+              <ChevronDown size={18} style={{ color: currentBg.textLight }} />
             </button>
 
             {showProjectDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#3c3c3e] rounded-xl shadow-xl border border-[#4c4c4e] max-h-60 overflow-y-auto z-10">
+              <div className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-xl max-h-60 overflow-y-auto z-10" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
                 {projects.length > 0 ? (
                   projects.map((project) => (
                     <button
                       key={project.id}
-                      className="w-full p-3 text-left hover:bg-[#4c4c4e] border-b border-[#4c4c4e] last:border-b-0"
+                      className="w-full p-3 text-left hover:opacity-80"
+                      style={{ borderBottom: `1px solid ${cardBorder}` }}
                       onClick={() => handleSelectProject(project)}
                     >
-                      <div className="text-white text-sm font-medium">{project.name}</div>
-                      <div className="text-gray-400 text-xs flex items-center gap-1 mt-1">
+                      <div className="text-sm font-medium" style={{ color: currentBg.text }}>{project.name}</div>
+                      <div className="text-xs flex items-center gap-1 mt-1" style={{ color: currentBg.textLight }}>
                         <MapPin size={12} />
                         {project.address}
                       </div>
                     </button>
                   ))
                 ) : (
-                  <div className="p-3 text-gray-400 text-sm text-center">
+                  <div className="p-3 text-sm text-center" style={{ color: currentBg.textLight }}>
                     住所が登録された工事がありません
                   </div>
                 )}
@@ -305,14 +318,15 @@ export default function HotelSearch() {
         </div>
 
         {/* 住所入力 */}
-        <div className="bg-[#2c2c2e] rounded-2xl p-4 border border-[#3c3c3e]">
+        <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}>
           <div className="flex items-center gap-2 mb-3">
             <MapPin size={18} className="text-emerald-400" />
-            <span className="text-sm font-bold text-white">検索住所</span>
+            <span className="text-sm font-bold" style={{ color: currentBg.text }}>検索住所</span>
           </div>
           <input
             type="text"
-            className="w-full bg-[#3c3c3e] rounded-xl p-3 text-white placeholder-gray-400"
+            className="w-full rounded-xl p-3"
+            style={{ background: inputBg, color: currentBg.text }}
             placeholder="住所を入力（例：東京都渋谷区）"
             value={searchAddress}
             onChange={(e) => setSearchAddress(e.target.value)}
@@ -320,28 +334,30 @@ export default function HotelSearch() {
         </div>
 
         {/* 日付 */}
-        <div className="bg-[#2c2c2e] rounded-2xl p-4 border border-[#3c3c3e]">
+        <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}>
           <div className="flex items-center gap-2 mb-3">
             <Calendar size={18} className="text-purple-400" />
-            <span className="text-sm font-bold text-white">宿泊日程</span>
+            <span className="text-sm font-bold" style={{ color: currentBg.text }}>宿泊日程</span>
             <span className="text-xs text-orange-400 ml-auto">{calculateNights()}泊</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-400 mb-1 block">チェックイン</label>
+              <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>チェックイン</label>
               <input
                 type="date"
-                className="w-full bg-[#3c3c3e] rounded-xl p-3 text-white"
+                className="w-full rounded-xl p-3"
+                style={{ background: inputBg, color: currentBg.text }}
                 value={checkin}
                 onChange={(e) => setCheckin(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-xs text-gray-400 mb-1 block">チェックアウト</label>
+              <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>チェックアウト</label>
               <input
                 type="date"
-                className="w-full bg-[#3c3c3e] rounded-xl p-3 text-white"
+                className="w-full rounded-xl p-3"
+                style={{ background: inputBg, color: currentBg.text }}
                 value={checkout}
                 onChange={(e) => setCheckout(e.target.value)}
               />
@@ -350,21 +366,21 @@ export default function HotelSearch() {
         </div>
 
         {/* メンバー選択 */}
-        <div className="bg-[#2c2c2e] rounded-2xl p-4 border border-[#3c3c3e]">
+        <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}>
           <button
             className="w-full flex items-center justify-between"
             onClick={() => setShowMemberSection(!showMemberSection)}
           >
             <div className="flex items-center gap-2">
               <Users size={18} className="text-blue-400" />
-              <span className="text-sm font-bold text-white">宿泊メンバー</span>
+              <span className="text-sm font-bold" style={{ color: currentBg.text }}>宿泊メンバー</span>
               {selectedMembers.length > 0 && (
                 <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
                   {selectedMembers.length}名
                 </span>
               )}
             </div>
-            <ChevronDown size={18} className={`text-gray-400 transition-transform ${showMemberSection ? 'rotate-180' : ''}`} />
+            <ChevronDown size={18} className={`transition-transform ${showMemberSection ? 'rotate-180' : ''}`} style={{ color: currentBg.textLight }} />
           </button>
 
           {showMemberSection && (
@@ -377,18 +393,19 @@ export default function HotelSearch() {
                     className={`p-2 rounded-lg text-left flex items-center gap-2 ${
                       selectedMembers.includes(member.name)
                         ? 'bg-blue-500/20 border border-blue-500'
-                        : 'bg-[#3c3c3e] border border-transparent'
+                        : 'border border-transparent'
                     }`}
+                    style={!selectedMembers.includes(member.name) ? { background: inputBg } : {}}
                     onClick={() => toggleMember(member.name)}
                   >
                     <div className={`w-5 h-5 rounded flex items-center justify-center ${
-                      selectedMembers.includes(member.name) ? 'bg-blue-500' : 'bg-[#4c4c4e]'
-                    }`}>
+                      selectedMembers.includes(member.name) ? 'bg-blue-500' : ''
+                    }`} style={!selectedMembers.includes(member.name) ? { background: cardBorder } : {}}>
                       {selectedMembers.includes(member.name) && <Check size={14} className="text-white" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-white text-sm truncate">{member.name}</div>
-                      <div className="text-gray-400 text-[10px]">{member.department}</div>
+                      <div className="text-sm truncate" style={{ color: currentBg.text }}>{member.name}</div>
+                      <div className="text-[10px]" style={{ color: currentBg.textLight }}>{member.department}</div>
                     </div>
                   </button>
                 ))}
@@ -398,17 +415,19 @@ export default function HotelSearch() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  className="flex-1 bg-[#3c3c3e] rounded-lg p-2 text-white text-sm placeholder-gray-400"
+                  className="flex-1 rounded-lg p-2 text-sm"
+                  style={{ background: inputBg, color: currentBg.text }}
                   placeholder="メンバーを手入力..."
                   value={manualMember}
                   onChange={(e) => setManualMember(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addManualMember()}
                 />
                 <button
-                  className="bg-[#3c3c3e] rounded-lg px-3 flex items-center"
+                  className="rounded-lg px-3 flex items-center"
+                  style={{ background: inputBg }}
                   onClick={addManualMember}
                 >
-                  <UserPlus size={16} className="text-gray-400" />
+                  <UserPlus size={16} style={{ color: currentBg.textLight }} />
                 </button>
               </div>
 
@@ -463,10 +482,10 @@ export default function HotelSearch() {
         </motion.button>
 
         {/* 予約サイト */}
-        <div className="bg-[#2c2c2e] rounded-2xl p-4 border border-[#3c3c3e]">
+        <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}>
           <div className="flex items-center gap-2 mb-3">
             <Search size={18} className="text-blue-400" />
-            <span className="text-sm font-bold text-white">自分で検索</span>
+            <span className="text-sm font-bold" style={{ color: currentBg.text }}>自分で検索</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -488,8 +507,8 @@ export default function HotelSearch() {
         </div>
 
         {/* 使い方ヒント */}
-        <div className="bg-[#2c2c2e]/50 rounded-2xl p-4 border border-[#3c3c3e]">
-          <div className="text-xs text-gray-400 space-y-1">
+        <div className="rounded-2xl p-4" style={{ background: isOcean ? 'rgba(255,255,255,0.05)' : cardBg, border: `1px solid ${cardBorder}` }}>
+          <div className="text-xs space-y-1" style={{ color: currentBg.textLight }}>
             <p>💡 工事現場を選択すると住所が自動入力されます</p>
             <p>💡 メンバーを選択して「事務員さんに予約依頼」でLINE WORKSに送信</p>
             <p>💡 自分で検索する場合は各予約サイトボタンをタップ</p>

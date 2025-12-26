@@ -3,10 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle } from '../components/common'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 export default function SitePage() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [project, setProject] = useState(null)
   const [weather, setWeather] = useState(null)
   const [assignments, setAssignments] = useState([])
@@ -64,7 +67,7 @@ export default function SitePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBg.bg }}>
         <div className="text-center text-slate-400">
           <div className="text-4xl mb-2">⏳</div>
           <div>読み込み中...</div>
@@ -75,7 +78,7 @@ export default function SitePage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBg.bg }}>
         <div className="text-center text-slate-400">
           <div className="text-4xl mb-2">❌</div>
           <div>現場が見つかりません</div>
@@ -85,7 +88,7 @@ export default function SitePage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title={project.name}
         icon="🏗️"

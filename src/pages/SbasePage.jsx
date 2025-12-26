@@ -7,6 +7,7 @@ import { useRef } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { API_BASE } from '../config/api'
+import { useThemeStore, backgroundStyles } from '../store'
 
 // 金額フォーマット
 const formatMoney = (amount) => {
@@ -159,6 +160,8 @@ const generateEstimatePDF = (estimate, project) => {
 // ========================================
 export default function SbasePage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [searchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || 'list'
   const [activeTab, setActiveTab] = useState(initialTab)
@@ -341,12 +344,12 @@ export default function SbasePage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title="S-BASE 原価管理"
         icon="📊"
         gradient="from-orange-500 to-orange-600"
-        onBack={() => navigate('/')}
+        onBack={() => navigate(-1)}
       />
 
       {/* サマリーカード */}
@@ -1088,6 +1091,8 @@ function ReportView({ projects, dashboard }) {
 export function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [searchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || 'overview'
   const [project, setProject] = useState(null)
@@ -1423,7 +1428,7 @@ export function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24">
+      <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
         <Header title="工事詳細" icon="📊" gradient="from-orange-500 to-orange-600" onBack={() => navigate('/sbase')} />
         <div className="text-center py-12 text-slate-400">読み込み中...</div>
       </div>
@@ -1432,7 +1437,7 @@ export function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen pb-24">
+      <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
         <Header title="工事詳細" icon="📊" gradient="from-orange-500 to-orange-600" onBack={() => navigate('/sbase')} />
         <Empty icon="❌" title="工事が見つかりません" />
       </div>
@@ -1453,7 +1458,7 @@ export function ProjectDetailPage() {
   const totalProfitRate = orderAmount > 0 ? ((totalProfit / orderAmount) * 100).toFixed(1) : 0
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
         title={project.name}
         icon="📊"

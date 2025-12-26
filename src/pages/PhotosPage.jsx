@@ -2,10 +2,21 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/common'
+import { useThemeStore, backgroundStyles } from '../store'
 import { API_BASE } from '../config/api'
 
 export default function PhotosPage() {
   const navigate = useNavigate()
+  const { backgroundId } = useThemeStore()
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const isOcean = currentBg?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  // カードスタイル
+  const cardBg = isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,30,32,0.95)'
+  const cardBorder = isOcean ? 'rgba(255,255,255,0.18)' : isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(60,60,62,1)'
+  const inputBg = isOcean ? 'rgba(255,255,255,0.1)' : isLightTheme ? 'rgba(0,0,0,0.05)' : '#1f1f1f'
+
   const [photos, setPhotos] = useState([])
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState('')
@@ -62,14 +73,15 @@ export default function PhotosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-app-bg pb-20">
+    <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
       <PageHeader title="工事写真管理" onBack={() => navigate(-1)} />
 
       <div className="px-4 space-y-4">
         {/* フィルター */}
         <div className="flex gap-2">
           <select
-            className="flex-1 p-3 bg-card rounded-lg text-white border-0"
+            className="flex-1 p-3 rounded-lg border-0"
+            style={{ background: cardBg, color: currentBg.text, border: `1px solid ${cardBorder}` }}
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
           >
@@ -79,7 +91,8 @@ export default function PhotosPage() {
             ))}
           </select>
           <select
-            className="p-3 bg-card rounded-lg text-white border-0"
+            className="p-3 rounded-lg border-0"
+            style={{ background: cardBg, color: currentBg.text, border: `1px solid ${cardBorder}` }}
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
@@ -109,9 +122,11 @@ export default function PhotosPage() {
             <button
               key={c}
               onClick={() => setSelectedCategory(selectedCategory === c ? '' : c)}
-              className={`px-4 py-2 rounded-full whitespace-nowrap ${
-                selectedCategory === c ? 'bg-blue-500 text-white' : 'bg-card text-gray-400'
-              }`}
+              className="px-4 py-2 rounded-full whitespace-nowrap"
+              style={selectedCategory === c
+                ? { backgroundColor: '#3B82F6', color: '#fff' }
+                : { background: cardBg, color: currentBg.textLight, border: `1px solid ${cardBorder}` }
+              }
             >
               {c}
             </button>
@@ -125,7 +140,8 @@ export default function PhotosPage() {
               key={photo.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="aspect-square bg-card rounded-lg overflow-hidden relative"
+              className="aspect-square rounded-lg overflow-hidden relative"
+              style={{ background: cardBg, border: `1px solid ${cardBorder}` }}
               onClick={() => setViewPhoto(photo)}
             >
               <div className="absolute inset-0 flex items-center justify-center text-4xl">
@@ -139,7 +155,7 @@ export default function PhotosPage() {
         </div>
 
         {photos.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12" style={{ color: currentBg.textLight }}>
             写真がありません
           </div>
         )}
@@ -155,10 +171,10 @@ export default function PhotosPage() {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-8xl">🏗️</div>
           </div>
-          <div className="p-4 bg-card">
-            <div className="text-white font-bold">{viewPhoto.category}</div>
-            <div className="text-gray-400 text-sm">{viewPhoto.work_type}</div>
-            <div className="text-gray-500 text-xs mt-2">
+          <div className="p-4" style={{ background: cardBg }}>
+            <div className="font-bold" style={{ color: currentBg.text }}>{viewPhoto.category}</div>
+            <div className="text-sm" style={{ color: currentBg.textLight }}>{viewPhoto.work_type}</div>
+            <div className="text-xs mt-2" style={{ color: currentBg.textLight }}>
               {viewPhoto.taken_at && new Date(viewPhoto.taken_at).toLocaleString('ja-JP')}
               {viewPhoto.taken_by && ` by ${viewPhoto.taken_by}`}
             </div>
@@ -172,36 +188,37 @@ export default function PhotosPage() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-card p-6 rounded-xl w-full max-w-md"
+            className="p-6 rounded-xl w-full max-w-md"
+            style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
           >
-            <h3 className="text-lg font-bold text-white mb-4">写真登録</h3>
+            <h3 className="text-lg font-bold mb-4" style={{ color: currentBg.text }}>写真登録</h3>
             <form onSubmit={handleUpload} className="space-y-4">
               <div>
-                <label className="text-sm text-gray-400">案件</label>
-                <select name="project_id" required className="w-full p-3 bg-gray-800 rounded-lg text-white">
+                <label className="text-sm" style={{ color: currentBg.textLight }}>案件</label>
+                <select name="project_id" required className="w-full p-3 rounded-lg" style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }}>
                   {projects.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-sm text-gray-400">カテゴリ</label>
-                <select name="category" required className="w-full p-3 bg-gray-800 rounded-lg text-white">
+                <label className="text-sm" style={{ color: currentBg.textLight }}>カテゴリ</label>
+                <select name="category" required className="w-full p-3 rounded-lg" style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }}>
                   {categories.map(c => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-sm text-gray-400">工種</label>
-                <input name="work_type" className="w-full p-3 bg-gray-800 rounded-lg text-white" />
+                <label className="text-sm" style={{ color: currentBg.textLight }}>工種</label>
+                <input name="work_type" className="w-full p-3 rounded-lg" style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }} />
               </div>
               <div>
-                <label className="text-sm text-gray-400">撮影者</label>
-                <input name="taken_by" className="w-full p-3 bg-gray-800 rounded-lg text-white" />
+                <label className="text-sm" style={{ color: currentBg.textLight }}>撮影者</label>
+                <input name="taken_by" className="w-full p-3 rounded-lg" style={{ background: inputBg, color: currentBg.text, border: `1px solid ${cardBorder}` }} />
               </div>
               <div className="flex gap-3">
-                <button type="button" onClick={() => setShowUpload(false)} className="flex-1 py-3 bg-gray-700 rounded-lg">
+                <button type="button" onClick={() => setShowUpload(false)} className="flex-1 py-3 rounded-lg" style={{ background: inputBg, color: currentBg.text }}>
                   キャンセル
                 </button>
                 <button type="submit" className="flex-1 py-3 bg-blue-500 rounded-lg text-white">
