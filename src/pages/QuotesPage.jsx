@@ -48,13 +48,15 @@ export default function QuotesPage() {
     setTimeout(() => setToast({ ...toast, show: false }), 3000)
   }
 
-  // 見積一覧取得
+  // 見積一覧取得（未受注のみ）
   const fetchQuotes = async () => {
     try {
       const res = await fetch(`${API_BASE}/quotes`)
       if (res.ok) {
         const data = await res.json()
-        setQuotes(data)
+        // 未受注（project_idがない、かつstatusがorderedでない）のみ表示
+        const pendingQuotes = data.filter(q => !q.project_id && q.status !== 'ordered')
+        setQuotes(pendingQuotes)
       }
     } catch (error) {
       console.error('Failed to fetch quotes:', error)
@@ -153,26 +155,20 @@ export default function QuotesPage() {
 
   return (
     <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
-      <PageHeader title="見積書一覧" icon="📝" />
+      <PageHeader title="見積一覧" icon="📋" onBack={() => navigate(-1)} />
 
       <div className="p-4">
         {/* 新規作成ボタン */}
-        <div className="flex justify-between items-center mb-4">
-          <SectionTitle>見積書</SectionTitle>
-          <Button onClick={() => { setEditData(null); setShowModal(true) }}>
-            <Plus size={16} className="inline mr-1" />新規作成
+        <div className="flex gap-2 mb-4">
+          <Button className="flex-1" onClick={() => navigate('/quotes/new')}>
+            <Plus size={16} className="inline mr-1" />新規見積作成
+          </Button>
+          <Button onClick={() => navigate('/quotes/import')} style={{ background: inputBg }}>
+            📥 取込
           </Button>
         </div>
 
-        {/* 説明 */}
-        <Card className="mb-4 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-orange-500/30">
-          <div className="text-sm text-orange-400 font-medium mb-1">💡 新しいフロー</div>
-          <div className="text-xs" style={{ color: currentBg.textLight }}>
-            1. 見積書を作成（工事名・元請け・明細を入力）<br />
-            2. 「受注する」ボタンで工事・工種を自動作成<br />
-            3. 工事詳細で原価管理を開始
-          </div>
-        </Card>
+        <SectionTitle>未受注の見積書</SectionTitle>
 
         {/* 見積一覧 */}
         {loading ? (
@@ -211,41 +207,28 @@ export default function QuotesPage() {
 
                 {/* アクションボタン */}
                 <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
-                  {!quote.project_id && (
-                    <>
-                      <button
-                        onClick={() => handleConvertToOrder(quote.id)}
-                        className="flex-1 py-2 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-1"
-                        style={{ backgroundColor: theme.primary }}
-                      >
-                        <CheckCircle size={16} />
-                        受注する
-                      </button>
-                      <button
-                        onClick={() => { setEditData(quote); setShowModal(true) }}
-                        className="p-2 rounded-lg hover:opacity-80"
-                        style={{ background: inputBg, color: currentBg.textLight }}
-                      >
-                        <Edit3 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(quote.id)}
-                        className="p-2 rounded-lg text-red-400 hover:text-red-300"
-                        style={{ background: inputBg }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  )}
-                  {quote.project_id && (
-                    <button
-                      onClick={() => navigate(`/sbase/${quote.project_id}`)}
-                      className="flex-1 py-2 rounded-lg text-sm font-medium bg-emerald-500/20 text-emerald-400 flex items-center justify-center gap-1"
-                    >
-                      工事を見る
-                      <ChevronRight size={16} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleConvertToOrder(quote.id)}
+                    className="flex-1 py-2 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-1"
+                    style={{ backgroundColor: theme.primary }}
+                  >
+                    <CheckCircle size={16} />
+                    受注する
+                  </button>
+                  <button
+                    onClick={() => { setEditData(quote); setShowModal(true) }}
+                    className="p-2 rounded-lg hover:opacity-80"
+                    style={{ background: inputBg, color: currentBg.textLight }}
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(quote.id)}
+                    className="p-2 rounded-lg text-red-400 hover:text-red-300"
+                    style={{ background: inputBg }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </motion.div>
             ))}

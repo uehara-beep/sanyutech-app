@@ -56,6 +56,12 @@ import SettingsPage, { UsersPage, IntegrationsPage, ExportPage, LineWorksPage, C
 import AnalyticsPage from './pages/AnalyticsPage'
 import BusinessCardsPage from './pages/BusinessCardsPage'
 import QuotesPage from './pages/QuotesPage'
+import QuoteCreatePage from './pages/QuoteCreatePage'
+import QuoteImportPage from './pages/QuoteImportPage'
+import ClientRankingPage from './pages/ClientRankingPage'
+import WorkersPage from './pages/WorkersPage'
+import SitesPage from './pages/SitesPage'
+import ExpenseNewPage from './pages/ExpenseNewPage'
 import HotelSearch from './components/HotelSearch'
 
 export default function App() {
@@ -98,10 +104,13 @@ export default function App() {
 
         {/* 経理・事務 */}
         <Route path="/quotes" element={<QuotesPage />} />
+        <Route path="/quotes/new" element={<QuoteCreatePage />} />
+        <Route path="/quotes/import" element={<QuoteImportPage />} />
         <Route path="/invoice" element={<InvoicePage />} />
         <Route path="/price-master" element={<PriceMasterPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/expense" element={<ExpensePage />} />
+        <Route path="/expense/new" element={<ExpenseNewPage />} />
         <Route path="/approve" element={<ApprovePage />} />
 
         {/* 現場 */}
@@ -128,6 +137,9 @@ export default function App() {
 
         {/* 追加機能 */}
         <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/clients/ranking" element={<ClientRankingPage />} />
+        <Route path="/workers" element={<WorkersPage />} />
+        <Route path="/sites" element={<SitesPage />} />
         <Route path="/sales-schedule" element={<SalesSchedulePage />} />
         <Route path="/daily-report" element={<DailyReportPage />} />
         <Route path="/documents" element={<DocumentsPage />} />

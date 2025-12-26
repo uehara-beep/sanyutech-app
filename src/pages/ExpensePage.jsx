@@ -10,22 +10,10 @@ export default function ExpensePage() {
   const { backgroundId } = useThemeStore()
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const [expenses, setExpenses] = useState([])
-  const [projects, setProjects] = useState([])
   const [categories, setCategories] = useState([])
   const [fuelPrice, setFuelPrice] = useState(170)
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
   const [toast, setToast] = useState({ show: false, message: '' })
-
-  const [form, setForm] = useState({
-    category_id: '',
-    project_id: '',
-    amount: '',
-    fuel_liter: '',
-    fuel_type: 'regular',
-    store_name: '',
-    memo: '',
-  })
 
   useEffect(() => {
     fetchData()
@@ -33,18 +21,14 @@ export default function ExpensePage() {
 
   const fetchData = async () => {
     try {
-      const [expensesRes, projectsRes, categoriesRes, fuelPriceRes] = await Promise.all([
+      const [expensesRes, categoriesRes, fuelPriceRes] = await Promise.all([
         fetch(`${API_BASE}/expenses/`),
-        fetch(`${API_BASE}/projects`),
         fetch(`${API_BASE}/expense-categories/`),
         fetch(`${API_BASE}/fuel-prices/latest`).catch(() => null),
       ])
 
       if (expensesRes.ok) {
         setExpenses(await expensesRes.json())
-      }
-      if (projectsRes.ok) {
-        setProjects(await projectsRes.json())
       }
       if (categoriesRes.ok) {
         setCategories(await categoriesRes.json())
@@ -57,57 +41,6 @@ export default function ExpensePage() {
       console.error('Fetch error:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const selectedCategory = categories.find(c => c.id === parseInt(form.category_id))
-  const isFuelCategory = selectedCategory?.is_fuel
-
-  const handleSubmit = async () => {
-    try {
-      if (!form.project_id || !form.category_id) {
-        showToast('現場とカテゴリを選択してください')
-        return
-      }
-
-      const amount = isFuelCategory && form.fuel_liter
-        ? Math.round(parseFloat(form.fuel_liter) * fuelPrice)
-        : parseInt(form.amount) || 0
-
-      const res = await fetch(`${API_BASE}/expenses/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: parseInt(form.project_id),
-          category_id: parseInt(form.category_id),
-          expense_date: new Date().toISOString().split('T')[0],
-          amount: isFuelCategory ? null : amount,
-          fuel_type: isFuelCategory ? form.fuel_type : null,
-          fuel_liter: isFuelCategory ? parseFloat(form.fuel_liter) : null,
-          store_name: form.store_name || null,
-          memo: form.memo || null,
-        }),
-      })
-
-      if (res.ok) {
-        showToast('申請しました')
-        setShowForm(false)
-        setForm({
-          category_id: '',
-          project_id: '',
-          amount: '',
-          fuel_liter: '',
-          fuel_type: 'regular',
-          store_name: '',
-          memo: '',
-        })
-        fetchData()
-      } else {
-        const err = await res.json()
-        showToast(`エラー: ${err.detail || '保存に失敗しました'}`)
-      }
-    } catch (error) {
-      showToast('エラーが発生しました')
     }
   }
 
@@ -138,13 +71,13 @@ export default function ExpensePage() {
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
-        title="経費精算"
+        title="経費一覧"
         icon="💳"
         gradient="from-purple-800 to-purple-400"
         onBack={() => navigate(-1)}
         action={
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => navigate('/expense/new')}
             className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg"
           >
             +
@@ -215,153 +148,6 @@ export default function ExpensePage() {
           })
         )}
       </div>
-
-      {/* 申請フォームモーダル */}
-      {showForm && (
-        <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={() => setShowForm(false)}
-        >
-          <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-lg font-bold mb-6">経費申請</div>
-
-            {/* カテゴリ選択 */}
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">カテゴリ</label>
-              <div className="grid grid-cols-4 gap-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setForm({ ...form, category_id: String(cat.id) })}
-                    className={`py-3 rounded-xl text-center ${
-                      form.category_id === String(cat.id)
-                        ? 'bg-app-primary text-white'
-                        : 'bg-app-card text-slate-300'
-                    }`}
-                  >
-                    <div className="text-xl mb-1">{cat.icon || '📋'}</div>
-                    <div className="text-[10px]">{cat.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 現場選択 */}
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">現場</label>
-              <select
-                value={form.project_id}
-                onChange={(e) => setForm({ ...form, project_id: e.target.value })}
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              >
-                <option value="">選択してください</option>
-                {projects.filter(p => p.status === '施工中').map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* 金額入力 */}
-            {isFuelCategory ? (
-              <div className="mb-4">
-                <label className="text-sm text-slate-400 mb-2 block">給油量（L）</label>
-                <input
-                  type="number"
-                  value={form.fuel_liter}
-                  onChange={(e) => setForm({ ...form, fuel_liter: e.target.value })}
-                  placeholder="例: 45"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-                {form.fuel_liter && (
-                  <div className="mt-2 text-right text-app-primary font-bold">
-                    計算金額: ¥{Math.round(parseFloat(form.fuel_liter) * fuelPrice).toLocaleString()}
-                  </div>
-                )}
-                <div className="mt-2">
-                  <label className="text-sm text-slate-400 mb-2 block">燃料タイプ</label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setForm({ ...form, fuel_type: 'regular' })}
-                      className={`flex-1 py-2 rounded-xl text-sm ${
-                        form.fuel_type === 'regular' ? 'bg-app-primary text-white' : 'bg-app-card text-slate-300'
-                      }`}
-                    >
-                      レギュラー
-                    </button>
-                    <button
-                      onClick={() => setForm({ ...form, fuel_type: 'diesel' })}
-                      className={`flex-1 py-2 rounded-xl text-sm ${
-                        form.fuel_type === 'diesel' ? 'bg-app-primary text-white' : 'bg-app-card text-slate-300'
-                      }`}
-                    >
-                      軽油
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mb-4">
-                <label className="text-sm text-slate-400 mb-2 block">金額</label>
-                <input
-                  type="number"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  placeholder="¥0"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-              </div>
-            )}
-
-            {/* 店舗名 */}
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">店舗名（任意）</label>
-              <input
-                type="text"
-                value={form.store_name}
-                onChange={(e) => setForm({ ...form, store_name: e.target.value })}
-                placeholder="例: ENEOS、コンビニ"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            {/* 備考 */}
-            <div className="mb-6">
-              <label className="text-sm text-slate-400 mb-2 block">備考（任意）</label>
-              <input
-                type="text"
-                value={form.memo}
-                onChange={(e) => setForm({ ...form, memo: e.target.value })}
-                placeholder="メモを入力"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            {/* レシート写真 */}
-            <div className="mb-6">
-              <label className="text-sm text-slate-400 mb-2 block">レシート写真（任意）</label>
-              <button className="w-full py-4 border-2 border-dashed border-app-border rounded-xl text-slate-400 flex items-center justify-center gap-2">
-                <span className="text-2xl">📷</span>
-                <span>写真を追加</span>
-              </button>
-            </div>
-
-            {/* 送信ボタン */}
-            <button
-              onClick={handleSubmit}
-              className="w-full py-4 bg-app-primary rounded-xl font-bold text-white"
-            >
-              申請する
-            </button>
-          </motion.div>
-        </motion.div>
-      )}
 
       <Toast message={toast.message} isVisible={toast.show} />
     </div>

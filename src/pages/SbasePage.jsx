@@ -170,12 +170,11 @@ export default function SbasePage() {
   const [loading, setLoading] = useState(true)
   const [projectModal, setProjectModal] = useState({ open: false, data: null })
   const [toast, setToast] = useState({ show: false, message: '' })
-  const [filter, setFilter] = useState('all') // all, confirmed, prospect, lost
+  const [filter, setFilter] = useState('all') // all, ordered, in_progress, completed
   const fileInputRef = useRef(null)
 
   const tabs = [
-    { id: 'list', label: '工事一覧' },
-    { id: 'quotes', label: '見積書' },
+    { id: 'list', label: '案件一覧' },
     { id: 'report', label: 'レポート' },
   ]
 
@@ -187,7 +186,7 @@ export default function SbasePage() {
   // クエリパラメータが変わったらタブを切り替え
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab && ['list', 'quotes', 'report'].includes(tab)) {
+    if (tab && ['list', 'report'].includes(tab)) {
       setActiveTab(tab)
     }
   }, [searchParams])

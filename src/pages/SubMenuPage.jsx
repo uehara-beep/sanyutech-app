@@ -89,16 +89,16 @@ const categories = {
       {
         title: '見積管理',
         items: [
-          { name: '見積作成', description: '見積書を新規作成', path: '/sbase?tab=quotes&new=true', icon: FilePlus },
-          { name: '見積一覧', description: '見積ダッシュボード', path: '/sbase?tab=quotes', icon: FolderOpen },
-          { name: 'Excel取込', description: '過去見積の再利用', path: '/sbase?tab=quotes&import=true', icon: FileSpreadsheet },
+          { name: '見積作成', description: '見積書を新規作成', path: '/quotes/new', icon: FilePlus },
+          { name: '見積一覧', description: '未受注の見積書', path: '/quotes', icon: FolderOpen },
+          { name: 'Excel取込', description: '過去見積の再利用', path: '/quotes/import', icon: FileSpreadsheet },
         ]
       },
       {
         title: '顧客管理',
         items: [
           { name: '顧客管理', description: '元請け・発注者の管理', path: '/clients', icon: Users },
-          { name: '顧客別ランキング', description: '受注分析', path: '/analytics?view=clients', icon: Trophy },
+          { name: '顧客別ランキング', description: '受注分析', path: '/clients/ranking', icon: Trophy },
           { name: '名刺管理', description: '写真読み込み・保管（表裏対応）', path: '/business-cards', icon: CreditCard },
         ]
       },
@@ -126,7 +126,7 @@ const categories = {
         title: '段取りくん',
         items: [
           { name: '配置管理', description: '日別・週間の現場配置', path: '/dantori', icon: Calendar },
-          { name: '作業員管理', description: '社員・協力会社', path: '/dantori?tab=workers', icon: User },
+          { name: '作業員管理', description: '社員・協力会社', path: '/workers', icon: User },
           { name: '日報入力', description: '作業報告', path: '/daily-report', icon: ClipboardEdit },
         ]
       },
@@ -141,7 +141,7 @@ const categories = {
         items: [
           { name: '工事写真', description: '電子黒板対応', path: '/photos', icon: Camera },
           { name: '書類管理', description: '元請けPDF保存・閲覧', path: '/documents', icon: FileText },
-          { name: '現場位置', description: 'Googleマップ連携', path: '/sbase', icon: MapPin },
+          { name: '現場位置', description: 'Googleマップ連携', path: '/sites', icon: MapPin },
         ]
       },
       {
@@ -170,7 +170,7 @@ const categories = {
       {
         title: '経費精算',
         items: [
-          { name: '経費申請', description: 'レシート撮影→OCR', path: '/expense?mode=new', icon: Receipt },
+          { name: '経費申請', description: 'レシート撮影→OCR', path: '/expense/new', icon: Receipt },
           { name: '経費一覧', description: '月次集計・Excel出力', path: '/expense', icon: List },
         ]
       },
