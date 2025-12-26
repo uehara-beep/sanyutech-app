@@ -206,7 +206,7 @@ export default function BusinessCardsPage() {
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
-        title="名刺図書館"
+        title="名刺管理"
         icon="📇"
         gradient="from-purple-700 to-purple-500"
         onBack={() => navigate(-1)}

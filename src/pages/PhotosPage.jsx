@@ -74,7 +74,7 @@ export default function PhotosPage() {
 
   return (
     <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
-      <PageHeader title="工事写真管理" onBack={() => navigate(-1)} />
+      <PageHeader title="工事写真" onBack={() => navigate(-1)} />
 
       <div className="px-4 space-y-4">
         {/* フィルター */}

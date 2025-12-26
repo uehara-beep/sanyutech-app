@@ -100,7 +100,7 @@ export default function SubcontractorPage() {
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
-        title="協力会社"
+        title="業者マスタ"
         icon="🤝"
         gradient="from-yellow-700 to-yellow-400"
         onBack={() => navigate(-1)}

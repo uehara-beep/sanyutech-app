@@ -71,7 +71,7 @@ export default function AnalyticsPage() {
           <button onClick={() => navigate(-1)} className="p-1">
             <ChevronLeft className="w-6 h-6 text-white" />
           </button>
-          <h1 className="text-xl font-bold text-white">経営分析</h1>
+          <h1 className="text-xl font-bold text-white">経営ダッシュボード</h1>
         </div>
         <div className="flex justify-center mt-2">
           <div className="flex bg-white/20 rounded-lg p-1">

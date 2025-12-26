@@ -346,7 +346,7 @@ export default function SbasePage() {
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
-        title="S-BASE 原価管理"
+        title="案件一覧"
         icon="📊"
         gradient="from-orange-500 to-orange-600"
         onBack={() => navigate(-1)}

@@ -13,7 +13,7 @@ export default function WeatherPage() {
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
-        title="現場天気予報"
+        title="天気予報"
         icon="🌤️"
         gradient="from-sky-700 to-sky-400"
         onBack={() => navigate(-1)}

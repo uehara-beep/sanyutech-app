@@ -72,7 +72,7 @@ export default function DantoriPage() {
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
-        title="段取りくん"
+        title="配置管理"
         icon="🚧"
         gradient="from-emerald-900 to-emerald-500"
         onBack={() => navigate(-1)}
