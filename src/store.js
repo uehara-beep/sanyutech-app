@@ -15,12 +15,55 @@ export const themeColors = [
   { id: 'brown', name: 'ブラウン', emoji: '🤎', primary: '#795548', light: '#EFEBE9', dark: '#5D4037', desc: '落ち着き・土木系' },
 ]
 
-// 背景スタイル定義
+// 背景スタイル定義（3テーマ）
 export const backgroundStyles = [
-  { id: 'dark', name: 'ダーク', desc: '黒系', bg: '#1c1c1e', bgLight: '#2c2c2e', card: '#2c2c2e', cardHover: '#3c3c3e', border: '#3c3c3e', text: '#ffffff', textLight: '#8e8e93', shadow: '0 4px 12px rgba(0, 0, 0, 0.3)' },
-  { id: 'light', name: 'ライト', desc: '白系', bg: '#f5f5f7', bgLight: '#ffffff', card: '#ffffff', cardHover: '#f0f0f0', border: '#e5e5e5', text: '#1c1c1e', textLight: '#6e6e73', shadow: '0 4px 12px rgba(0, 0, 0, 0.1)' },
-  { id: 'gradient', name: 'グラデーション', desc: 'テーマカラー', bg: 'gradient', bgLight: '#2c2c2e', card: '#2c2c2e', cardHover: '#3c3c3e', border: '#3c3c3e', text: '#ffffff', textLight: '#8e8e93', shadow: '0 4px 12px rgba(0, 0, 0, 0.3)' },
-  { id: 'darkgray', name: 'ダークグレー', desc: 'グレー系', bg: '#2c2c2e', bgLight: '#3c3c3e', card: '#3c3c3e', cardHover: '#4c4c4e', border: '#4c4c4e', text: '#ffffff', textLight: '#8e8e93', shadow: '0 4px 12px rgba(0, 0, 0, 0.3)' },
+  {
+    id: 'white',
+    name: 'ホワイト',
+    desc: 'クリーンで明るい',
+    bg: '#ffffff',
+    bgLight: '#f5f5f5',
+    card: '#ffffff',
+    cardHover: '#f8f8f8',
+    border: 'rgba(0,0,0,0.08)',
+    text: '#333333',
+    textLight: '#888888',
+    shadow: '0 4px 20px rgba(0,0,0,0.08)',
+    headerBg: 'rgba(255, 255, 255, 0.9)',
+    navBg: 'rgba(255, 255, 255, 0.95)',
+  },
+  {
+    id: 'gray',
+    name: 'グレー',
+    desc: '落ち着いたビジネス向け',
+    bg: '#e8e8e8',
+    bgLight: '#d5d5d5',
+    card: 'rgba(255,255,255,0.5)',
+    cardHover: 'rgba(255,255,255,0.7)',
+    border: 'rgba(0,0,0,0.08)',
+    text: '#333333',
+    textLight: '#777777',
+    shadow: '0 4px 20px rgba(0,0,0,0.1)',
+    headerBg: 'rgba(230, 230, 230, 0.95)',
+    navBg: 'rgba(230, 230, 230, 0.98)',
+  },
+  {
+    id: 'ocean',
+    name: 'オーシャン',
+    desc: '浅瀬の海',
+    bg: 'linear-gradient(180deg, rgba(0, 210, 220, 0.85) 0%, rgba(0, 190, 200, 0.8) 30%, rgba(0, 170, 185, 0.75) 60%, rgba(0, 155, 170, 0.8) 100%)',
+    bgLight: 'rgba(0, 150, 170, 0.5)',
+    card: 'rgba(255,255,255,0.15)',
+    cardHover: 'rgba(255,255,255,0.22)',
+    border: 'rgba(255,255,255,0.25)',
+    text: '#ffffff',
+    textLight: 'rgba(255,255,255,0.7)',
+    shadow: '0 8px 32px rgba(0,0,0,0.12)',
+    headerBg: 'rgba(0, 150, 170, 0.6)',
+    navBg: 'rgba(0, 130, 150, 0.8)',
+    hasOceanEffect: true,
+    useGlassmorphism: true,
+  },
 ]
 
 // フォントサイズ定義
@@ -36,7 +79,7 @@ export const useThemeStore = create(
   persist(
     (set, get) => ({
       themeId: 'orange', // デフォルトはオレンジ
-      backgroundId: 'dark', // デフォルトはダーク
+      backgroundId: 'ocean', // デフォルトはオーシャン
       fontSizeId: 'medium', // デフォルトは中
 
       setTheme: (themeId) => {
@@ -70,13 +113,8 @@ export const useThemeStore = create(
 
       applyBackground: (backgroundId) => {
         const bg = backgroundStyles.find(b => b.id === backgroundId)
-        const theme = get().getCurrentTheme()
         if (bg) {
-          if (bg.id === 'gradient') {
-            document.documentElement.style.setProperty('--bg', `linear-gradient(135deg, ${theme.dark}, #1c1c1e)`)
-          } else {
-            document.documentElement.style.setProperty('--bg', bg.bg)
-          }
+          document.documentElement.style.setProperty('--bg', bg.bg)
           document.documentElement.style.setProperty('--bg-light', bg.bgLight)
           document.documentElement.style.setProperty('--card', bg.card)
           document.documentElement.style.setProperty('--card-hover', bg.cardHover)

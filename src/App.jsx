@@ -1,11 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
 import AIHelpButton from './components/AIHelpButton'
+import SplashScreen from './components/SplashScreen'
 import { useThemeStore } from './store'
 
 // Pages
 import HomePage from './pages/HomePage'
+import SubMenuPage from './pages/SubMenuPage'
 import DantoriPage from './pages/DantoriPage'
 import SbasePage, { ProjectDetailPage } from './pages/SbasePage'
 import ScanPage, { ScanResultPage } from './pages/ScanPage'
@@ -50,17 +52,30 @@ import HotelSearch from './components/HotelSearch'
 
 export default function App() {
   const { initTheme } = useThemeStore()
+  const [showSplash, setShowSplash] = useState(true)
 
   // アプリ起動時にテーマを初期化
   useEffect(() => {
     initTheme()
   }, [initTheme])
 
+  // スプラッシュスクリーンを2秒後に非表示
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false)
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
+      {/* スプラッシュスクリーン */}
+      <SplashScreen isVisible={showSplash} />
+
       <Routes>
         {/* メイン */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/menu/:category" element={<SubMenuPage />} />
         <Route path="/dantori" element={<DantoriPage />} />
         <Route path="/sbase" element={<SbasePage />} />
         <Route path="/sbase/:id" element={<ProjectDetailPage />} />

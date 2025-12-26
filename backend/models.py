@@ -12,8 +12,9 @@ class Project(Base):
     order_type = Column(String, default="一次請")
     prefecture = Column(String)
     probability = Column(String, default="確定")
-    order_amount = Column(Integer, default=0)
-    budget_amount = Column(Integer, default=0)
+    order_amount = Column(Integer, default=0)  # 受注額
+    sales_profit = Column(Integer, default=0)  # 営業利益（直接入力）
+    budget_amount = Column(Integer, default=0)  # 工事予算（自動計算: 受注額 - 営業利益）
     tax_rate = Column(Float, default=0.1)
     period = Column(String)  # 旧形式（後方互換）
     start_date = Column(Date)  # 工期開始日

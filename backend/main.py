@@ -47,7 +47,7 @@ app.add_middleware(
 
 # Pydantic Models
 class ProjectCreate(BaseModel):
-    code: str
+    code: Optional[str] = None
     name: str
     client: Optional[str] = None
     status: Optional[str] = "見積中"
@@ -55,6 +55,7 @@ class ProjectCreate(BaseModel):
     prefecture: Optional[str] = None
     probability: Optional[str] = "確定"
     order_amount: Optional[int] = 0
+    sales_profit: Optional[int] = 0
     budget_amount: Optional[int] = 0
     tax_rate: Optional[float] = 0.1
     period: Optional[str] = None
@@ -333,19 +334,34 @@ def get_projects(db: Session = Depends(get_db)):
     result = []
     for p in projects:
         total_cost = db.query(func.sum(Cost.amount)).filter(Cost.project_id == p.id).scalar() or 0
+        order_amount = p.order_amount or 0
+        sales_profit = p.sales_profit or 0  # DBから直接取得
+        budget_amount = order_amount - sales_profit  # 自動計算
+        construction_profit = budget_amount - total_cost
+        total_profit = sales_profit + construction_profit
+
+        # 利益率（対受注額）
+        sales_profit_rate = round((sales_profit / order_amount * 100), 1) if order_amount > 0 else 0
+        construction_profit_rate = round((construction_profit / order_amount * 100), 1) if order_amount > 0 else 0
+        total_profit_rate = round((total_profit / order_amount * 100), 1) if order_amount > 0 else 0
+
         result.append({
             "id": p.id, "code": p.code, "name": p.name, "client": p.client, "status": p.status,
             "order_type": p.order_type, "prefecture": p.prefecture, "probability": p.probability,
-            "order_amount": p.order_amount, "budget_amount": p.budget_amount, "tax_rate": p.tax_rate,
+            "order_amount": order_amount, "budget_amount": budget_amount, "tax_rate": p.tax_rate,
             "period": p.period, "sales_person": p.sales_person, "site_person": p.site_person,
             "address": p.address, "latitude": p.latitude, "longitude": p.longitude,
             "start_date": str(p.start_date) if p.start_date else None,
             "end_date": str(p.end_date) if p.end_date else None,
             "total_cost": total_cost,
-            "contract_amount": p.order_amount,  # 互換性のため
+            "contract_amount": order_amount,  # 互換性のため
             "actual_cost": total_cost,  # 互換性のため
-            "sales_profit": (p.order_amount or 0) - (p.budget_amount or 0),
-            "construction_profit": (p.budget_amount or 0) - total_cost,
+            "sales_profit": sales_profit,
+            "construction_profit": construction_profit,
+            "total_profit": total_profit,
+            "sales_profit_rate": sales_profit_rate,
+            "construction_profit_rate": construction_profit_rate,
+            "total_profit_rate": total_profit_rate,
         })
     return result
 
@@ -356,25 +372,46 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
     total_cost = db.query(func.sum(Cost.amount)).filter(Cost.project_id == p.id).scalar() or 0
+    order_amount = p.order_amount or 0
+    sales_profit = p.sales_profit or 0  # DBから直接取得
+    budget_amount = order_amount - sales_profit  # 自動計算
+    construction_profit = budget_amount - total_cost
+    total_profit = sales_profit + construction_profit
+
+    # 利益率（対受注額）
+    sales_profit_rate = round((sales_profit / order_amount * 100), 1) if order_amount > 0 else 0
+    construction_profit_rate = round((construction_profit / order_amount * 100), 1) if order_amount > 0 else 0
+    total_profit_rate = round((total_profit / order_amount * 100), 1) if order_amount > 0 else 0
+
     return {
         "id": p.id, "code": p.code, "name": p.name, "client": p.client, "status": p.status,
         "order_type": p.order_type, "prefecture": p.prefecture, "probability": p.probability,
-        "order_amount": p.order_amount, "budget_amount": p.budget_amount, "tax_rate": p.tax_rate,
+        "order_amount": order_amount, "budget_amount": budget_amount, "tax_rate": p.tax_rate,
         "period": p.period, "start_date": str(p.start_date) if p.start_date else None,
         "end_date": str(p.end_date) if p.end_date else None,
         "sales_person": p.sales_person, "site_person": p.site_person,
         "address": p.address, "latitude": p.latitude, "longitude": p.longitude,
         "total_cost": total_cost,
-        "contract_amount": p.order_amount,  # 互換性のため
-        "sales_profit": (p.order_amount or 0) - (p.budget_amount or 0),
-        "construction_profit": (p.budget_amount or 0) - total_cost,
+        "contract_amount": order_amount,  # 互換性のため
+        "sales_profit": sales_profit,
+        "construction_profit": construction_profit,
+        "total_profit": total_profit,
+        "sales_profit_rate": sales_profit_rate,
+        "construction_profit_rate": construction_profit_rate,
+        "total_profit_rate": total_profit_rate,
         "created_at": str(p.created_at) if p.created_at else None,
         "updated_at": str(p.updated_at) if p.updated_at else None,
     }
 
 @app.post("/api/projects")
 def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
-    db_project = Project(**project.dict())
+    project_data = project.dict()
+    # codeが未設定の場合は自動生成
+    if not project_data.get('code'):
+        import random
+        now = datetime.now()
+        project_data['code'] = f"P{now.strftime('%Y%m')}-{random.randint(100, 999)}"
+    db_project = Project(**project_data)
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
@@ -3642,6 +3679,17 @@ def create_lineworks_user(data: dict, db: Session = Depends(get_db)):
 def get_lineworks_logs(limit: int = 50, db: Session = Depends(get_db)):
     return db.query(LineWorksLog).order_by(LineWorksLog.sent_at.desc()).limit(limit).all()
 
+@app.get("/api/lineworks/unread-count")
+def get_lineworks_unread_count(db: Session = Depends(get_db)):
+    """LINE WORKS未読メッセージ数を取得（プレースホルダー）"""
+    # 実際のLINE WORKS APIとの連携が必要
+    # 現時点ではダミー値を返す
+    settings = db.query(LineWorksSettings).first()
+    if not settings or not settings.is_active:
+        return {"count": 0}
+    # TODO: LINE WORKS Message APIから未読数を取得
+    return {"count": 0}
+
 @app.post("/api/lineworks/send")
 async def send_lineworks_message(data: dict, db: Session = Depends(get_db)):
     """LINE WORKSメッセージ送信"""
@@ -4094,8 +4142,8 @@ def convert_quote_to_order(quote_id: int, db: Session = Depends(get_db)):
             project_id=project.id,
             seq=seq + 1,
             name=item.name,
-            dimension=item.specification or "",
-            design_qty=item.quantity,
+            spec=item.specification or "",
+            quantity=item.quantity,
             unit=item.unit,
             budget_unit_price=item.unit_price,
             budget_amount=item.amount,
@@ -4595,6 +4643,7 @@ async def import_estimate(file: UploadFile = File(...), db: Session = Depends(ge
 
             # 工種テーブルを探す
             in_table = False
+            seq_counter = 1
             for row in ws.iter_rows(min_row=10, max_row=100):
                 first_val = row[0].value
 
@@ -4604,46 +4653,44 @@ async def import_estimate(file: UploadFile = File(...), db: Session = Depends(ge
                     continue
 
                 # データ行
-                if in_table and first_val:
+                if in_table:
+                    name = ""
+                    amount = 0
+
+                    # 最初のセルが数値（No.）の場合
                     try:
                         no = int(first_val)
                         name = str(row[1].value).strip() if row[1].value else ""
-
-                        if name and "合計" not in name:
-                            # 列インデックスを柔軟に
-                            spec = ""
-                            quantity = 1
-                            unit = "式"
-                            amount = 0
-
-                            for i, cell in enumerate(row[2:], start=2):
-                                val = cell.value
-                                if val is None:
-                                    continue
-
-                                # 数値を金額として判定
-                                if isinstance(val, (int, float)) and val > 100:
-                                    amount = int(val)
-                                elif isinstance(val, (int, float)) and val <= 100:
-                                    quantity = float(val)
-                                elif isinstance(val, str):
-                                    if val in ["式", "m", "m2", "m3", "t", "台", "人", "日", "往復"]:
-                                        unit = val
-                                    elif len(val) > 2:
-                                        spec = val
-
-                            work_types_data.append({
-                                "seq": no,
-                                "name": name,
-                                "spec": spec,
-                                "quantity": quantity,
-                                "unit": unit,
-                                "amount": amount
-                            })
                     except (ValueError, TypeError):
-                        # 合計行などはスキップ
-                        if first_val and "合計" in str(first_val):
+                        # No.がない場合は最初のセルを名前として使用
+                        name = str(first_val).strip() if first_val else ""
+                        no = seq_counter
+
+                    # 合計行はスキップ
+                    if not name or "合計" in name:
+                        if "合計" in str(first_val or ""):
                             in_table = False
+                        continue
+
+                    # 金額を探す（一式 × 単価形式でシンプルに）
+                    for cell in row[1:]:
+                        val = cell.value
+                        if val is None:
+                            continue
+                        # 数値で1000以上なら金額として判定
+                        if isinstance(val, (int, float)) and val >= 1000:
+                            amount = int(val)
+
+                    if name and amount > 0:
+                        work_types_data.append({
+                            "seq": no,
+                            "name": name,
+                            "spec": "",
+                            "quantity": 1,
+                            "unit": "式",
+                            "amount": amount
+                        })
+                        seq_counter += 1
 
         # ============ 2. 内訳明細書シートから明細取得 ============
         all_details = {}  # 工種名 -> 明細リスト
@@ -4672,9 +4719,8 @@ async def import_estimate(file: UploadFile = File(...), db: Session = Depends(ge
                     if first_val in ["名称", "名　称", "品名"]:
                         continue
 
-                    # 集計行をスキップ
-                    skip_keywords = ["直接工事費", "機械回送費", "諸経費", "諸　経　費",
-                                    "値引き", "値 引 き", "法定福利費", "小計", "小　計"]
+                    # 合計・小計行のみスキップ（直接工事費・諸経費・法定福利費は取り込む）
+                    skip_keywords = ["小計", "小　計", "合計", "合　計"]
                     if any(kw in first_val for kw in skip_keywords):
                         continue
 
@@ -4756,16 +4802,19 @@ async def import_estimate(file: UploadFile = File(...), db: Session = Depends(ge
         db.refresh(project)
 
         # 工種が見つからなかった場合、内訳明細書のキーから作成
+        # ※内訳からの自動合計はしない。単価をそのまま使用
         if not work_types_data and all_details:
             for idx, (wt_name, details) in enumerate(all_details.items(), 1):
-                total_amount = sum(d.get("amount", 0) for d in details)
+                # 最初の明細の金額を単価として使用（自動合計しない）
+                first_detail = details[0] if details else {}
+                amount = first_detail.get("amount", 0) or first_detail.get("unit_price", 0)
                 work_types_data.append({
                     "seq": idx,
                     "name": wt_name,
-                    "spec": "内訳書別添え",
+                    "spec": "",
                     "quantity": 1,
                     "unit": "式",
-                    "amount": total_amount
+                    "amount": amount
                 })
 
         # 工種作成
@@ -4819,10 +4868,7 @@ async def import_estimate(file: UploadFile = File(...), db: Session = Depends(ge
                 db.add(detail)
                 total_details += 1
 
-            # 工種の予算金額を再計算
-            if details:
-                wt.budget_amount = sum(d.get("amount", 0) for d in details)
-                wt.estimate_amount = wt.budget_amount
+            # ※工種の予算金額は再計算しない（単価をそのまま使用）
 
         db.commit()
 

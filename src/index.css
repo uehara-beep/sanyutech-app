@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 :root {
-  /* ダークテーマ基本色 */
-  --bg: #1c1c1e;
-  --bg-light: #2c2c2e;
-  --card: #2c2c2e;
-  --card-hover: #3c3c3e;
+  /* 高級感のあるダークテーマ基本色 */
+  --bg: #0a0a0a;
+  --bg-light: #141414;
+  --card: #141414;
+  --card-hover: #1e1e1e;
   --text: #ffffff;
-  --text-light: #8e8e93;
-  --border: #3c3c3e;
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --text-light: #888888;
+  --border: #2a2a2a;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 
   /* テーマカラー（動的に変更される） */
-  --primary: #FF6B00;
-  --primary-dark: #E55A00;
-  --primary-light: #FFF5EE;
+  --primary: #ff6b35;
+  --primary-dark: #e55a25;
+  --primary-light: #fff5ee;
 
   /* 固定カラー */
-  --success: #30d158;
-  --warning: #ff9f0a;
-  --danger: #ff453a;
+  --success: #4CAF7D;
+  --warning: #D4924B;
+  --danger: #dc3545;
 }
 
 * {
