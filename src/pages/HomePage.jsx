@@ -1,12 +1,17 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { useAppStore, useThemeStore, useAuthStore, backgroundStyles, useDashboardStore, dashboardWidgets } from '../store'
+import { useAppStore, useThemeStore, useAuthStore, backgroundStyles, useDashboardStore, dashboardWidgets, kpiOptions } from '../store'
 import {
   Bell, Settings as SettingsIcon, ChevronRight, ClipboardList, HardHat, FileText, BarChart3,
-  FolderKanban, TrendingUp, AlertCircle, Percent,
+  FolderKanban, TrendingUp, AlertCircle, Percent, Receipt, CheckCircle, Clock, Users,
   LogOut, User
 } from 'lucide-react'
+
+// KPIアイコンマップ
+const kpiIconMap = {
+  FolderKanban, TrendingUp, AlertCircle, Percent, Receipt, CheckCircle, Clock, Users
+}
 import { API_BASE } from '../config/api'
 
 // モバイル用カテゴリ定義
@@ -223,13 +228,17 @@ export default function HomePage() {
   const { unreadCount } = useAppStore()
   const { backgroundId } = useThemeStore()
   const { user } = useAuthStore()
-  const { enabledWidgets } = useDashboardStore()
+  const { enabledWidgets, enabledKpis } = useDashboardStore()
   const [weather, setWeather] = useState(null)
   const [dashboardData, setDashboardData] = useState({
     activeProjects: 0,
     monthlySales: 0,
     unpaidAmount: 0,
-    profitRate: 0,
+    profitRate: 28.5,
+    monthlyExpense: 0,
+    completedProjects: 0,
+    pendingApprovals: 0,
+    workerCount: 0,
     recentProjects: [],
     notifications: [],
   })
@@ -258,9 +267,11 @@ export default function HomePage() {
         if (projectsRes.ok) {
           const projects = await projectsRes.json()
           const active = projects.filter(p => p.status === '進行中' || p.status === '受注').length
+          const completed = projects.filter(p => p.status === '完工').length
           setDashboardData(prev => ({
             ...prev,
             activeProjects: active,
+            completedProjects: completed,
             recentProjects: projects.slice(0, 5),
           }))
         }
@@ -282,12 +293,52 @@ export default function HomePage() {
             unpaidAmount: unpaid,
           }))
         }
+
+        // 経費データ取得
+        const expenseRes = await fetch(`${API_BASE}/expenses/`)
+        if (expenseRes.ok) {
+          const expenses = await expenseRes.json()
+          const thisMonth = new Date().getMonth()
+          const monthlyExpense = expenses
+            .filter(e => new Date(e.expense_date).getMonth() === thisMonth)
+            .reduce((sum, e) => sum + (e.amount || 0), 0)
+          setDashboardData(prev => ({ ...prev, monthlyExpense }))
+        }
+
+        // 承認待ち件数取得
+        const approvalRes = await fetch(`${API_BASE}/approvals/count`)
+        if (approvalRes.ok) {
+          const data = await approvalRes.json()
+          setDashboardData(prev => ({ ...prev, pendingApprovals: data.count || 0 }))
+        }
+
+        // 作業員数取得
+        const workersRes = await fetch(`${API_BASE}/workers/?field_only=true`)
+        if (workersRes.ok) {
+          const workers = await workersRes.json()
+          setDashboardData(prev => ({ ...prev, workerCount: workers.filter(w => w.is_field_worker).length }))
+        }
       } catch (e) {
         console.error('Dashboard fetch error:', e)
       }
     }
     fetchDashboard()
   }, [])
+
+  // KPIの値を取得するヘルパー
+  const getKpiValue = (kpiId) => {
+    switch (kpiId) {
+      case 'activeProjects': return `${dashboardData.activeProjects}件`
+      case 'monthlySales': return `¥${dashboardData.monthlySales > 0 ? (dashboardData.monthlySales / 10000).toFixed(0) : '0'}万`
+      case 'unpaidAmount': return `¥${dashboardData.unpaidAmount > 0 ? (dashboardData.unpaidAmount / 10000).toFixed(0) : '0'}万`
+      case 'profitRate': return `${dashboardData.profitRate}%`
+      case 'monthlyExpense': return `¥${dashboardData.monthlyExpense > 0 ? (dashboardData.monthlyExpense / 10000).toFixed(0) : '0'}万`
+      case 'completedProjects': return `${dashboardData.completedProjects}件`
+      case 'pendingApprovals': return `${dashboardData.pendingApprovals}件`
+      case 'workerCount': return `${dashboardData.workerCount}人`
+      default: return '0'
+    }
+  }
 
   return (
     <div className="min-h-screen relative" style={{ background: currentBg.bg }}>
@@ -375,41 +426,24 @@ export default function HomePage() {
         </header>
 
         {/* PC用ダッシュボード */}
-        <main className="hidden md:block p-6">
-          {/* KPIカード - 4つ横並び（常に表示） */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <KPICard
-              icon={FolderKanban}
-              label="進行中案件"
-              value={`${dashboardData.activeProjects}件`}
-              subValue="前月比 +2件"
-              color="#3B82F6"
-              isLightTheme={isLightTheme}
-            />
-            <KPICard
-              icon={TrendingUp}
-              label="今月売上"
-              value={`¥${dashboardData.monthlySales > 0 ? (dashboardData.monthlySales / 10000).toFixed(0) : '0'}万`}
-              subValue="前月比 +12%"
-              color="#10B981"
-              isLightTheme={isLightTheme}
-            />
-            <KPICard
-              icon={AlertCircle}
-              label="未請求"
-              value={`¥${dashboardData.unpaidAmount > 0 ? (dashboardData.unpaidAmount / 10000).toFixed(0) : '0'}万`}
-              subValue="3件"
-              color="#F59E0B"
-              isLightTheme={isLightTheme}
-            />
-            <KPICard
-              icon={Percent}
-              label="粗利率"
-              value="28.5%"
-              subValue="目標: 30%"
-              color="#8B5CF6"
-              isLightTheme={isLightTheme}
-            />
+        <main className="hidden md:block p-6 overflow-y-auto" style={{ height: 'calc(100vh - 110px)' }}>
+          {/* KPIカード - カスタマイズ可能 */}
+          <div className={`grid gap-4 mb-6`} style={{ gridTemplateColumns: `repeat(${enabledKpis.length}, 1fr)` }}>
+            {enabledKpis.map(kpiId => {
+              const kpi = kpiOptions.find(k => k.id === kpiId)
+              if (!kpi) return null
+              const Icon = kpiIconMap[kpi.icon]
+              return (
+                <KPICard
+                  key={kpiId}
+                  icon={Icon}
+                  label={kpi.name}
+                  value={getKpiValue(kpiId)}
+                  color={kpi.color}
+                  isLightTheme={isLightTheme}
+                />
+              )
+            })}
           </div>
 
           {/* カスタマイズ可能なウィジェットエリア */}

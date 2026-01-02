@@ -438,6 +438,18 @@ export const useWeatherStore = create((set) => ({
   refreshWeather: () => set({ lastUpdated: new Date().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }),
 }))
 
+// KPIカード定義
+export const kpiOptions = [
+  { id: 'activeProjects', name: '進行中案件', icon: 'FolderKanban', color: '#3B82F6', unit: '件' },
+  { id: 'monthlySales', name: '今月売上', icon: 'TrendingUp', color: '#10B981', unit: '万円' },
+  { id: 'unpaidAmount', name: '未請求', icon: 'AlertCircle', color: '#F59E0B', unit: '万円' },
+  { id: 'profitRate', name: '粗利率', icon: 'Percent', color: '#8B5CF6', unit: '%' },
+  { id: 'monthlyExpense', name: '今月経費', icon: 'Receipt', color: '#EF4444', unit: '万円' },
+  { id: 'completedProjects', name: '完了案件', icon: 'CheckCircle', color: '#06B6D4', unit: '件' },
+  { id: 'pendingApprovals', name: '承認待ち', icon: 'Clock', color: '#F97316', unit: '件' },
+  { id: 'workerCount', name: '作業員数', icon: 'Users', color: '#84CC16', unit: '人' },
+]
+
 // ダッシュボード設定用ウィジェット定義
 export const dashboardWidgets = [
   // 営業（現場台帳・顧客管理・営業活動）
@@ -491,6 +503,9 @@ export const useDashboardStore = create(
       // ウィジェットの順序
       widgetOrder: dashboardWidgets.filter(w => w.defaultEnabled).map(w => w.id),
 
+      // 有効なKPI（ID配列、4つまで）
+      enabledKpis: ['activeProjects', 'monthlySales', 'unpaidAmount', 'profitRate'],
+
       // ウィジェットを有効/無効にする
       toggleWidget: (widgetId) => {
         const state = get()
@@ -511,6 +526,29 @@ export const useDashboardStore = create(
         }
       },
 
+      // KPIを有効/無効にする（最大4つ）
+      toggleKpi: (kpiId) => {
+        const state = get()
+        const isEnabled = state.enabledKpis.includes(kpiId)
+
+        if (isEnabled) {
+          // 無効にする（最低1つは必要）
+          if (state.enabledKpis.length > 1) {
+            set({ enabledKpis: state.enabledKpis.filter(id => id !== kpiId) })
+          }
+        } else {
+          // 有効にする（最大4つ）
+          if (state.enabledKpis.length < 4) {
+            set({ enabledKpis: [...state.enabledKpis, kpiId] })
+          }
+        }
+      },
+
+      // KPIの順序を変更
+      setKpiOrder: (newOrder) => {
+        set({ enabledKpis: newOrder })
+      },
+
       // ウィジェットの順序を変更
       reorderWidgets: (newOrder) => {
         set({ widgetOrder: newOrder })
@@ -522,6 +560,7 @@ export const useDashboardStore = create(
         set({
           enabledWidgets: defaultEnabled,
           widgetOrder: defaultEnabled,
+          enabledKpis: ['activeProjects', 'monthlySales', 'unpaidAmount', 'profitRate'],
         })
       },
     }),

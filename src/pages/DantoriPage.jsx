@@ -354,22 +354,22 @@ function TodayView({ sites, workers, assignments, onRefresh, showToast }) {
 
       {/* 未配置作業員 */}
       {unassignedWorkers.length > 0 && (
-        <Card className="mt-4 border-2 border-dashed border-gray-400/30">
+        <Card className="mt-4 border-2 border-dashed border-gray-400/40">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">👤</span>
-            <span className="font-bold text-gray-400">未配置（{unassignedWorkers.length}人）</span>
+            <span className="font-bold text-gray-200">未配置（{unassignedWorkers.length}人）</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {unassignedWorkers.slice(0, 10).map((worker) => (
               <span
                 key={worker.id}
-                className="px-3 py-1.5 bg-gray-500/20 text-gray-300 rounded-lg text-sm"
+                className="px-3 py-1.5 bg-gray-600/40 text-white rounded-lg text-sm font-medium"
               >
                 {worker.name}
               </span>
             ))}
             {unassignedWorkers.length > 10 && (
-              <span className="px-3 py-1.5 bg-app-bg text-slate-400 rounded-lg text-sm">
+              <span className="px-3 py-1.5 bg-gray-600/40 text-white rounded-lg text-sm">
                 他{unassignedWorkers.length - 10}人
               </span>
             )}

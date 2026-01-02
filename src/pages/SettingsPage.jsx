@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon, RotateCcw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useThemeStore, themeColors, backgroundStyles, fontSizes, useAppStore, useAuthStore, useDashboardStore, dashboardWidgets, dashboardCategories } from '../store'
+import { useThemeStore, themeColors, backgroundStyles, fontSizes, useAppStore, useAuthStore, useDashboardStore, dashboardWidgets, dashboardCategories, kpiOptions } from '../store'
 import { ClipboardList, HardHat, FileText, BarChart3, ChevronDown } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const currentFontSize = getCurrentFontSize()
 
   // ダッシュボード設定
-  const { enabledWidgets, toggleWidget, resetToDefault } = useDashboardStore()
+  const { enabledWidgets, toggleWidget, resetToDefault, enabledKpis, toggleKpi } = useDashboardStore()
   const [expandedCategory, setExpandedCategory] = useState(null)
 
   // カテゴリアイコンマッピング
@@ -348,11 +348,70 @@ export default function SettingsPage() {
           </motion.div>
         </div>
 
+        {/* KPI設定 */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between px-1 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>
+              KPIカード設定（PC版ダッシュボード）
+            </div>
+            <span className="text-[10px] px-2 py-1 rounded-full" style={{ background: 'rgba(100,100,100,0.1)', color: currentBackground.textLight }}>
+              {enabledKpis.length}/4
+            </span>
+          </div>
+
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
+              border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}`,
+              backdropFilter: isOcean ? 'blur(10px)' : 'none',
+            }}
+          >
+            <div className="text-xs mb-3" style={{ color: currentBackground.textLight }}>
+              表示するKPIを選択（最大4つ）
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {kpiOptions.map((kpi) => {
+                const isEnabled = enabledKpis.includes(kpi.id)
+                const canToggle = isEnabled || enabledKpis.length < 4
+                return (
+                  <motion.button
+                    key={kpi.id}
+                    className={`p-3 rounded-xl flex items-center gap-2 transition-all ${!canToggle ? 'opacity-50' : ''}`}
+                    style={{
+                      background: isEnabled ? `${kpi.color}20` : isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)',
+                      border: `1px solid ${isEnabled ? kpi.color : 'transparent'}`,
+                    }}
+                    onClick={() => canToggle && toggleKpi(kpi.id)}
+                    whileTap={canToggle ? { scale: 0.97 } : {}}
+                    disabled={!canToggle}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ background: `${kpi.color}30` }}
+                    >
+                      <div className="w-4 h-4 rounded-full" style={{ background: kpi.color }} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-medium" style={{ color: currentBackground.text }}>
+                        {kpi.name}
+                      </div>
+                    </div>
+                    {isEnabled && (
+                      <Check size={16} style={{ color: kpi.color }} />
+                    )}
+                  </motion.button>
+                )
+              })}
+            </div>
+          </motion.div>
+        </div>
+
         {/* ダッシュボード設定 */}
         <div>
           <div className="flex items-center justify-between px-1 py-2">
             <div className="text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>
-              ダッシュボード設定
+              ウィジェット設定
             </div>
             <motion.button
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px]"
