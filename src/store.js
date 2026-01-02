@@ -184,6 +184,12 @@ export const useAppStore = create(
       
       // 承認待ち
       pendingApprovals: 3,
+
+      // 日報確認待ち
+      pendingDailyReportConfirmations: 0,
+
+      // 日報確認待ち数を更新
+      setPendingDailyReportConfirmations: (count) => set({ pendingDailyReportConfirmations: count }),
       
       // 現場データ
       sites: [
@@ -428,6 +434,229 @@ export const useWeatherStore = create((set) => ({
     },
   },
   lastUpdated: '12/20 8:00',
-  
+
   refreshWeather: () => set({ lastUpdated: new Date().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }),
 }))
+
+// ダッシュボード設定用ウィジェット定義
+export const dashboardWidgets = [
+  // 営業（現場台帳・顧客管理・営業活動）
+  { id: 'projectList', name: '現場台帳', category: 'sales', defaultEnabled: true },
+  { id: 'newProject', name: '新規案件', category: 'sales', defaultEnabled: false },
+  { id: 'excelImport', name: 'Excel取込', category: 'sales', defaultEnabled: false },
+  { id: 'clients', name: '顧客管理', category: 'sales', defaultEnabled: false },
+  { id: 'clientRanking', name: '顧客別ランキング', category: 'sales', defaultEnabled: false },
+  { id: 'businessCards', name: '名刺管理', category: 'sales', defaultEnabled: false },
+  { id: 'salesSchedule', name: '営業スケジュール', category: 'sales', defaultEnabled: false },
+  // 工事（段取りくん・安全管理・現場情報・その他）
+  { id: 'dantori', name: '配置管理', category: 'construction', defaultEnabled: true },
+  { id: 'workers', name: '作業員管理', category: 'construction', defaultEnabled: false },
+  { id: 'dailyReport', name: '日報入力', category: 'construction', defaultEnabled: false },
+  { id: 'kyManagement', name: 'KY管理', category: 'construction', defaultEnabled: false },
+  { id: 'photos', name: '工事写真', category: 'construction', defaultEnabled: false },
+  { id: 'documents', name: '書類管理', category: 'construction', defaultEnabled: false },
+  { id: 'siteLocation', name: '現場位置', category: 'construction', defaultEnabled: false },
+  { id: 'weather', name: '天気予報', category: 'construction', defaultEnabled: false },
+  { id: 'schedule', name: '年間工程', category: 'construction', defaultEnabled: false },
+  { id: 'inventory', name: '在庫管理', category: 'construction', defaultEnabled: false },
+  { id: 'materialSlip', name: '材料伝票', category: 'construction', defaultEnabled: false },
+  { id: 'carManagement', name: '車両管理', category: 'construction', defaultEnabled: false },
+  // 事務（経費精算・請求入出金・承認・マスタ）
+  { id: 'expenseNew', name: '経費申請', category: 'office', defaultEnabled: true },
+  { id: 'expenseList', name: '経費一覧', category: 'office', defaultEnabled: false },
+  { id: 'invoiceAI', name: '請求書AI', category: 'office', defaultEnabled: false },
+  { id: 'income', name: '入金管理', category: 'office', defaultEnabled: false },
+  { id: 'expensePay', name: '支払管理', category: 'office', defaultEnabled: false },
+  { id: 'approval', name: '承認センター', category: 'office', defaultEnabled: false },
+  { id: 'subcontractor', name: '業者マスタ', category: 'office', defaultEnabled: false },
+  // 経営（ダッシュボード）
+  { id: 'analytics', name: '経営ダッシュボード', category: 'management', defaultEnabled: true },
+]
+
+// ダッシュボードカテゴリ定義
+export const dashboardCategories = [
+  { id: 'sales', name: '営業', description: '現場台帳・顧客管理', color: '#3A6AAF' },
+  { id: 'construction', name: '工事', description: '段取り・安全・現場', color: '#3D9968' },
+  { id: 'office', name: '事務', description: '経費・請求・承認', color: '#7A5A9D' },
+  { id: 'management', name: '経営', description: 'ダッシュボード', color: '#C4823B' },
+]
+
+// ダッシュボード設定ストア
+export const useDashboardStore = create(
+  persist(
+    (set, get) => ({
+      // 有効なウィジェット（ID配列）
+      enabledWidgets: dashboardWidgets.filter(w => w.defaultEnabled).map(w => w.id),
+
+      // ウィジェットの順序
+      widgetOrder: dashboardWidgets.filter(w => w.defaultEnabled).map(w => w.id),
+
+      // ウィジェットを有効/無効にする
+      toggleWidget: (widgetId) => {
+        const state = get()
+        const isEnabled = state.enabledWidgets.includes(widgetId)
+
+        if (isEnabled) {
+          // 無効にする
+          set({
+            enabledWidgets: state.enabledWidgets.filter(id => id !== widgetId),
+            widgetOrder: state.widgetOrder.filter(id => id !== widgetId),
+          })
+        } else {
+          // 有効にする（末尾に追加）
+          set({
+            enabledWidgets: [...state.enabledWidgets, widgetId],
+            widgetOrder: [...state.widgetOrder, widgetId],
+          })
+        }
+      },
+
+      // ウィジェットの順序を変更
+      reorderWidgets: (newOrder) => {
+        set({ widgetOrder: newOrder })
+      },
+
+      // デフォルトにリセット
+      resetToDefault: () => {
+        const defaultEnabled = dashboardWidgets.filter(w => w.defaultEnabled).map(w => w.id)
+        set({
+          enabledWidgets: defaultEnabled,
+          widgetOrder: defaultEnabled,
+        })
+      },
+    }),
+    {
+      name: 'sanyutech-dashboard-settings',
+    }
+  )
+)
+
+// 認証ストア
+export const useAuthStore = create(
+  persist(
+    (set, get) => ({
+      // 認証状態
+      isAuthenticated: false,
+      user: null,
+      token: null,
+      loading: false,
+      error: null,
+
+      // ログイン
+      login: async (username, password) => {
+        set({ loading: true, error: null })
+        try {
+          const { API_BASE } = await import('./config/api')
+          const response = await fetch(`${API_BASE}/auth/login-json`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.detail || 'ログインに失敗しました')
+          }
+
+          const data = await response.json()
+          set({
+            isAuthenticated: true,
+            user: data.user,
+            token: data.access_token,
+            loading: false,
+            error: null,
+          })
+          return { success: true }
+        } catch (error) {
+          set({ loading: false, error: error.message })
+          return { success: false, error: error.message }
+        }
+      },
+
+      // 新規登録
+      register: async (userData) => {
+        set({ loading: true, error: null })
+        try {
+          const { API_BASE } = await import('./config/api')
+          const response = await fetch(`${API_BASE}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.detail || '登録に失敗しました')
+          }
+
+          const data = await response.json()
+          set({
+            isAuthenticated: true,
+            user: data.user,
+            token: data.access_token,
+            loading: false,
+            error: null,
+          })
+          return { success: true }
+        } catch (error) {
+          set({ loading: false, error: error.message })
+          return { success: false, error: error.message }
+        }
+      },
+
+      // LINE WORKSログイン
+      loginWithLineWorks: async (code) => {
+        set({ loading: true, error: null })
+        try {
+          const { API_BASE } = await import('./config/api')
+          const response = await fetch(`${API_BASE}/auth/lineworks/callback?code=${code}`, {
+            method: 'GET',
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.detail || 'LINE WORKSログインに失敗しました')
+          }
+
+          const data = await response.json()
+          set({
+            isAuthenticated: true,
+            user: data.user,
+            token: data.access_token,
+            loading: false,
+            error: null,
+          })
+          return { success: true }
+        } catch (error) {
+          set({ loading: false, error: error.message })
+          return { success: false, error: error.message }
+        }
+      },
+
+      // ログアウト
+      logout: () => {
+        set({
+          isAuthenticated: false,
+          user: null,
+          token: null,
+          error: null,
+        })
+      },
+
+      // トークンを取得（API呼び出し用）
+      getAuthHeaders: () => {
+        const state = get()
+        if (state.token) {
+          return { Authorization: `Bearer ${state.token}` }
+        }
+        return {}
+      },
+
+      // エラーをクリア
+      clearError: () => set({ error: null }),
+    }),
+    {
+      name: 'sanyutech-auth',
+    }
+  )
+)

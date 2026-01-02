@@ -373,27 +373,35 @@ export default function BusinessCardsPage() {
       <AnimatePresence>
         {showModal && (
           <motion.div
-            className="fixed inset-0 bg-black/70 z-50 flex items-end"
+            className="fixed inset-0 bg-black/70 z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => { setShowModal(false); resetForm(); setScanning(false) }}
           >
             <motion.div
-              className="w-full rounded-t-2xl p-5 max-h-[85vh] overflow-auto"
-              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
+              className="absolute left-0 right-0 rounded-t-2xl flex flex-col"
+              style={{
+                background: cardBg,
+                backdropFilter: isOcean ? 'blur(10px)' : 'none',
+                top: '60px',
+                bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+              }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-4">
+              {/* ヘッダー */}
+              <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0" style={{ borderBottom: `1px solid ${cardBorder}` }}>
                 <h3 className="text-lg font-bold" style={{ color: currentBg.text }}>
                   {scanning ? '🔍 名刺を読み取り中...' : selectedCard ? '📇 名刺を編集' : '📇 名刺を登録'}
                 </h3>
                 <button onClick={() => { setShowModal(false); resetForm(); setScanning(false) }} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
               </div>
 
+              {/* スクロール可能なコンテンツ */}
+              <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
               {scanning ? (
                 <div className="text-center py-16">
                   <div className="text-6xl mb-4 animate-pulse">📇</div>
@@ -402,7 +410,7 @@ export default function BusinessCardsPage() {
                 </div>
               ) : (
                 <>
-                  <div className="space-y-4">
+                  <div className="space-y-4 py-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
                         <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>会社名</label>
@@ -533,33 +541,44 @@ export default function BusinessCardsPage() {
                         />
                       </div>
                     </div>
-
-                    <div className="flex gap-3 mt-6">
-                      {selectedCard && (
-                        <button
-                          onClick={() => handleDelete(selectedCard.id)}
-                          className="py-3 px-4 bg-red-500/20 text-red-400 rounded-xl font-bold"
-                        >
-                          削除
-                        </button>
-                      )}
-                      <button
-                        onClick={() => { setShowModal(false); resetForm() }}
-                        className="flex-1 py-3 rounded-xl font-bold"
-                        style={{ background: inputBg, color: currentBg.textLight }}
-                      >
-                        キャンセル
-                      </button>
-                      <button
-                        onClick={handleSubmit}
-                        className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-white"
-                      >
-                        {selectedCard ? '更新する' : '登録する'}
-                      </button>
-                    </div>
                   </div>
                 </>
               )}
+              </div>
+
+              {/* 下部固定ボタンエリア */}
+              {!scanning && (
+                <div
+                  className="flex-shrink-0 flex items-center gap-3 px-5 py-4"
+                  style={{
+                    background: cardBg,
+                    borderTop: `1px solid ${cardBorder}`,
+                  }}
+                >
+                  <button
+                    onClick={() => { setShowModal(false); resetForm() }}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold"
+                    style={{ background: inputBg, color: currentBg.text }}
+                  >
+                    キャンセル
+                  </button>
+                  {selectedCard && (
+                    <button
+                      onClick={() => handleDelete(selectedCard.id)}
+                      className="py-3 px-4 rounded-xl text-sm font-bold bg-red-500/20 text-red-400"
+                    >
+                      削除
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSubmit}
+                    className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-blue-500"
+                  >
+                    {selectedCard ? '更新する' : '登録する'}
+                  </button>
+                </div>
+              )}
+
             </motion.div>
           </motion.div>
         )}

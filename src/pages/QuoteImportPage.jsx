@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowRight, FileText, List, Eye } from 'lucide-react'
 import { Header, Card, Toast } from '../components/common'
 import { API_BASE } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
@@ -33,10 +33,9 @@ export default function QuoteImportPage() {
       const validTypes = [
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-excel',
-        'text/csv'
       ]
-      if (!validTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(xlsx|xls|csv)$/i)) {
-        showToast('Excel形式(.xlsx, .xls)またはCSV形式のファイルを選択してください')
+      if (!validTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(xlsx|xls)$/i)) {
+        showToast('Excel形式(.xlsx, .xls)のファイルを選択してください')
         return
       }
       setFile(selectedFile)
@@ -51,38 +50,46 @@ export default function QuoteImportPage() {
     }
 
     setUploading(true)
+    setResult(null)
+
     try {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`${API_BASE}/quotes/import`, {
+      const res = await fetch(`${API_BASE}/quotes/import-excel`, {
         method: 'POST',
         body: formData
       })
 
-      if (res.ok) {
-        const data = await res.json()
+      const data = await res.json()
+
+      if (res.ok && data.success) {
         setResult({
           success: true,
-          count: data.imported_count || 1,
-          message: `${data.imported_count || 1}件の見積書を取り込みました`
+          id: data.id,
+          projectName: data.project_name,
+          totalAmount: data.total_amount,
+          itemsCount: data.items_count,
+          conditionsCount: data.conditions_count,
+          detailSheets: data.detail_sheets || [],
+          conditionSheets: data.condition_sheets || [],
+          message: data.message || '見積書を取り込みました'
         })
         showToast('取り込みが完了しました')
       } else {
         setResult({
           success: false,
-          message: 'ファイルの読み込みに失敗しました'
+          message: data.detail || 'ファイルの読み込みに失敗しました'
         })
+        showToast('エラーが発生しました')
       }
     } catch (error) {
       console.error('Import error:', error)
-      // デモ用：成功として扱う
       setResult({
-        success: true,
-        count: 1,
-        message: '1件の見積書を取り込みました（デモ）'
+        success: false,
+        message: 'ネットワークエラーが発生しました'
       })
-      showToast('取り込みが完了しました')
+      showToast('エラーが発生しました')
     } finally {
       setUploading(false)
     }
@@ -100,14 +107,43 @@ export default function QuoteImportPage() {
       <div className="p-4 space-y-4">
         {/* 説明 */}
         <Card>
-          <div className="text-sm font-bold mb-2" style={{ color: currentBg.text }}>
-            📋 対応フォーマット
+          <div className="text-sm font-bold mb-3" style={{ color: currentBg.text }}>
+            📋 サンユウテック見積書フォーマット
           </div>
-          <div className="text-xs space-y-1" style={{ color: currentBg.textLight }}>
-            <p>・Excel形式（.xlsx, .xls）</p>
-            <p>・CSV形式（.csv）</p>
-            <p>・1行目：ヘッダー行（品名, 数量, 単位, 単価）</p>
-            <p>・2行目以降：明細データ</p>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: inputBg }}>
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <FileText size={16} className="text-blue-500" />
+              </div>
+              <div>
+                <div className="text-xs font-bold" style={{ color: currentBg.text }}>シート1: 表紙</div>
+                <div className="text-xs mt-0.5" style={{ color: currentBg.textLight }}>
+                  発注者、工事名、工事場所、工期、有効期限、支払条件、担当者
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: inputBg }}>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                <FileSpreadsheet size={16} className="text-emerald-500" />
+              </div>
+              <div>
+                <div className="text-xs font-bold" style={{ color: currentBg.text }}>シート2: 内訳明細</div>
+                <div className="text-xs mt-0.5" style={{ color: currentBg.textLight }}>
+                  名称、規格、数量、単位、単価、金額、備考
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: inputBg }}>
+              <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                <List size={16} className="text-purple-500" />
+              </div>
+              <div>
+                <div className="text-xs font-bold" style={{ color: currentBg.text }}>シート3: 条件書</div>
+                <div className="text-xs mt-0.5" style={{ color: currentBg.textLight }}>
+                  施工条件リスト（番号付き）
+                </div>
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -125,7 +161,7 @@ export default function QuoteImportPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".xlsx,.xls,.csv"
+            accept=".xlsx,.xls"
             className="hidden"
             onChange={handleFileSelect}
           />
@@ -148,7 +184,7 @@ export default function QuoteImportPage() {
                 ファイルを選択
               </div>
               <div className="text-xs mt-1" style={{ color: currentBg.textLight }}>
-                クリックしてExcelまたはCSVファイルを選択
+                クリックしてExcelファイル(.xlsx, .xls)を選択
               </div>
             </>
           )}
@@ -161,19 +197,61 @@ export default function QuoteImportPage() {
             animate={{ opacity: 1, y: 0 }}
           >
             <Card className={result.success ? 'border-emerald-500/50' : 'border-red-500/50'}>
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3">
                 {result.success ? (
-                  <CheckCircle size={24} className="text-emerald-500" />
+                  <CheckCircle size={24} className="text-emerald-500 flex-shrink-0 mt-0.5" />
                 ) : (
-                  <AlertCircle size={24} className="text-red-500" />
+                  <AlertCircle size={24} className="text-red-500 flex-shrink-0 mt-0.5" />
                 )}
-                <div>
+                <div className="flex-1">
                   <div className="font-bold" style={{ color: currentBg.text }}>
                     {result.success ? '取り込み完了' : 'エラー'}
                   </div>
-                  <div className="text-sm" style={{ color: currentBg.textLight }}>
+                  <div className="text-sm mt-1" style={{ color: currentBg.textLight }}>
                     {result.message}
                   </div>
+
+                  {result.success && (
+                    <div className="mt-3 space-y-3">
+                      <div className="text-sm" style={{ color: currentBg.text }}>
+                        <span className="font-bold">{result.projectName}</span>
+                      </div>
+                      <div className="flex gap-4 text-xs" style={{ color: currentBg.textLight }}>
+                        <span>明細: {result.itemsCount}件</span>
+                        <span>条件: {result.conditionsCount}件</span>
+                        <span>金額: ¥{(result.totalAmount || 0).toLocaleString()}</span>
+                      </div>
+
+                      {/* 読み込んだシート情報 */}
+                      {(result.detailSheets?.length > 0 || result.conditionSheets?.length > 0) && (
+                        <div className="p-2 rounded-lg text-xs" style={{ background: inputBg }}>
+                          <div className="font-bold mb-1.5" style={{ color: currentBg.text }}>📑 読み込んだシート</div>
+                          {result.detailSheets?.length > 0 && (
+                            <div className="flex items-center gap-1.5 mb-1" style={{ color: currentBg.textLight }}>
+                              <FileSpreadsheet size={12} className="text-emerald-500" />
+                              <span>内訳: {result.detailSheets.join(', ')}</span>
+                            </div>
+                          )}
+                          {result.conditionSheets?.length > 0 && (
+                            <div className="flex items-center gap-1.5" style={{ color: currentBg.textLight }}>
+                              <List size={12} className="text-purple-500" />
+                              <span>条件書: {result.conditionSheets.join(', ')}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 詳細を見るボタン */}
+                      <button
+                        onClick={() => navigate(`/quotes/${result.id}/edit`)}
+                        className="mt-3 w-full py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+                      >
+                        <Eye size={16} />
+                        見積書を確認
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
@@ -207,21 +285,6 @@ export default function QuoteImportPage() {
             )}
           </button>
         </div>
-
-        {/* テンプレートダウンロード */}
-        <Card>
-          <div className="text-sm font-bold mb-2" style={{ color: currentBg.text }}>
-            📄 テンプレート
-          </div>
-          <button
-            onClick={() => showToast('テンプレートをダウンロードしました')}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-            style={{ background: inputBg, color: currentBg.text }}
-          >
-            <FileSpreadsheet size={16} />
-            Excelテンプレートをダウンロード
-          </button>
-        </Card>
       </div>
 
       <Toast message={toast.message} isVisible={toast.show} />

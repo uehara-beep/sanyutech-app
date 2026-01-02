@@ -297,27 +297,37 @@ export default function ClientsPage() {
       <AnimatePresence>
         {showModal && (
           <motion.div
-            className="fixed inset-0 bg-black/70 z-50 flex items-end"
+            className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => { setShowModal(false); resetForm() }}
           >
             <motion.div
-              className="w-full rounded-t-2xl p-5 max-h-[85vh] overflow-auto"
-              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
+              className="w-full rounded-t-2xl flex flex-col"
+              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none', maxHeight: 'calc(100vh - 60px)' }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-4">
+              {/* ヘッダー（保存ボタン含む） */}
+              <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0">
                 <h3 className="text-lg font-bold" style={{ color: currentBg.text }}>
                   {selectedClient ? '🏢 顧客を編集' : '🏢 顧客を登録'}
                 </h3>
-                <button onClick={() => { setShowModal(false); resetForm() }} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSubmit}
+                    className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-500 rounded-lg text-sm font-bold text-white"
+                  >
+                    {selectedClient ? '更新' : '登録'}
+                  </button>
+                  <button onClick={() => { setShowModal(false); resetForm() }} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
+                </div>
               </div>
 
+              <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
               <div className="space-y-4">
                 <div>
                   <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>会社名 *</label>
@@ -406,22 +416,10 @@ export default function ClientsPage() {
                   />
                 </div>
 
-                <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={() => { setShowModal(false); resetForm() }}
-                    className="flex-1 py-3 rounded-xl font-bold"
-                    style={{ background: inputBg, color: currentBg.textLight }}
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-white"
-                  >
-                    {selectedClient ? '更新する' : '登録する'}
-                  </button>
-                </div>
+                <div className="h-4" />
               </div>
+              </div>
+
             </motion.div>
           </motion.div>
         )}

@@ -192,123 +192,128 @@ export default function SubcontractorPage() {
       {/* 新規登録モーダル */}
       {showForm && (
         <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end"
+          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           onClick={() => { setShowForm(false); setScanning(false) }}
         >
           <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto"
+            className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
+            style={{ maxHeight: '90vh' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
+            {/* ヘッダー（保存ボタン含む） */}
+            <div className="flex justify-between items-center p-4 border-b border-app-border">
               <div className="text-lg font-bold">
-                {scanning ? '🔍 名刺を読み取り中...' : '協力会社登録'}
+                {scanning ? '🔍 名刺を読み取り中...' : '🏢 協力会社登録'}
               </div>
-              <button onClick={() => { setShowForm(false); setScanning(false) }} className="text-2xl">×</button>
-            </div>
-
-            {scanning ? (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-4 animate-pulse">📇</div>
-                <div className="text-slate-300">AI が名刺を解析しています...</div>
-              </div>
-            ) : (
-              <>
-
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">会社名</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="〇〇工業株式会社"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">担当者名</label>
-              <input
-                type="text"
-                value={form.contact_person}
-                onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
-                placeholder="山田太郎"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">電話番号</label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="090-1234-5678"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">カテゴリ</label>
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                >
-                  <option value="">選択</option>
-                  <option value="舗装">舗装</option>
-                  <option value="土工">土工</option>
-                  <option value="運搬">運搬</option>
-                  <option value="機械">機械</option>
-                  <option value="その他">その他</option>
-                </select>
+              <div className="flex items-center gap-2">
+                {!scanning && (
+                  <button
+                    onClick={handleSubmit}
+                    className="px-4 py-1.5 bg-app-primary rounded-lg text-sm font-bold text-white"
+                  >
+                    保存
+                  </button>
+                )}
+                <button onClick={() => { setShowForm(false); setScanning(false) }} className="text-2xl text-slate-400">×</button>
               </div>
             </div>
 
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">メールアドレス</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="info@example.com"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">住所</label>
-              <input
-                type="text"
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                placeholder="福岡県福岡市..."
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            <div className="mb-6">
-              <label className="text-sm text-slate-400 mb-2 block">備考</label>
-              <textarea
-                value={form.note}
-                onChange={(e) => setForm({ ...form, note: e.target.value })}
-                placeholder="メモを入力"
-                rows={3}
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white resize-none"
-              />
-            </div>
-
-            <button
-              onClick={handleSubmit}
-              className="w-full py-4 bg-app-primary rounded-xl font-bold text-white"
+            {/* スクロール可能なコンテンツ */}
+            <div
+              className="flex-1 overflow-y-auto px-6 py-4"
+              style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
             >
-              登録する
-            </button>
-              </>
-            )}
+              {scanning ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4 animate-pulse">📇</div>
+                  <div className="text-slate-300">AI が名刺を解析しています...</div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">会社名</label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="〇〇工業株式会社"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">担当者名</label>
+                    <input
+                      type="text"
+                      value={form.contact_person}
+                      onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
+                      placeholder="山田太郎"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-slate-400 mb-2 block">電話番号</label>
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        placeholder="090-1234-5678"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-2 block">カテゴリ</label>
+                      <select
+                        value={form.category}
+                        onChange={(e) => setForm({ ...form, category: e.target.value })}
+                        className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
+                      >
+                        <option value="">選択</option>
+                        <option value="舗装">舗装</option>
+                        <option value="土工">土工</option>
+                        <option value="運搬">運搬</option>
+                        <option value="機械">機械</option>
+                        <option value="その他">その他</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">メールアドレス</label>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      placeholder="info@example.com"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">住所</label>
+                    <input
+                      type="text"
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      placeholder="福岡県福岡市..."
+                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">備考</label>
+                    <textarea
+                      value={form.note}
+                      onChange={(e) => setForm({ ...form, note: e.target.value })}
+                      placeholder="メモを入力"
+                      rows={3}
+                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </motion.div>
         </motion.div>
       )}

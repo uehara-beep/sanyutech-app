@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
 import AIHelpButton from './components/AIHelpButton'
 import SplashScreen from './components/SplashScreen'
-import { useThemeStore, backgroundStyles } from './store'
+import { useThemeStore, useAuthStore, backgroundStyles } from './store'
+import LoginPage from './pages/LoginPage'
 
 // Pages
 import HomePage from './pages/HomePage'
@@ -60,15 +61,36 @@ import QuoteCreatePage from './pages/QuoteCreatePage'
 import QuoteImportPage from './pages/QuoteImportPage'
 import ClientRankingPage from './pages/ClientRankingPage'
 import WorkersPage from './pages/WorkersPage'
+import EmployeeMasterPage from './pages/EmployeeMasterPage'
 import SitesPage from './pages/SitesPage'
 import ExpenseNewPage from './pages/ExpenseNewPage'
 import MaterialSlipPage from './pages/MaterialSlipPage'
+import MonthlyReportPage from './pages/MonthlyReportPage'
+import OCRPage from './pages/OCRPage'
 import HotelSearch from './components/HotelSearch'
+import ProjectDetailPage2 from './pages/ProjectDetailPage'
+
+// 認証が必要なルートを保護するコンポーネント
+function ProtectedRoute({ children }) {
+  const { isAuthenticated } = useAuthStore()
+  const location = useLocation()
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  return children
+}
 
 export default function App() {
   const { initTheme, backgroundId } = useThemeStore()
+  const { isAuthenticated } = useAuthStore()
   const [showSplash, setShowSplash] = useState(true)
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const location = useLocation()
+
+  // ログインページかどうか
+  const isLoginPage = location.pathname === '/login'
 
   // アプリ起動時にテーマを初期化（一度だけ実行）
   useEffect(() => {
@@ -86,12 +108,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen" style={{ background: currentBg.bg, color: 'var(--text)' }}>
-      {/* スプラッシュスクリーン */}
-      <SplashScreen isVisible={showSplash} />
+      {/* スプラッシュスクリーン（ログインページ以外で表示） */}
+      {!isLoginPage && <SplashScreen isVisible={showSplash} />}
 
       <Routes>
-        {/* メイン */}
-        <Route path="/" element={<HomePage />} />
+        {/* ログイン */}
+        <Route path="/login" element={
+          isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
+        } />
+
+        {/* メイン（認証必須） */}
+        <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
         <Route path="/menu/:category" element={<SubMenuPage />} />
         <Route path="/dantori" element={<DantoriPage />} />
         <Route path="/sbase" element={<SbasePage />} />
@@ -106,7 +133,9 @@ export default function App() {
         {/* 経理・事務 */}
         <Route path="/quotes" element={<QuotesPage />} />
         <Route path="/quotes/new" element={<QuoteCreatePage />} />
+        <Route path="/quotes/:id/edit" element={<QuoteCreatePage />} />
         <Route path="/quotes/import" element={<QuoteImportPage />} />
+        <Route path="/projects/:id" element={<ProjectDetailPage2 />} />
         <Route path="/invoice" element={<InvoicePage />} />
         <Route path="/price-master" element={<PriceMasterPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
@@ -141,6 +170,7 @@ export default function App() {
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/clients/ranking" element={<ClientRankingPage />} />
         <Route path="/workers" element={<WorkersPage />} />
+        <Route path="/ocr" element={<OCRPage />} />
         <Route path="/sites" element={<SitesPage />} />
         <Route path="/sales-schedule" element={<SalesSchedulePage />} />
         <Route path="/daily-report" element={<DailyReportPage />} />
@@ -161,13 +191,20 @@ export default function App() {
         <Route path="/settings/export" element={<ExportPage />} />
         <Route path="/settings/lineworks" element={<LineWorksPage />} />
         <Route path="/settings/company" element={<CompanySettingsPage />} />
+        <Route path="/settings/employees" element={<EmployeeMasterPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/monthly-report" element={<MonthlyReportPage />} />
         <Route path="/business-cards" element={<BusinessCardsPage />} />
         <Route path="/hotel" element={<HotelSearch />} />
       </Routes>
 
-      <BottomNav />
-      <AIHelpButton />
+      {/* ログインページ以外でナビゲーションを表示 */}
+      {isAuthenticated && !isLoginPage && (
+        <>
+          <BottomNav />
+          <AIHelpButton />
+        </>
+      )}
     </div>
   )
 }

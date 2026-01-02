@@ -739,26 +739,38 @@ export function CarPage() {
 
       {/* 追加モーダル */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-end">
+        <div className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end">
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
-            className="w-full bg-slate-800 rounded-t-2xl p-5 max-h-[80vh] overflow-auto"
+            className="w-full bg-slate-800 rounded-t-2xl flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 60px)' }}
           >
-            <div className="flex justify-between items-center mb-4">
+            {/* ヘッダー（登録ボタン含む） */}
+            <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0">
               <h3 className="text-lg font-bold">
                 {scanning ? '🔍 車検証を読み取り中...' : '🚗 車両を追加'}
               </h3>
-              <button onClick={() => { setShowModal(false); setScanning(false) }} className="text-2xl">×</button>
+              <div className="flex items-center gap-2">
+                {!scanning && (
+                  <button
+                    onClick={handleSubmit}
+                    className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-500 rounded-lg text-sm font-bold text-white"
+                  >
+                    登録
+                  </button>
+                )}
+                <button onClick={() => { setShowModal(false); setScanning(false) }} className="text-2xl text-slate-400">×</button>
+              </div>
             </div>
 
-            {scanning ? (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-4 animate-pulse">📄</div>
-                <div className="text-slate-300">AI が車検証を解析しています...</div>
-              </div>
-            ) : (
-              <>
+            <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {scanning ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4 animate-pulse">📄</div>
+                  <div className="text-slate-300">AI が車検証を解析しています...</div>
+                </div>
+              ) : (
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs text-slate-400 mb-1 block">車名 *</label>
@@ -816,23 +828,9 @@ export function CarPage() {
                     </div>
                   </div>
                 </div>
+              )}
+            </div>
 
-                <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 py-3 bg-slate-700 rounded-xl font-bold"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold"
-                  >
-                    登録する
-                  </button>
-                </div>
-              </>
-            )}
           </motion.div>
         </div>
       )}
@@ -1055,104 +1053,104 @@ export function EquipmentPage() {
 
       {/* 追加モーダル */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-end">
+        <div className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end">
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
-            className="w-full bg-slate-800 rounded-t-2xl p-5 max-h-[80vh] overflow-auto"
+            className="w-full bg-slate-800 rounded-t-2xl flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 60px)' }}
           >
-            <div className="flex justify-between items-center mb-4">
+            {/* ヘッダー（登録ボタン含む） */}
+            <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0">
               <h3 className="text-lg font-bold">
                 {scanning ? '🔍 銘板を読み取り中...' : '🔧 機材を追加'}
               </h3>
-              <button onClick={() => { setShowModal(false); setScanning(false) }} className="text-2xl">×</button>
-            </div>
-
-            {scanning ? (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-4 animate-pulse">📷</div>
-                <div className="text-slate-300">AI が銘板を解析しています...</div>
-              </div>
-            ) : (
-              <>
-                <label className="block w-full py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-center text-sm font-bold cursor-pointer">
-                  📷 銘板を撮影して自動入力
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handlePhotoUpload}
-                  />
-                </label>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">機材名 *</label>
-                    <input
-                      type="text"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
-                      placeholder="例: コマツ PC200"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">カテゴリ</label>
-                    <select
-                      value={form.category}
-                      onChange={(e) => setForm({ ...form, category: e.target.value })}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
-                    >
-                      <option value="">選択してください</option>
-                      <option value="油圧ショベル">油圧ショベル</option>
-                      <option value="ブルドーザー">ブルドーザー</option>
-                      <option value="ローラー">ローラー</option>
-                      <option value="クレーン">クレーン</option>
-                      <option value="発電機">発電機</option>
-                      <option value="その他">その他</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">状態</label>
-                    <select
-                      value={form.status}
-                      onChange={(e) => setForm({ ...form, status: e.target.value })}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
-                    >
-                      <option value="available">空き</option>
-                      <option value="in_use">使用中</option>
-                      <option value="maintenance">整備中</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">備考</label>
-                    <textarea
-                      value={form.note}
-                      onChange={(e) => setForm({ ...form, note: e.target.value })}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm resize-none"
-                      rows={2}
-                      placeholder="メモを入力"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 py-3 bg-slate-700 rounded-xl font-bold"
-                  >
-                    キャンセル
-                  </button>
+              <div className="flex items-center gap-2">
+                {!scanning && (
                   <button
                     onClick={handleSubmit}
-                    className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold"
+                    className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-500 rounded-lg text-sm font-bold text-white"
                   >
-                    登録する
+                    登録
                   </button>
+                )}
+                <button onClick={() => { setShowModal(false); setScanning(false) }} className="text-2xl text-slate-400">×</button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {scanning ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4 animate-pulse">📷</div>
+                  <div className="text-slate-300">AI が銘板を解析しています...</div>
                 </div>
-              </>
-            )}
+              ) : (
+                <>
+                  <label className="block w-full py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-center text-sm font-bold cursor-pointer">
+                    📷 銘板を撮影して自動入力
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                    />
+                  </label>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">機材名 *</label>
+                      <input
+                        type="text"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                        placeholder="例: コマツ PC200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">カテゴリ</label>
+                      <select
+                        value={form.category}
+                        onChange={(e) => setForm({ ...form, category: e.target.value })}
+                        className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                      >
+                        <option value="">選択してください</option>
+                        <option value="油圧ショベル">油圧ショベル</option>
+                        <option value="ブルドーザー">ブルドーザー</option>
+                        <option value="ローラー">ローラー</option>
+                        <option value="クレーン">クレーン</option>
+                        <option value="発電機">発電機</option>
+                        <option value="その他">その他</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">状態</label>
+                      <select
+                        value={form.status}
+                        onChange={(e) => setForm({ ...form, status: e.target.value })}
+                        className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                      >
+                        <option value="available">空き</option>
+                        <option value="in_use">使用中</option>
+                        <option value="maintenance">整備中</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">備考</label>
+                      <textarea
+                        value={form.note}
+                        onChange={(e) => setForm({ ...form, note: e.target.value })}
+                        className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm resize-none"
+                        rows={2}
+                        placeholder="メモを入力"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
           </motion.div>
         </div>
       )}

@@ -90,6 +90,23 @@ body {
   display: none;
 }
 
+/* Safe Area対応 */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+/* モーダル用スクロール改善 */
+.modal-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 /* 入力フィールド */
 input, select, textarea {
   font-family: inherit;

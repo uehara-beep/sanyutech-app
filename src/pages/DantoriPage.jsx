@@ -354,16 +354,16 @@ function TodayView({ sites, workers, assignments, onRefresh, showToast }) {
 
       {/* 未配置作業員 */}
       {unassignedWorkers.length > 0 && (
-        <Card className="mt-4 border-2 border-dashed border-yellow-500/30">
+        <Card className="mt-4 border-2 border-dashed border-gray-400/30">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xl">⚠️</span>
-            <span className="font-bold text-yellow-300">未配置（{unassignedWorkers.length}人）</span>
+            <span className="text-xl">👤</span>
+            <span className="font-bold text-gray-400">未配置（{unassignedWorkers.length}人）</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {unassignedWorkers.slice(0, 10).map((worker) => (
               <span
                 key={worker.id}
-                className="px-3 py-1.5 bg-yellow-500/10 text-yellow-300 rounded-lg text-sm"
+                className="px-3 py-1.5 bg-gray-500/20 text-gray-300 rounded-lg text-sm"
               >
                 {worker.name}
               </span>
@@ -478,21 +478,36 @@ function AddWorkerToSiteModal({ isOpen, siteId, siteName, workers, assignments, 
 
   return (
     <motion.div
-      className="fixed inset-0 bg-black/80 z-50 flex items-end"
+      className="fixed inset-0 bg-black/80 z-50 flex flex-col justify-end"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       onClick={onClose}
     >
       <motion.div
-        className="w-full bg-app-bg-light rounded-t-3xl max-h-[85vh] flex flex-col"
+        className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
+        style={{ maxHeight: 'calc(100vh - 60px)' }}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ヘッダー */}
+        {/* ヘッダー（配置ボタン含む） */}
         <div className="p-4 border-b border-app-border">
-          <div className="text-lg font-bold mb-1">作業員を選択</div>
-          <div className="text-sm text-slate-400">🚧 {siteName}</div>
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-lg font-bold mb-1">作業員を選択</div>
+              <div className="text-sm text-slate-400">🚧 {siteName}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving || selectedWorkers.size === 0}
+                className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-bold disabled:opacity-50"
+              >
+                {saving ? '配置中...' : `${selectedWorkers.size}人配置`}
+              </button>
+              <button onClick={onClose} className="text-2xl text-slate-400">×</button>
+            </div>
+          </div>
         </div>
 
         {/* 検索・フィルター */}
@@ -559,22 +574,6 @@ function AddWorkerToSiteModal({ isOpen, siteId, siteName, workers, assignments, 
           )}
         </div>
 
-        {/* フッターボタン */}
-        <div className="p-4 border-t border-app-border flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 bg-app-card text-slate-300 rounded-xl font-semibold"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || selectedWorkers.size === 0}
-            className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-semibold disabled:opacity-50"
-          >
-            {saving ? '配置中...' : `${selectedWorkers.size}人を配置`}
-          </button>
-        </div>
       </motion.div>
     </motion.div>
   )

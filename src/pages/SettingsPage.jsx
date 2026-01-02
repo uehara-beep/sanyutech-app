@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon } from 'lucide-react'
+import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon, RotateCcw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useThemeStore, themeColors, backgroundStyles, fontSizes, useAppStore } from '../store'
+import { useThemeStore, themeColors, backgroundStyles, fontSizes, useAppStore, useAuthStore, useDashboardStore, dashboardWidgets, dashboardCategories } from '../store'
+import { ClipboardList, HardHat, FileText, BarChart3, ChevronDown } from 'lucide-react'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -12,9 +13,38 @@ export default function SettingsPage() {
     fontSizeId, setFontSize, getCurrentFontSize
   } = useThemeStore()
   const { user } = useAppStore()
+  const { logout, user: authUser } = useAuthStore()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
   const currentTheme = getCurrentTheme()
   const currentBackground = getCurrentBackground()
   const currentFontSize = getCurrentFontSize()
+
+  // ダッシュボード設定
+  const { enabledWidgets, toggleWidget, resetToDefault } = useDashboardStore()
+  const [expandedCategory, setExpandedCategory] = useState(null)
+
+  // カテゴリアイコンマッピング
+  const categoryIcons = {
+    sales: ClipboardList,
+    construction: HardHat,
+    office: FileText,
+    management: BarChart3,
+  }
+
+  // カテゴリの有効ウィジェット数を取得
+  const getEnabledCount = (categoryId) => {
+    return dashboardWidgets
+      .filter(w => w.category === categoryId && enabledWidgets.includes(w.id))
+      .length
+  }
+
+  const getTotalCount = (categoryId) => {
+    return dashboardWidgets.filter(w => w.category === categoryId).length
+  }
 
   const isOcean = currentBackground?.hasOceanEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
@@ -86,11 +116,15 @@ export default function SettingsPage() {
               className="w-16 h-16 rounded-full flex items-center justify-center text-2xl text-white"
               style={{ backgroundColor: currentTheme.primary }}
             >
-              {user?.name?.charAt(0) || 'U'}
+              {authUser?.display_name?.charAt(0) || user?.name?.charAt(0) || 'U'}
             </div>
             <div className="flex-1">
-              <div className="text-lg font-medium" style={{ color: currentBackground.text }}>{user?.name || 'ユーザー'}</div>
-              <div className="text-sm" style={{ color: currentBackground.textLight }}>{user?.role || '役職'} / {user?.company || '会社名'}</div>
+              <div className="text-lg font-medium" style={{ color: currentBackground.text }}>
+                {authUser?.display_name || user?.name || 'ユーザー'}
+              </div>
+              <div className="text-sm" style={{ color: currentBackground.textLight }}>
+                {authUser?.username || user?.role || '役職'} / {authUser?.role || user?.company || '会社名'}
+              </div>
             </div>
             <ChevronRight size={20} style={{ color: currentBackground.textLight }} />
           </div>
@@ -314,6 +348,141 @@ export default function SettingsPage() {
           </motion.div>
         </div>
 
+        {/* ダッシュボード設定 */}
+        <div>
+          <div className="flex items-center justify-between px-1 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>
+              ダッシュボード設定
+            </div>
+            <motion.button
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px]"
+              style={{
+                background: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                color: currentBackground.textLight,
+              }}
+              onClick={resetToDefault}
+              whileTap={{ scale: 0.95 }}
+            >
+              <RotateCcw size={12} />
+              リセット
+            </motion.button>
+          </div>
+
+          {/* カテゴリカード */}
+          <div className="space-y-3">
+            {dashboardCategories.map((category) => {
+              const Icon = categoryIcons[category.id]
+              const isExpanded = expandedCategory === category.id
+              const enabledCount = getEnabledCount(category.id)
+              const totalCount = getTotalCount(category.id)
+              const categoryWidgets = dashboardWidgets.filter(w => w.category === category.id)
+
+              return (
+                <motion.div
+                  key={category.id}
+                  className="rounded-2xl overflow-hidden"
+                  style={{
+                    background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
+                    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}`,
+                    backdropFilter: isOcean ? 'blur(10px)' : 'none',
+                  }}
+                >
+                  {/* カードヘッダー（タップで展開） */}
+                  <motion.button
+                    className="w-full p-4 flex items-center gap-3"
+                    onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
+                    whileTap={{ scale: 0.99 }}
+                  >
+                    <div
+                      className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: `linear-gradient(145deg, ${category.color}, ${category.color}dd)` }}
+                    >
+                      <Icon size={22} className="text-white" strokeWidth={1.5} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-base font-medium" style={{ color: currentBackground.text }}>
+                        {category.name}
+                      </div>
+                      <div className="text-xs" style={{ color: currentBackground.textLight }}>
+                        {category.description}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-xs px-2 py-1 rounded-full"
+                        style={{
+                          background: enabledCount > 0 ? `${category.color}20` : 'rgba(100,100,100,0.1)',
+                          color: enabledCount > 0 ? category.color : currentBackground.textLight,
+                        }}
+                      >
+                        {enabledCount}/{totalCount}
+                      </span>
+                      <motion.div
+                        animate={{ rotate: isExpanded ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronDown size={20} style={{ color: currentBackground.textLight }} />
+                      </motion.div>
+                    </div>
+                  </motion.button>
+
+                  {/* アコーディオン内容 */}
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      height: isExpanded ? 'auto' : 0,
+                      opacity: isExpanded ? 1 : 0,
+                    }}
+                    transition={{ duration: 0.2 }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div
+                      className="px-4 pb-4 pt-2 space-y-2"
+                      style={{ borderTop: `1px solid ${isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}
+                    >
+                      {categoryWidgets.map((widget) => (
+                        <label
+                          key={widget.id}
+                          className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors"
+                          style={{
+                            background: enabledWidgets.includes(widget.id)
+                              ? `${category.color}15`
+                              : isOcean ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                            border: enabledWidgets.includes(widget.id)
+                              ? `1px solid ${category.color}40`
+                              : `1px solid ${isOcean ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'}`,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={enabledWidgets.includes(widget.id)}
+                            onChange={() => toggleWidget(widget.id)}
+                            className="w-5 h-5 rounded"
+                            style={{ accentColor: category.color }}
+                          />
+                          <span
+                            className="text-sm flex-1"
+                            style={{
+                              color: enabledWidgets.includes(widget.id)
+                                ? currentBackground.text
+                                : currentBackground.textLight
+                            }}
+                          >
+                            {widget.name}
+                          </span>
+                          {enabledWidgets.includes(widget.id) && (
+                            <Check size={16} style={{ color: category.color }} />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+
         {/* 設定メニュー */}
         <div>
           <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>
@@ -346,6 +515,7 @@ export default function SettingsPage() {
             border: '1px solid rgba(239, 68, 68, 0.3)',
           }}
           whileTap={{ scale: 0.98 }}
+          onClick={handleLogout}
         >
           <LogOut size={20} />
           ログアウト

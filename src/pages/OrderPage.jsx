@@ -233,18 +233,32 @@ export default function OrderPage() {
       {/* 新規発注モーダル */}
       {showForm && (
         <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end"
+          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           onClick={() => setShowForm(false)}
         >
           <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto"
+            className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 60px)' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-lg font-bold mb-6">新規発注</div>
+            {/* ヘッダー（保存ボタン含む） */}
+            <div className="flex justify-between items-center p-6 pb-3 flex-shrink-0">
+              <div className="text-lg font-bold">🏷️ 新規発注</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 py-1.5 bg-app-primary rounded-lg text-sm font-bold text-white"
+                >
+                  作成
+                </button>
+                <button onClick={() => setShowForm(false)} className="text-2xl text-slate-400">×</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
 
             <div className="mb-4">
               <label className="text-sm text-slate-400 mb-2 block">現場</label>
@@ -337,13 +351,8 @@ export default function OrderPage() {
                 className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white resize-none"
               />
             </div>
+            </div>
 
-            <button
-              onClick={handleSubmit}
-              className="w-full py-4 bg-app-primary rounded-xl font-bold text-white"
-            >
-              発注書を作成
-            </button>
           </motion.div>
         </motion.div>
       )}

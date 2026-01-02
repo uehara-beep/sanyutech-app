@@ -13,10 +13,12 @@ import {
   // 経営
   BarChart3,
   // カテゴリ用
-  ClipboardList
+  ClipboardList,
+  // 設定
+  Settings, UserCog
 } from 'lucide-react'
 import { API_BASE } from '../config/api'
-import { useThemeStore, backgroundStyles } from '../store'
+import { useThemeStore, backgroundStyles, useAuthStore } from '../store'
 
 // 浅瀬の海背景（オーシャンテーマ用）
 function OceanBackground() {
@@ -82,15 +84,15 @@ function OceanBackground() {
 const categories = {
   sales: {
     title: '営業',
-    description: '見積・顧客・S-BASE',
+    description: '現場台帳・顧客管理',
     color: '#3A6AAF',
     icon: ClipboardList,
     sections: [
       {
-        title: '見積管理',
+        title: '現場台帳',
         items: [
-          { name: '見積作成', description: '見積書を新規作成', path: '/quotes/new', icon: FilePlus },
-          { name: '見積一覧', description: '未受注の見積書', path: '/quotes', icon: FolderOpen },
+          { name: '現場台帳', description: '見積〜完工まで一元管理', path: '/quotes', icon: FolderOpen, badge: 'NEW' },
+          { name: '新規案件', description: '見積書を新規作成', path: '/quotes/new', icon: FilePlus },
           { name: 'Excel取込', description: '過去見積の再利用', path: '/quotes/import', icon: FileSpreadsheet },
         ]
       },
@@ -108,12 +110,6 @@ const categories = {
           { name: '営業スケジュール', description: '商談・訪問予定', path: '/sales-schedule', icon: CalendarDays },
         ]
       },
-      {
-        title: 'S-BASE',
-        items: [
-          { name: '案件一覧', description: '利益確認・受注金額', path: '/sbase', icon: Briefcase },
-        ]
-      }
     ]
   },
   construction: {
@@ -127,7 +123,7 @@ const categories = {
         items: [
           { name: '配置管理', description: '日別・週間の現場配置', path: '/dantori', icon: Calendar },
           { name: '作業員管理', description: '社員・協力会社', path: '/workers', icon: User },
-          { name: '日報入力', description: '作業報告', path: '/daily-report', icon: ClipboardEdit },
+          { name: '日報入力', description: '作業報告', path: '/daily-report', icon: ClipboardEdit, badgeType: 'dailyReportConfirmation' },
         ]
       },
       {
@@ -155,9 +151,9 @@ const categories = {
         ]
       },
       {
-        title: 'S-BASE',
+        title: '現場台帳',
         items: [
-          { name: '案件一覧', description: '工種・原価・出来高', path: '/sbase', icon: Briefcase },
+          { name: '現場台帳', description: '工種・原価・出来高', path: '/quotes', icon: Briefcase },
         ]
       }
     ]
@@ -210,11 +206,32 @@ const categories = {
         ]
       }
     ]
+  },
+  settings: {
+    title: '設定',
+    description: 'マスタ・システム設定',
+    color: '#6B7280',
+    icon: Settings,
+    sections: [
+      {
+        title: 'マスタ管理',
+        items: [
+          { name: '社員マスタ', description: '全社員を管理・LINE WORKSインポート', path: '/settings/employees', icon: UserCog, badge: 'NEW' },
+          { name: '業者マスタ', description: '協力会社情報', path: '/subcon', icon: Building },
+        ]
+      },
+      {
+        title: 'システム',
+        items: [
+          { name: 'テーマ設定', description: '背景・カラー変更', path: '/settings/theme', icon: Settings },
+        ]
+      }
+    ]
   }
 }
 
 // メニューアイテムコンポーネント
-function MenuItem({ item, pendingApprovals, themeStyle }) {
+function MenuItem({ item, pendingApprovals, pendingDailyReportConfirmations, themeStyle }) {
   const navigate = useNavigate()
   const Icon = item.icon
   const isOcean = themeStyle?.hasOceanEffect
@@ -262,6 +279,11 @@ function MenuItem({ item, pendingApprovals, themeStyle }) {
               {pendingApprovals}
             </span>
           )}
+          {item.badgeType === 'dailyReportConfirmation' && pendingDailyReportConfirmations > 0 && (
+            <span className="px-2 py-0.5 bg-[#10b981] text-white text-[10px] font-medium rounded-full min-w-[20px] text-center">
+              {pendingDailyReportConfirmations}
+            </span>
+          )}
         </div>
         {item.description && (
           <p
@@ -282,7 +304,7 @@ function MenuItem({ item, pendingApprovals, themeStyle }) {
 }
 
 // セクションコンポーネント
-function MenuSection({ section, pendingApprovals, themeStyle }) {
+function MenuSection({ section, pendingApprovals, pendingDailyReportConfirmations, themeStyle }) {
   return (
     <div className="mb-6">
       {section.title && (
@@ -295,7 +317,7 @@ function MenuSection({ section, pendingApprovals, themeStyle }) {
       )}
       <div>
         {section.items.map((item, idx) => (
-          <MenuItem key={idx} item={item} pendingApprovals={pendingApprovals} themeStyle={themeStyle} />
+          <MenuItem key={idx} item={item} pendingApprovals={pendingApprovals} pendingDailyReportConfirmations={pendingDailyReportConfirmations} themeStyle={themeStyle} />
         ))}
       </div>
     </div>
@@ -306,7 +328,9 @@ export default function SubMenuPage() {
   const navigate = useNavigate()
   const { category } = useParams()
   const [pendingApprovals, setPendingApprovals] = useState(0)
+  const [pendingDailyReportConfirmations, setPendingDailyReportConfirmations] = useState(0)
   const { backgroundId } = useThemeStore()
+  const { token } = useAuthStore()
 
   const categoryData = categories[category]
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
@@ -325,8 +349,26 @@ export default function SubMenuPage() {
         console.error('Failed to fetch approvals:', e)
       }
     }
+
+    const fetchDailyReportConfirmations = async () => {
+      if (!token) return
+
+      try {
+        const res = await fetch(`${API_BASE}/daily-reports/pending-confirmations`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setPendingDailyReportConfirmations(data.length || 0)
+        }
+      } catch (e) {
+        console.error('Failed to fetch daily report confirmations:', e)
+      }
+    }
+
     fetchApprovals()
-  }, [])
+    fetchDailyReportConfirmations()
+  }, [token])
 
   if (!categoryData) {
     return (
@@ -403,6 +445,7 @@ export default function SubMenuPage() {
             key={idx}
             section={section}
             pendingApprovals={pendingApprovals}
+            pendingDailyReportConfirmations={pendingDailyReportConfirmations}
             themeStyle={currentBg}
           />
         ))}

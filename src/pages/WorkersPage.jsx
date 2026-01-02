@@ -1,23 +1,27 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Header, Card, Button, Modal, Input, Select, Toast } from '../components/common'
 import { API_BASE } from '../config/api'
-import { useThemeStore, backgroundStyles } from '../store'
+import { useThemeStore, backgroundStyles, useAuthStore } from '../store'
+import { Edit2, Trash2, Search, ExternalLink } from 'lucide-react'
 
 export default function WorkersPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
+  const { user, token } = useAuthStore()
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
   const isOcean = currentBg?.hasOceanEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
 
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingWorker, setEditingWorker] = useState(null)
   const [toast, setToast] = useState({ show: false, message: '' })
   const [filter, setFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState('all')
+  const [teamFilter, setTeamFilter] = useState('all')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
 
   useEffect(() => {
     fetchWorkers()
@@ -25,9 +29,12 @@ export default function WorkersPage() {
 
   const fetchWorkers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/workers/`)
+      // 現場作業員のみ取得
+      const res = await fetch(`${API_BASE}/workers/?field_only=true`)
       if (res.ok) {
-        setWorkers(await res.json())
+        const data = await res.json()
+        // バックエンドが対応していない場合はフロントでフィルタ
+        setWorkers(data.filter(w => w.is_field_worker))
       }
     } catch (error) {
       console.error('Fetch error:', error)
@@ -41,9 +48,38 @@ export default function WorkersPage() {
     setTimeout(() => setToast({ show: false, message: '' }), 2000)
   }
 
+  // 作業員削除（現場作業員フラグをオフにする）
+  const handleRemoveFromField = async (worker) => {
+    try {
+      const res = await fetch(`${API_BASE}/workers/${worker.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          ...worker,
+          is_field_worker: false
+        })
+      })
+      if (res.ok) {
+        showToast('作業員リストから外しました')
+        fetchWorkers()
+      } else {
+        showToast('エラーが発生しました')
+      }
+    } catch (e) {
+      showToast('エラーが発生しました')
+    }
+    setShowDeleteConfirm(null)
+  }
+
+  // 班リスト取得
+  const teams = [...new Set(workers.map(w => w.team).filter(Boolean))]
+
   const filteredWorkers = workers.filter(w => {
     if (filter && !w.name.includes(filter) && !w.team?.includes(filter)) return false
-    if (typeFilter !== 'all' && w.employment_type !== typeFilter) return false
+    if (teamFilter !== 'all' && w.team !== teamFilter) return false
     return true
   })
 
@@ -59,37 +95,55 @@ export default function WorkersPage() {
         icon="👷"
         gradient="from-emerald-700 to-emerald-500"
         onBack={() => navigate(-1)}
-        action={
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg"
-          >
-            +
-          </button>
-        }
       />
 
       <div className="px-5 py-4 space-y-4">
+        {/* 社員マスタへのリンク */}
+        {user?.role === 'admin' && (
+          <Card
+            className="p-3 cursor-pointer"
+            onClick={() => navigate('/settings/employees')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+                  👥
+                </div>
+                <div>
+                  <div className="font-medium text-sm" style={{ color: currentBg.text }}>社員マスタで管理</div>
+                  <div className="text-xs" style={{ color: currentBg.textLight }}>
+                    社員マスタで「現場作業員」にチェックした人がここに表示されます
+                  </div>
+                </div>
+              </div>
+              <ExternalLink size={16} style={{ color: currentBg.textLight }} />
+            </div>
+          </Card>
+        )}
+
         {/* 検索・フィルター */}
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="名前・班で検索..."
-            className="flex-1 px-4 py-2.5 rounded-xl"
-            style={{ background: inputBg, color: currentBg.text, border: `1px solid ${currentBg.border}` }}
-          />
+          <div className="flex-1 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50" style={{ color: currentBg.text }} />
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="名前・班で検索..."
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl"
+              style={{ background: inputBg, color: currentBg.text, border: `1px solid ${currentBg.border}` }}
+            />
+          </div>
           <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
             className="px-3 py-2.5 rounded-xl"
             style={{ background: inputBg, color: currentBg.text, border: `1px solid ${currentBg.border}` }}
           >
-            <option value="all">全て</option>
-            <option value="社員">社員</option>
-            <option value="契約">契約</option>
-            <option value="外注">外注</option>
+            <option value="all">全班</option>
+            {teams.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
           </select>
         </div>
 
@@ -97,17 +151,17 @@ export default function WorkersPage() {
         <div className="grid grid-cols-3 gap-3">
           <Card className="text-center py-3">
             <div className="text-2xl font-bold text-emerald-400">{activeWorkers.length}</div>
-            <div className="text-xs" style={{ color: currentBg.textLight }}>稼働中</div>
+            <div className="text-xs" style={{ color: currentBg.textLight }}>作業員</div>
           </Card>
           <Card className="text-center py-3">
             <div className="text-2xl font-bold text-blue-400">
-              {workers.filter(w => w.employment_type === '社員').length}
+              {workers.filter(w => w.employment_type === '社員' && w.is_active !== false).length}
             </div>
             <div className="text-xs" style={{ color: currentBg.textLight }}>社員</div>
           </Card>
           <Card className="text-center py-3">
             <div className="text-2xl font-bold text-amber-400">
-              {workers.filter(w => w.employment_type === '外注').length}
+              {workers.filter(w => w.employment_type === '外注' && w.is_active !== false).length}
             </div>
             <div className="text-xs" style={{ color: currentBg.textLight }}>外注</div>
           </Card>
@@ -116,68 +170,100 @@ export default function WorkersPage() {
         {/* 作業員リスト */}
         {loading ? (
           <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
+        ) : activeWorkers.length === 0 ? (
+          <Card className="text-center py-8" style={{ color: currentBg.textLight }}>
+            <div className="text-3xl mb-3">👷</div>
+            <div className="text-sm mb-1">現場作業員がいません</div>
+            <div className="text-xs mb-4">社員マスタで「現場作業員」にチェックしてください</div>
+            {user?.role === 'admin' && (
+              <Button onClick={() => navigate('/settings/employees')}>
+                社員マスタを開く
+              </Button>
+            )}
+          </Card>
         ) : (
           <>
             <div className="text-sm font-bold" style={{ color: currentBg.text }}>
-              稼働中（{activeWorkers.length}名）
+              作業員一覧（{activeWorkers.length}名）
             </div>
-            {activeWorkers.length === 0 ? (
-              <Card className="text-center py-6" style={{ color: currentBg.textLight }}>
-                <div className="text-2xl mb-2">📭</div>
-                <div className="text-sm">作業員がいません</div>
-              </Card>
-            ) : (
-              activeWorkers.map((worker, i) => (
-                <motion.div
-                  key={worker.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                >
-                  <Card className="flex items-center gap-3">
+            {activeWorkers.map((worker, i) => (
+              <motion.div
+                key={worker.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+              >
+                <Card className="p-3">
+                  <div className="flex items-center gap-3">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
                       worker.employment_type === '社員' ? 'bg-emerald-500/20' :
                       worker.employment_type === '外注' ? 'bg-amber-500/20' : 'bg-blue-500/20'
                     }`}>
                       👷
                     </div>
-                    <div className="flex-1">
-                      <div className="font-medium" style={{ color: currentBg.text }}>{worker.name}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium" style={{ color: currentBg.text }}>{worker.name}</span>
+                        {worker.position && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/20 text-blue-400">
+                            {worker.position}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs" style={{ color: currentBg.textLight }}>
                         {worker.team || '未配属'} / {worker.employment_type || '社員'}
                       </div>
-                      {worker.daily_rate && (
-                        <div className="text-xs text-emerald-400 mt-0.5">
-                          ¥{worker.daily_rate.toLocaleString()}/日
+                      {worker.daily_rate > 0 && (
+                        <div className="text-[10px] mt-0.5" style={{ color: currentBg.textLight }}>
+                          日当: ¥{worker.daily_rate.toLocaleString()}
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       {worker.phone && (
-                        <a href={`tel:${worker.phone}`} className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: inputBg }}>
+                        <a
+                          href={`tel:${worker.phone}`}
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-lg"
+                          style={{ background: inputBg }}
+                        >
                           📞
                         </a>
                       )}
+                      <button
+                        onClick={() => { setEditingWorker(worker); setShowEditModal(true) }}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center"
+                        style={{ background: inputBg }}
+                      >
+                        <Edit2 size={16} style={{ color: currentBg.textLight }} />
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(worker)}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center bg-red-500/20"
+                      >
+                        <Trash2 size={16} className="text-red-400" />
+                      </button>
                     </div>
-                  </Card>
-                </motion.div>
-              ))
-            )}
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
 
             {inactiveWorkers.length > 0 && (
               <>
                 <div className="text-sm font-bold mt-6" style={{ color: currentBg.textLight }}>
                   非稼働（{inactiveWorkers.length}名）
                 </div>
-                {inactiveWorkers.map((worker, i) => (
-                  <Card key={worker.id} className="flex items-center gap-3 opacity-50">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl bg-gray-500/20">
-                      👷
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium" style={{ color: currentBg.text }}>{worker.name}</div>
-                      <div className="text-xs" style={{ color: currentBg.textLight }}>
-                        {worker.team || '未配属'} / {worker.employment_type || '社員'}
+                {inactiveWorkers.map((worker) => (
+                  <Card key={worker.id} className="p-3 opacity-50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl bg-gray-500/20">
+                        👷
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium" style={{ color: currentBg.text }}>{worker.name}</div>
+                        <div className="text-xs" style={{ color: currentBg.textLight }}>
+                          {worker.team || '未配属'} / {worker.employment_type || '社員'}
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -186,76 +272,124 @@ export default function WorkersPage() {
             )}
           </>
         )}
-
-        <Button block onClick={() => setShowAddModal(true)}>+ 作業員を追加</Button>
       </div>
 
-      <AddWorkerModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+      <EditWorkerModal
+        isOpen={showEditModal}
+        onClose={() => { setShowEditModal(false); setEditingWorker(null) }}
         onSuccess={fetchWorkers}
         showToast={showToast}
+        worker={editingWorker}
+        token={token}
       />
+
+      {/* 削除確認モーダル */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowDeleteConfirm(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="rounded-2xl p-6 max-w-sm w-full"
+              style={{ background: currentBg.cardBg || currentBg.bg }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold mb-2" style={{ color: currentBg.text }}>作業員リストから外す</h3>
+              <p className="text-sm mb-4" style={{ color: currentBg.textLight }}>
+                「{showDeleteConfirm.name}」を作業員リストから外しますか？
+                <br />
+                <span className="text-xs">※社員マスタからは削除されません</span>
+              </p>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setShowDeleteConfirm(null)} className="flex-1">
+                  キャンセル
+                </Button>
+                <button
+                  onClick={() => handleRemoveFromField(showDeleteConfirm)}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-medium"
+                >
+                  外す
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Toast message={toast.message} isVisible={toast.show} />
     </div>
   )
 }
 
-function AddWorkerModal({ isOpen, onClose, onSuccess, showToast }) {
+function EditWorkerModal({ isOpen, onClose, onSuccess, showToast, worker, token }) {
   const [form, setForm] = useState({
-    name: '',
     team: '',
-    employment_type: '社員',
-    phone: '',
     daily_rate: '',
   })
 
-  const handleSubmit = async () => {
-    if (!form.name) {
-      showToast('名前を入力してください')
-      return
+  useEffect(() => {
+    if (worker) {
+      setForm({
+        team: worker.team || '',
+        daily_rate: worker.daily_rate || '',
+      })
     }
+  }, [worker, isOpen])
+
+  const handleSubmit = async () => {
+    if (!worker) return
 
     try {
-      const res = await fetch(`${API_BASE}/workers/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${API_BASE}/workers/${worker.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
-          ...form,
+          ...worker,
+          team: form.team,
           daily_rate: form.daily_rate ? parseInt(form.daily_rate) : null,
-          is_active: true,
         }),
       })
 
       if (res.ok) {
-        showToast('作業員を追加しました')
-        setForm({ name: '', team: '', employment_type: '社員', phone: '', daily_rate: '' })
+        showToast('更新しました')
         onClose()
         onSuccess()
+      } else {
+        showToast('エラーが発生しました')
       }
     } catch (error) {
       showToast('エラーが発生しました')
     }
   }
 
+  if (!worker) return null
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="👷 作業員を追加"
+      title={`👷 ${worker.name}`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} className="flex-1">キャンセル</Button>
-          <Button onClick={handleSubmit} className="flex-1">登録</Button>
+          <Button onClick={handleSubmit} className="flex-1">更新</Button>
         </>
       }
     >
-      <Input
-        label="名前 *"
-        placeholder="例: 田中太郎"
-        value={form.name}
-        onChange={(e) => setForm({ ...form, name: e.target.value })}
-      />
+      <div className="text-sm mb-4 opacity-70">
+        {worker.department || '未配属'} / {worker.employment_type || '社員'}
+      </div>
+
       <Select
         label="班"
         value={form.team}
@@ -267,22 +401,6 @@ function AddWorkerModal({ isOpen, onClose, onSuccess, showToast }) {
           { value: '土木班', label: '土木班' },
         ]}
       />
-      <Select
-        label="雇用形態"
-        value={form.employment_type}
-        onChange={(e) => setForm({ ...form, employment_type: e.target.value })}
-        options={[
-          { value: '社員', label: '社員' },
-          { value: '契約', label: '契約' },
-          { value: '外注', label: '外注' },
-        ]}
-      />
-      <Input
-        label="電話番号"
-        placeholder="例: 090-1234-5678"
-        value={form.phone}
-        onChange={(e) => setForm({ ...form, phone: e.target.value })}
-      />
       <Input
         label="日当"
         type="number"
@@ -290,6 +408,10 @@ function AddWorkerModal({ isOpen, onClose, onSuccess, showToast }) {
         value={form.daily_rate}
         onChange={(e) => setForm({ ...form, daily_rate: e.target.value })}
       />
+
+      <p className="text-xs opacity-50 mt-4">
+        ※名前・部署・役職などは社員マスタで編集してください
+      </p>
     </Modal>
   )
 }

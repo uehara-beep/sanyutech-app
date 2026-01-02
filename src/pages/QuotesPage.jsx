@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, Edit3, FileText, CheckCircle, Send, ChevronRight, X } from 'lucide-react'
+import { Plus, Trash2, Edit3, FileText, CheckCircle, Send, ChevronRight, X, Download, PlayCircle, XCircle, Flag } from 'lucide-react'
 import { PageHeader, Card, SectionTitle, Button, Modal, Input, Toast, Empty } from '../components/common'
 import { API_BASE } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
@@ -31,6 +31,45 @@ const formatMoney = (amount) => {
   return `¥${amount.toLocaleString()}`
 }
 
+// ステータス定義（現場台帳用）
+const STATUS_CONFIG = {
+  pending: {
+    label: '見積中',
+    color: 'bg-amber-500/20',
+    textColor: 'text-amber-400',
+    dotColor: '#f59e0b',
+    icon: '🟡'
+  },
+  accepted: {
+    label: '受注済み',
+    color: 'bg-blue-500/20',
+    textColor: 'text-blue-400',
+    dotColor: '#3b82f6',
+    icon: '🔵'
+  },
+  working: {
+    label: '施工中',
+    color: 'bg-emerald-500/20',
+    textColor: 'text-emerald-400',
+    dotColor: '#10b981',
+    icon: '🟢'
+  },
+  completed: {
+    label: '完工',
+    color: 'bg-slate-500/20',
+    textColor: 'text-slate-400',
+    dotColor: '#64748b',
+    icon: '⚪'
+  },
+  lost: {
+    label: '失注',
+    color: 'bg-red-500/20',
+    textColor: 'text-red-400',
+    dotColor: '#ef4444',
+    icon: '🔴'
+  },
+}
+
 export default function QuotesPage() {
   const navigate = useNavigate()
   const { getCurrentTheme } = useThemeStore()
@@ -42,21 +81,38 @@ export default function QuotesPage() {
   const [showModal, setShowModal] = useState(false)
   const [editData, setEditData] = useState(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
+  // ステータス: 見積中 → 受注済み → 施工中 → 完工 / 失注
+  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'pending' | 'accepted' | 'working' | 'completed' | 'lost'
+
+  // ステータスマッピング
+  const STATUS_MAP = {
+    pending: ['見積中', '下書き', 'draft', '送付済', 'sent', '未受注'],
+    accepted: ['受注済', 'ordered', '受注済み'],
+    working: ['施工中'],
+    completed: ['完工'],
+    lost: ['失注', 'rejected'],
+  }
+
+  const getQuoteStatus = (q) => {
+    if (q.status === '失注' || q.status === 'rejected') return 'lost'
+    if (q.status === '完工') return 'completed'
+    if (q.status === '施工中') return 'working'
+    if (q.status === '受注済' || q.status === 'ordered' || q.status === '受注済み' || q.project_id) return 'accepted'
+    return 'pending'
+  }
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type })
     setTimeout(() => setToast({ ...toast, show: false }), 3000)
   }
 
-  // 見積一覧取得（未受注のみ）
+  // 見積一覧取得（全件）
   const fetchQuotes = async () => {
     try {
       const res = await fetch(`${API_BASE}/quotes`)
       if (res.ok) {
         const data = await res.json()
-        // 未受注（project_idがない、かつstatusがorderedでない）のみ表示
-        const pendingQuotes = data.filter(q => !q.project_id && q.status !== 'ordered')
-        setQuotes(pendingQuotes)
+        setQuotes(data)
       }
     } catch (error) {
       console.error('Failed to fetch quotes:', error)
@@ -64,6 +120,15 @@ export default function QuotesPage() {
       setLoading(false)
     }
   }
+
+  // ステータスでフィルタリング
+  const filteredQuotes = quotes.filter(q => {
+    if (statusFilter === 'all') return true
+    return getQuoteStatus(q) === statusFilter
+  })
+
+  // 件数計算用
+  const countByStatus = (status) => quotes.filter(q => getQuoteStatus(q) === status).length
 
   useEffect(() => {
     fetchQuotes()
@@ -108,130 +173,230 @@ export default function QuotesPage() {
     }
   }
 
-  // 受注に変換
-  const handleConvertToOrder = async (quoteId) => {
-    if (!confirm('この見積書を受注に変換しますか？\n工事と工種が自動作成されます。')) return
+  // ステータス変更共通処理
+  const handleStatusChange = async (quoteId, projectName, newStatus, message) => {
+    if (!confirm(`「${projectName}」を${message}にしますか？`)) return
 
     try {
-      const res = await fetch(`${API_BASE}/quotes/${quoteId}/convert-to-order`, {
-        method: 'POST'
+      const res = await fetch(`${API_BASE}/quotes/${quoteId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
       })
 
       if (res.ok) {
-        const result = await res.json()
-        showToast(`受注しました！工事「${result.project_name}」を作成しました`)
+        showToast(`${message}にしました`)
         await fetchQuotes()
-        // 工事詳細ページへ遷移
-        setTimeout(() => {
-          navigate(`/sbase/${result.project_id}`)
-        }, 1500)
       } else {
         const error = await res.json()
-        showToast(error.detail || '変換に失敗しました', 'error')
+        showToast(error.detail || 'ステータス変更に失敗しました', 'error')
       }
     } catch (error) {
-      console.error('Failed to convert quote:', error)
+      console.error('Failed to change status:', error)
       showToast('エラーが発生しました', 'error')
     }
   }
 
-  const getStatusBadge = (status, projectId) => {
-    if (projectId) {
-      return <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400">受注済</span>
+  // 受注に変換
+  const handleAcceptOrder = async (quoteId, projectName) => {
+    if (!confirm(`「${projectName}」を受注しますか？`)) return
+
+    try {
+      const res = await fetch(`${API_BASE}/quotes/${quoteId}/accept`, {
+        method: 'PUT'
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        showToast(result.message || '受注しました')
+        await fetchQuotes()
+      } else {
+        const error = await res.json()
+        showToast(error.detail || '受注処理に失敗しました', 'error')
+      }
+    } catch (error) {
+      console.error('Failed to accept order:', error)
+      showToast('エラーが発生しました', 'error')
     }
-    switch (status) {
-      case 'draft':
-        return <span className="px-2 py-0.5 rounded-full text-xs bg-gray-500/20 text-gray-400">下書き</span>
-      case 'sent':
-        return <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400">送付済</span>
-      case 'ordered':
-        return <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400">受注済</span>
-      case 'rejected':
-        return <span className="px-2 py-0.5 rounded-full text-xs bg-red-500/20 text-red-400">失注</span>
-      default:
-        return null
+  }
+
+  // 失注
+  const handleLostOrder = (quoteId, projectName) => {
+    handleStatusChange(quoteId, projectName, '失注', '失注')
+  }
+
+  // 施工開始
+  const handleStartWork = (quoteId, projectName) => {
+    handleStatusChange(quoteId, projectName, '施工中', '施工中')
+  }
+
+  // 完工
+  const handleComplete = (quoteId, projectName) => {
+    handleStatusChange(quoteId, projectName, '完工', '完工')
+  }
+
+  // PDF出力
+  const handleDownloadPDF = async (quoteId, projectName) => {
+    try {
+      showToast('PDF生成中...')
+      const res = await fetch(`${API_BASE}/quotes/${quoteId}/pdf`)
+
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `見積書_${projectName || '見積書'}_${new Date().toISOString().split('T')[0]}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        showToast('PDFをダウンロードしました')
+      } else {
+        showToast('PDF生成に失敗しました', 'error')
+      }
+    } catch (error) {
+      console.error('Failed to download PDF:', error)
+      showToast('エラーが発生しました', 'error')
     }
+  }
+
+  const getStatusBadge = (quote) => {
+    const status = getQuoteStatus(quote)
+    const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${config.color} ${config.textColor}`}>
+        <span>{config.icon}</span>
+        <span>{config.label}</span>
+      </span>
+    )
   }
 
   return (
     <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
-      <PageHeader title="見積一覧" icon="📋" onBack={() => navigate(-1)} />
+      <PageHeader title="現場台帳" icon="📋" onBack={() => navigate(-1)} />
 
       <div className="p-4">
         {/* 新規作成ボタン */}
         <div className="flex gap-2 mb-4">
           <Button className="flex-1" onClick={() => navigate('/quotes/new')}>
-            <Plus size={16} className="inline mr-1" />新規見積作成
+            <Plus size={16} className="inline mr-1" />新規案件
           </Button>
           <Button onClick={() => navigate('/quotes/import')} style={{ background: inputBg }}>
             📥 取込
           </Button>
         </div>
 
-        <SectionTitle>未受注の見積書</SectionTitle>
+        {/* ステータスフィルター */}
+        <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
+          {[
+            { value: 'all', label: '全て', count: quotes.length, icon: null },
+            { value: 'pending', label: '見積中', count: countByStatus('pending'), icon: '🟡' },
+            { value: 'accepted', label: '受注済み', count: countByStatus('accepted'), icon: '🔵' },
+            { value: 'working', label: '施工中', count: countByStatus('working'), icon: '🟢' },
+            { value: 'completed', label: '完工', count: countByStatus('completed'), icon: '⚪' },
+            { value: 'lost', label: '失注', count: countByStatus('lost'), icon: '🔴' },
+          ].map(tab => (
+            <button
+              key={tab.value}
+              onClick={() => setStatusFilter(tab.value)}
+              className={`px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
+                statusFilter === tab.value ? 'text-white' : ''
+              }`}
+              style={{
+                background: statusFilter === tab.value ? theme.primary : inputBg,
+                color: statusFilter === tab.value ? 'white' : currentBg.textLight,
+              }}
+            >
+              {tab.icon && <span>{tab.icon}</span>}
+              {tab.label}
+              <span className="opacity-70">{tab.count}</span>
+            </button>
+          ))}
+        </div>
+
+        <SectionTitle>
+          {statusFilter === 'all' ? '案件一覧' : STATUS_CONFIG[statusFilter]?.label || '案件一覧'}
+        </SectionTitle>
 
         {/* 見積一覧 */}
         {loading ? (
           <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
-        ) : quotes.length === 0 ? (
+        ) : filteredQuotes.length === 0 ? (
           <Empty
             icon="📝"
-            title="見積書がありません"
-            subtitle="「新規作成」ボタンから見積書を作成してください"
+            title={statusFilter === 'accepted' ? '受注済みの見積書がありません' : '見積書がありません'}
+            subtitle={statusFilter === 'pending' ? '「新規作成」ボタンから見積書を作成してください' : ''}
           />
         ) : (
           <div className="space-y-3">
-            {quotes.map((quote) => (
-              <motion.div
-                key={quote.id}
-                className="rounded-xl p-4"
-                style={{ background: cardBg, border: `1px solid ${cardBorder}`, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs" style={{ color: currentBg.textLight }}>{quote.quote_no}</span>
-                      {getStatusBadge(quote.status, quote.project_id)}
-                    </div>
-                    <div className="font-medium" style={{ color: currentBg.text }}>{quote.title || '無題'}</div>
-                    <div className="text-sm" style={{ color: currentBg.textLight }}>{quote.client_name || '元請け未設定'}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold" style={{ color: theme.primary }}>
-                      {formatMoney(quote.total)}
-                    </div>
-                    <div className="text-xs" style={{ color: currentBg.textLight }}>{quote.items?.length || 0}項目</div>
-                  </div>
-                </div>
+            {filteredQuotes.map((quote) => {
+              const status = getQuoteStatus(quote)
+              const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.pending
+              const totalAmount = quote.total_amount || quote.total || 0
+              const grossProfit = totalAmount - (quote.actual_cost || quote.sales_budget || 0)
+              const profitRate = totalAmount > 0 ? ((grossProfit / totalAmount) * 100).toFixed(1) : 0
 
-                {/* アクションボタン */}
-                <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
-                  <button
-                    onClick={() => handleConvertToOrder(quote.id)}
-                    className="flex-1 py-2 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-1"
-                    style={{ backgroundColor: theme.primary }}
-                  >
-                    <CheckCircle size={16} />
-                    受注する
-                  </button>
-                  <button
-                    onClick={() => { setEditData(quote); setShowModal(true) }}
-                    className="p-2 rounded-lg hover:opacity-80"
-                    style={{ background: inputBg, color: currentBg.textLight }}
-                  >
-                    <Edit3 size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(quote.id)}
-                    className="p-2 rounded-lg text-red-400 hover:text-red-300"
-                    style={{ background: inputBg }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+              return (
+                <motion.div
+                  key={quote.id}
+                  className="rounded-xl p-4 cursor-pointer"
+                  style={{
+                    background: cardBg,
+                    border: `1px solid ${cardBorder}`,
+                    backdropFilter: isOcean ? 'blur(10px)' : 'none',
+                    borderLeft: `4px solid ${statusConfig.dotColor}`,
+                  }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate(`/projects/${quote.id}`)}
+                >
+                  {/* ステータスバッジ */}
+                  <div className="mb-2">
+                    {getStatusBadge(quote)}
+                  </div>
+
+                  {/* 工事名 */}
+                  <div className="font-semibold text-base mb-1" style={{ color: currentBg.text }}>
+                    {quote.project_name || quote.title || '無題'}
+                  </div>
+
+                  {/* 元請け */}
+                  <div className="text-sm mb-1" style={{ color: currentBg.textLight }}>
+                    {quote.client_name || '元請け未設定'}
+                  </div>
+
+                  {/* 場所 */}
+                  {quote.location && (
+                    <div className="text-xs mb-2" style={{ color: currentBg.textLight }}>
+                      📍 {quote.location}
+                    </div>
+                  )}
+
+                  {/* 金額と利益 */}
+                  <div className="flex items-end justify-between mt-3 pt-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
+                    <div>
+                      <div className="text-xs" style={{ color: currentBg.textLight }}>見積金額</div>
+                      <div className="text-lg font-bold" style={{ color: theme.primary }}>
+                        {formatMoney(totalAmount)}
+                      </div>
+                    </div>
+                    {status !== 'lost' && totalAmount > 0 && (
+                      <div className="text-right">
+                        <div className="text-xs" style={{ color: currentBg.textLight }}>粗利</div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-sm font-bold" style={{ color: grossProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                            {formatMoney(grossProfit)}
+                          </span>
+                          <span className="text-xs" style={{ color: grossProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                            （{profitRate}%）
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -320,14 +485,18 @@ function QuoteModal({ data, onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 overflow-y-auto p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="rounded-xl w-full max-w-lg my-8"
-        style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
+        className="rounded-xl w-full max-w-lg flex flex-col"
+        style={{
+          background: cardBg,
+          backdropFilter: isOcean ? 'blur(10px)' : 'none',
+          maxHeight: 'calc(100vh - 80px)',
+        }}
       >
-        <div className="p-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${cardBorder}` }}>
+        <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: `1px solid ${cardBorder}` }}>
           <h2 className="text-lg font-bold" style={{ color: currentBg.text }}>
             {data ? '見積書を編集' : '見積書を作成'}
           </h2>
@@ -336,7 +505,7 @@ function QuoteModal({ data, onClose, onSave }) {
           </button>
         </div>
 
-        <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 space-y-4 flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
           <Input
             label="工事名・件名 *"
             value={form.title}
@@ -459,7 +628,7 @@ function QuoteModal({ data, onClose, onSave }) {
           />
         </div>
 
-        <div className="p-4 flex gap-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
+        <div className="p-4 flex gap-3 flex-shrink-0" style={{ borderTop: `1px solid ${cardBorder}`, paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <button
             onClick={onClose}
             className="flex-1 py-3 rounded-xl font-medium"

@@ -75,7 +75,7 @@ export default function AnalyticsPage() {
         </div>
         <div className="flex justify-center mt-2">
           <div className="flex bg-white/20 rounded-lg p-1">
-            {[2024, 2025, 2026].map(y => (
+            {[new Date().getFullYear(), new Date().getFullYear() + 1, new Date().getFullYear() + 2].map(y => (
               <button
                 key={y}
                 onClick={() => setYear(y)}

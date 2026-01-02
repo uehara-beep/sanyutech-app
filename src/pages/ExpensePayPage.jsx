@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
 import { useThemeStore, backgroundStyles } from '../store'
+import { API_BASE } from '../config/api'
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: '支払待ち', color: 'bg-amber-500/20 text-amber-400' },
@@ -32,15 +33,39 @@ export default function ExpensePayPage() {
   const [showModal, setShowModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [toast, setToast] = useState({ show: false, message: '' })
+  const [payments, setPayments] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // サンプルデータ
-  const payments = [
-    { id: 1, vendor: '株式会社山田組', vendorType: 'subcon', project: '新宿マンション新築工事', invoiceNo: 'PAY-2024-001', amount: 5500000, dueDate: '2024-01-25', status: 'pending', invoiceDate: '2024-01-10' },
-    { id: 2, vendor: 'サンワレンタル', vendorType: 'rental', project: '渋谷商業ビル改修', invoiceNo: 'PAY-2024-002', amount: 850000, dueDate: '2024-01-20', status: 'scheduled', scheduledDate: '2024-01-20', invoiceDate: '2024-01-05' },
-    { id: 3, vendor: '東京鋼材株式会社', vendorType: 'material', project: '品川駅前再開発', invoiceNo: 'PAY-2024-003', amount: 3200000, dueDate: '2024-01-31', status: 'pending', invoiceDate: '2024-01-08' },
-    { id: 4, vendor: '有限会社佐藤電工', vendorType: 'subcon', project: '新宿マンション新築工事', invoiceNo: 'PAY-2023-098', amount: 2800000, dueDate: '2023-12-28', status: 'completed', paidDate: '2023-12-27', invoiceDate: '2023-12-10' },
-    { id: 5, vendor: '関東コンクリート', vendorType: 'material', project: '横浜港湾施設', invoiceNo: 'PAY-2023-095', amount: 4500000, dueDate: '2023-12-25', status: 'completed', paidDate: '2023-12-22', invoiceDate: '2023-12-05' },
-  ]
+  // APIからデータを取得
+  useEffect(() => {
+    fetchPayments()
+  }, [])
+
+  const fetchPayments = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/payables/`)
+      if (res.ok) {
+        const data = await res.json()
+        const processedData = data.map(item => ({
+          id: item.id,
+          vendor: item.vendor_name || '未設定',
+          vendorType: item.category || 'other',
+          project: item.description || '案件名未設定',
+          invoiceNo: `PAY-${item.id}`,
+          amount: item.amount || 0,
+          dueDate: item.expected_date || '',
+          status: item.status || 'pending',
+          invoiceDate: item.created_at?.split('T')[0] || '',
+          paidDate: item.actual_date || '',
+        }))
+        setPayments(processedData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch payments:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredPayments = payments.filter(item => {
     const matchStatus = !activeStatus || item.status === activeStatus
@@ -71,8 +96,26 @@ export default function ExpensePayPage() {
   const totalScheduled = payments.filter(p => p.status === 'scheduled').reduce((sum, p) => sum + p.amount, 0)
   const totalCompleted = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
 
-  const handleMarkAsPaid = (item) => {
-    showToast('支払いを記録しました')
+  const handleMarkAsPaid = async (item) => {
+    try {
+      const res = await fetch(`${API_BASE}/payables/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'completed',
+          actual_date: new Date().toISOString().split('T')[0],
+        }),
+      })
+      if (res.ok) {
+        showToast('支払いを記録しました')
+        fetchPayments()
+      } else {
+        showToast('更新に失敗しました')
+      }
+    } catch (error) {
+      console.error('Failed to mark as paid:', error)
+      showToast('エラーが発生しました')
+    }
     setShowModal(false)
     setSelectedItem(null)
   }
@@ -152,7 +195,12 @@ export default function ExpensePayPage() {
         <SectionTitle>支払一覧</SectionTitle>
 
         {/* 支払一覧 */}
-        {filteredPayments.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12" style={{ color: currentBg.textLight }}>
+            <div className="w-8 h-8 border-4 border-red-500/30 border-t-red-500 rounded-full animate-spin mx-auto mb-3" />
+            <div className="text-sm">読み込み中...</div>
+          </div>
+        ) : filteredPayments.length === 0 ? (
           <div className="text-center py-12" style={{ color: currentBg.textLight }}>
             <div className="text-5xl mb-3">💳</div>
             <div className="text-lg mb-1">該当する支払がありません</div>
@@ -209,27 +257,28 @@ export default function ExpensePayPage() {
       <AnimatePresence>
         {showModal && selectedItem && (
           <motion.div
-            className="fixed inset-0 bg-black/70 z-50 flex items-end"
+            className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => { setShowModal(false); setSelectedItem(null) }}
           >
             <motion.div
-              className="w-full rounded-t-2xl p-5 max-h-[85vh] overflow-auto"
-              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
+              className="w-full rounded-t-2xl flex flex-col"
+              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none', maxHeight: 'calc(100vh - 60px)' }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0">
                 <h3 className="text-lg font-bold" style={{ color: currentBg.text }}>
                   💳 支払詳細
                 </h3>
                 <button onClick={() => { setShowModal(false); setSelectedItem(null) }} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
               </div>
 
+              <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
               <div className="space-y-4">
                 <div className="text-center py-4 rounded-xl" style={{ background: inputBg }}>
                   <div className="text-4xl mb-2">{getVendorIcon(selectedItem.vendorType)}</div>
@@ -296,6 +345,11 @@ export default function ExpensePayPage() {
                   </div>
                 )}
 
+              </div>
+              </div>
+
+              {/* 固定フッター */}
+              <div className="p-5 pt-3 flex-shrink-0" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
                 <div className="flex gap-3">
                   <button
                     onClick={() => { showToast('請求書を表示'); }}

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
 import { useThemeStore, backgroundStyles } from '../store'
+import { API_BASE } from '../config/api'
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: '入金待ち', color: 'bg-amber-500/20 text-amber-400' },
@@ -25,15 +26,47 @@ export default function IncomePage() {
   const [showModal, setShowModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [toast, setToast] = useState({ show: false, message: '' })
+  const [incomes, setIncomes] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // サンプルデータ
-  const incomes = [
-    { id: 1, client: '株式会社大成建設', project: '新宿マンション新築工事', invoiceNo: 'INV-2024-001', amount: 15000000, dueDate: '2024-01-31', status: 'pending', invoiceDate: '2024-01-05' },
-    { id: 2, client: '清水建設株式会社', project: '渋谷商業ビル改修', invoiceNo: 'INV-2024-002', amount: 8500000, dueDate: '2024-01-25', status: 'partial', paidAmount: 5000000, invoiceDate: '2024-01-03' },
-    { id: 3, client: '東京都建設局', project: '品川駅前再開発', invoiceNo: 'INV-2023-045', amount: 25000000, dueDate: '2024-01-10', status: 'overdue', invoiceDate: '2023-12-15' },
-    { id: 4, client: '鹿島建設株式会社', project: '横浜港湾施設', invoiceNo: 'INV-2023-042', amount: 12000000, dueDate: '2023-12-28', status: 'completed', paidAmount: 12000000, paidDate: '2023-12-25', invoiceDate: '2023-12-01' },
-    { id: 5, client: '国土交通省', project: '橋梁補修工事', invoiceNo: 'INV-2023-038', amount: 18000000, dueDate: '2023-12-20', status: 'completed', paidAmount: 18000000, paidDate: '2023-12-18', invoiceDate: '2023-11-25' },
-  ]
+  // APIからデータを取得
+  useEffect(() => {
+    fetchIncomes()
+  }, [])
+
+  const fetchIncomes = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/receivables/`)
+      if (res.ok) {
+        const data = await res.json()
+        // ステータスを判定（期限切れチェック）
+        const today = new Date().toISOString().split('T')[0]
+        const processedData = data.map(item => {
+          let status = item.status || 'pending'
+          if (status === 'pending' && item.expected_date && item.expected_date < today) {
+            status = 'overdue'
+          }
+          return {
+            id: item.id,
+            client: item.client_name || '未設定',
+            project: item.description || '案件名未設定',
+            invoiceNo: `RCV-${item.id}`,
+            amount: item.amount || 0,
+            dueDate: item.expected_date || '',
+            status: status,
+            invoiceDate: item.created_at?.split('T')[0] || '',
+            paidAmount: status === 'completed' ? item.amount : 0,
+            paidDate: item.actual_date || '',
+          }
+        })
+        setIncomes(processedData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch incomes:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredIncomes = incomes.filter(item => {
     return !activeStatus || item.status === activeStatus
@@ -57,8 +90,26 @@ export default function IncomePage() {
   const totalOverdue = incomes.filter(i => i.status === 'overdue').reduce((sum, i) => sum + i.amount, 0)
   const totalCompleted = incomes.filter(i => i.status === 'completed').reduce((sum, i) => sum + i.amount, 0)
 
-  const handleMarkAsPaid = (item) => {
-    showToast('入金を記録しました')
+  const handleMarkAsPaid = async (item) => {
+    try {
+      const res = await fetch(`${API_BASE}/receivables/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'completed',
+          actual_date: new Date().toISOString().split('T')[0],
+        }),
+      })
+      if (res.ok) {
+        showToast('入金を記録しました')
+        fetchIncomes()
+      } else {
+        showToast('更新に失敗しました')
+      }
+    } catch (error) {
+      console.error('Failed to mark as paid:', error)
+      showToast('エラーが発生しました')
+    }
     setShowModal(false)
     setSelectedItem(null)
   }
@@ -122,7 +173,12 @@ export default function IncomePage() {
         <SectionTitle>入金一覧</SectionTitle>
 
         {/* 入金一覧 */}
-        {filteredIncomes.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12" style={{ color: currentBg.textLight }}>
+            <div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-3" />
+            <div className="text-sm">読み込み中...</div>
+          </div>
+        ) : filteredIncomes.length === 0 ? (
           <div className="text-center py-12" style={{ color: currentBg.textLight }}>
             <div className="text-5xl mb-3">💰</div>
             <div className="text-lg mb-1">該当する入金がありません</div>
@@ -181,27 +237,28 @@ export default function IncomePage() {
       <AnimatePresence>
         {showModal && selectedItem && (
           <motion.div
-            className="fixed inset-0 bg-black/70 z-50 flex items-end"
+            className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => { setShowModal(false); setSelectedItem(null) }}
           >
             <motion.div
-              className="w-full rounded-t-2xl p-5 max-h-[85vh] overflow-auto"
-              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
+              className="w-full rounded-t-2xl flex flex-col"
+              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none', maxHeight: 'calc(100vh - 60px)' }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0">
                 <h3 className="text-lg font-bold" style={{ color: currentBg.text }}>
                   💰 入金詳細
                 </h3>
                 <button onClick={() => { setShowModal(false); setSelectedItem(null) }} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
               </div>
 
+              <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
               <div className="space-y-4">
                 <div className="text-center py-4 rounded-xl" style={{ background: inputBg }}>
                   <div className="text-3xl font-bold" style={{ color: currentBg.text }}>
@@ -258,6 +315,11 @@ export default function IncomePage() {
                   </div>
                 )}
 
+              </div>
+              </div>
+
+              {/* 固定フッター */}
+              <div className="p-5 pt-3 flex-shrink-0" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
                 <div className="flex gap-3">
                   <button
                     onClick={() => { showToast('請求書を表示'); }}

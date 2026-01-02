@@ -4,15 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import DatePicker, { registerLocale } from 'react-datepicker'
 import ja from 'date-fns/locale/ja'
 import 'react-datepicker/dist/react-datepicker.css'
-import { useThemeStore } from '../store'
 
 registerLocale('ja', ja)
 
-// ページヘッダー（テーマカラー対応）
+// ページヘッダー（背景画像対応）
 export function PageHeader({ title, icon, onBack, rightAction }) {
   const navigate = useNavigate()
-  const { getCurrentTheme } = useThemeStore()
-  const theme = getCurrentTheme()
 
   const handleBack = () => {
     if (onBack) {
@@ -24,17 +21,29 @@ export function PageHeader({ title, icon, onBack, rightAction }) {
 
   return (
     <header
-      className="text-white px-5 py-4 flex items-center gap-3 sticky top-0 z-50 shadow-lg"
-      style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.dark})` }}
+      className="text-white px-5 py-4 flex items-center gap-3 sticky top-0 z-50 shadow-lg relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/backgrounds/SunyuTEC_login_bg_iphone_1170x2532.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center 30%',
+        minHeight: '64px',
+      }}
     >
+      {/* オーバーレイ */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(90deg, rgba(10,21,37,0.85) 0%, rgba(26,54,93,0.75) 50%, rgba(10,21,37,0.85) 100%)',
+        }}
+      />
       <button
         onClick={handleBack}
-        className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm"
+        className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm relative z-10"
       >
         <ChevronLeft size={20} />
       </button>
-      <span className="text-lg font-semibold flex-1">{icon} {title}</span>
-      {rightAction && rightAction}
+      <span className="text-lg font-semibold flex-1 relative z-10">{icon} {title}</span>
+      {rightAction && <div className="relative z-10">{rightAction}</div>}
     </header>
   )
 }
@@ -178,35 +187,36 @@ export function ListItem({ icon, iconBg, title, subtitle, right, onClick }) {
 }
 
 // モーダル（モダンUI - ダークテーマ）
+// 画面上部寄りに配置、モーダル全体でスクロール可能
 export function Modal({ isOpen, onClose, title, children, footer }) {
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 bg-black/70 z-[200] flex items-end"
+          className="fixed inset-0 bg-black/70 z-[200] flex items-start justify-center pt-12 pb-4 overflow-y-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
           <motion.div
-            className="w-full max-h-[85vh] rounded-t-3xl overflow-auto shadow-xl"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text)', borderTop: '1px solid var(--border)' }}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            className="w-full mx-4 max-w-lg max-h-[85vh] rounded-2xl overflow-hidden shadow-xl flex flex-col"
+            style={{ backgroundColor: 'var(--card)', color: 'var(--text)', border: '1px solid var(--border)' }}
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-5 sticky top-0" style={{ backgroundColor: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
+            <div className="flex justify-between items-center p-5 shrink-0" style={{ backgroundColor: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
               <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{title}</h2>
               <button onClick={onClose} style={{ color: 'var(--text-light)' }}>
                 <X size={24} />
               </button>
             </div>
-            <div className="p-5">{children}</div>
+            <div className="p-5 overflow-y-auto flex-1">{children}</div>
             {footer && (
-              <div className="p-4 flex gap-3" style={{ backgroundColor: 'var(--bg)', borderTop: '1px solid var(--border)' }}>
+              <div className="p-4 flex gap-3 shrink-0" style={{ backgroundColor: 'var(--bg)', borderTop: '1px solid var(--border)' }}>
                 {footer}
               </div>
             )}

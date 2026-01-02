@@ -288,21 +288,36 @@ export default function MaterialSlipPage() {
       {/* OCR結果モーダル */}
       {showResult && (
         <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end"
+          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           onClick={() => !scanning && setShowResult(false)}
         >
           <motion.div
-            className="w-full rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto"
-            style={{ background: isOcean ? 'rgba(30,30,50,0.98)' : currentBg.cardBg || '#1a1a2e' }}
+            className="w-full rounded-t-3xl flex flex-col"
+            style={{ background: isOcean ? 'rgba(30,30,50,0.98)' : currentBg.cardBg || '#1a1a2e', maxHeight: 'calc(100vh - 60px)' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-lg font-bold mb-4" style={{ color: currentBg.text }}>
-              {scanning ? '読み取り中...' : '読み取り結果'}
+            {/* ヘッダー（保存ボタン含む） */}
+            <div className="flex justify-between items-center p-6 pb-3 flex-shrink-0">
+              <div className="text-lg font-bold" style={{ color: currentBg.text }}>
+                {scanning ? '読み取り中...' : '📋 読み取り結果'}
+              </div>
+              <div className="flex items-center gap-2">
+                {!scanning && ocrResult && (
+                  <button
+                    onClick={handleSave}
+                    className="px-4 py-1.5 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg text-sm font-bold"
+                  >
+                    保存
+                  </button>
+                )}
+                <button onClick={() => !scanning && setShowResult(false)} className="text-2xl text-slate-400">×</button>
+              </div>
             </div>
+            <div className="flex-1 overflow-y-auto px-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
 
             {scanning ? (
               <div className="text-center py-12">
@@ -377,24 +392,10 @@ export default function MaterialSlipPage() {
                   </div>
                 )}
 
-                {/* 保存ボタン */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => setShowResult(false)}
-                    className="flex-1 py-3.5 rounded-xl font-bold"
-                    style={{ background: inputBg, color: currentBg.textLight }}
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    className="flex-1 py-3.5 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-xl font-bold"
-                  >
-                    保存する
-                  </button>
-                </div>
               </div>
             ) : null}
+            </div>
+
           </motion.div>
         </motion.div>
       )}

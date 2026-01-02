@@ -238,18 +238,32 @@ export default function InvoicePage() {
       {/* 入力フォームモーダル */}
       {showForm && (
         <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end"
+          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           onClick={() => setShowForm(false)}
         >
           <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto"
+            className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
+            style={{ maxHeight: '90vh' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-lg font-bold mb-6">請求書登録</div>
+            {/* ヘッダー（保存ボタン含む） */}
+            <div className="flex justify-between items-center p-4 border-b border-app-border">
+              <div className="text-lg font-bold">📋 請求書登録</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 py-1.5 bg-app-primary rounded-lg text-sm font-bold text-white"
+                >
+                  送信
+                </button>
+                <button onClick={() => setShowForm(false)} className="text-2xl text-slate-400">×</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
 
             {/* AI解析ボタン */}
             <button
@@ -352,14 +366,7 @@ export default function InvoicePage() {
                 ))}
               </select>
             </div>
-
-            {/* 送信ボタン */}
-            <button
-              onClick={handleSubmit}
-              className="w-full py-4 bg-app-primary rounded-xl font-bold text-white"
-            >
-              承認フローへ送信
-            </button>
+            </div>
           </motion.div>
         </motion.div>
       )}

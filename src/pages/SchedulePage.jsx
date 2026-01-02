@@ -393,61 +393,67 @@ export default function SchedulePage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex flex-col justify-end"
           onClick={() => setShowScanner(false)}
         >
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
-            className="w-full bg-app-card rounded-t-3xl p-6"
+            className="w-full bg-app-card rounded-t-3xl flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 60px)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="text-center mb-6">
+            <div className="text-center p-6 pb-3 flex-shrink-0">
               <div className="text-3xl mb-2">📷</div>
               <div className="text-lg font-bold">工程表を読み取る</div>
               <div className="text-xs text-slate-400">撮影または画像・PDFを選択</div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 cursor-pointer">
-                <div className="text-3xl">📸</div>
-                <div className="text-sm font-medium text-white">カメラ</div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e, 'camera')}
-                />
-              </label>
-              <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 cursor-pointer">
-                <div className="text-3xl">🖼️</div>
-                <div className="text-sm font-medium text-white">画像</div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e, 'gallery')}
-                />
-              </label>
-              <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-orange-600 to-orange-700 cursor-pointer">
-                <div className="text-3xl">📄</div>
-                <div className="text-sm font-medium text-white">PDF</div>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e, 'pdf')}
-                />
-              </label>
+            <div className="flex-1 overflow-y-auto px-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 cursor-pointer">
+                  <div className="text-3xl">📸</div>
+                  <div className="text-sm font-medium text-white">カメラ</div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => handleFileSelect(e, 'camera')}
+                  />
+                </label>
+                <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 cursor-pointer">
+                  <div className="text-3xl">🖼️</div>
+                  <div className="text-sm font-medium text-white">画像</div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleFileSelect(e, 'gallery')}
+                  />
+                </label>
+                <label className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-orange-600 to-orange-700 cursor-pointer">
+                  <div className="text-3xl">📄</div>
+                  <div className="text-sm font-medium text-white">PDF</div>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={(e) => handleFileSelect(e, 'pdf')}
+                  />
+                </label>
+              </div>
             </div>
 
-            <button
-              onClick={() => setShowScanner(false)}
-              className="w-full py-3 rounded-xl bg-slate-700 text-slate-300"
-            >
-              キャンセル
-            </button>
+            {/* 固定フッター */}
+            <div className="p-6 pt-3 flex-shrink-0" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+              <button
+                onClick={() => setShowScanner(false)}
+                className="w-full py-3 rounded-xl bg-slate-700 text-slate-300"
+              >
+                キャンセル
+              </button>
+            </div>
           </motion.div>
         </motion.div>
       )}

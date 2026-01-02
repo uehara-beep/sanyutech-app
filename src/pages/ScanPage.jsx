@@ -76,6 +76,13 @@ export default function ScanPage() {
     deliveryFee: '',
     projectId: 'kurume',
     category: 'rental',
+    // ガソリン専用フィールド
+    fuelType: 'レギュラー',
+    fuelQuantity: '',
+    fuelUnitPrice: '',
+    fuelTotalAmount: '',
+    vehicleNumber: '',
+    fuelDate: '',
   })
 
   // 入力方法選択モーダルを開く
@@ -119,14 +126,56 @@ export default function ScanPage() {
     }
 
     try {
-      // OCR APIを呼び出し
+      // まずガソリンOCRを試す（ガソリンスタンドのレシートか自動判定）
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('type', fileType)
 
-      const response = await fetch(`${API_BASE}/ocr/scan`, {
+      // ガソリンOCR APIを呼び出し
+      const gasolineResponse = await fetch(`${API_BASE}/ocr/gasoline`, {
         method: 'POST',
         body: formData,
+      })
+
+      if (gasolineResponse.ok) {
+        const gasolineResult = await gasolineResponse.json()
+        console.log('ガソリンOCR結果:', gasolineResult)
+
+        // ガソリンレシートと判定された場合（is_gasolineフラグまたはfuel_typeで判定）
+        const isGasoline = gasolineResult.is_gasoline || gasolineResult.data?.is_gasoline || gasolineResult.data?.fuel_type
+        if (gasolineResult.success && isGasoline) {
+          const data = gasolineResult.data
+          const storeName = data.store_name || data.company_name || ''
+          setOcrResult({ ...data, document_type: 'fuel' })
+          setEditData({
+            docType: 'fuel',
+            vendor: storeName,
+            itemName: `${data.fuel_type || 'ガソリン'} ${data.quantity || ''}L`,
+            price: data.total_amount?.toString() || '',
+            unit: '円',
+            deliveryFee: '',
+            projectId: 'kurume',
+            category: 'fuel',
+            fuelType: data.fuel_type || 'レギュラー',
+            fuelQuantity: data.quantity?.toString() || '',
+            fuelUnitPrice: data.unit_price?.toString() || '',
+            fuelTotalAmount: data.total_amount?.toString() || '',
+            vehicleNumber: data.vehicle_number || '',
+            fuelDate: data.date || '',
+          })
+          setShowResultModal(true)
+          console.log('ガソリンレシートとして認識しました:', storeName, data.fuel_type)
+          return
+        }
+      }
+
+      // ガソリンでない場合は通常のOCR（invoice/receipt判定）
+      const formData2 = new FormData()
+      formData2.append('file', file)
+      formData2.append('type', fileType)
+
+      const response = await fetch(`${API_BASE}/ocr/invoice`, {
+        method: 'POST',
+        body: formData2,
       })
 
       if (!response.ok) {
@@ -134,19 +183,34 @@ export default function ScanPage() {
       }
 
       const result = await response.json()
-      setOcrResult(result)
 
-      // 結果をeditDataに設定
-      setEditData({
-        docType: result.document_type || 'estimate',
-        vendor: result.vendor || '',
-        itemName: result.item_name || '',
-        price: result.price?.toString() || '',
-        unit: result.unit || '円/日',
-        deliveryFee: result.delivery_fee?.toString() || '',
-        projectId: 'kurume',
-        category: mapDocTypeToCategory(result.document_type),
-      })
+      if (result.success && result.data) {
+        setOcrResult(result.data)
+        // 伝票データから適切なdocTypeを判定
+        const detectedDocType = result.data.slip_type?.includes('建材') ? 'material'
+          : result.data.slip_type?.includes('レンタル') ? 'rental'
+          : result.data.slip_type?.includes('見積') ? 'estimate'
+          : 'receipt'
+
+        setEditData({
+          docType: detectedDocType,
+          vendor: result.data.vendor_name || result.data.company_name || '',
+          itemName: result.data.items?.[0]?.name || result.data.description || '',
+          price: result.data.total_amount?.toString() || result.data.items?.[0]?.amount?.toString() || '',
+          unit: '円',
+          deliveryFee: '',
+          projectId: 'kurume',
+          category: mapDocTypeToCategory(detectedDocType),
+          fuelType: 'レギュラー',
+          fuelQuantity: '',
+          fuelUnitPrice: '',
+          fuelTotalAmount: '',
+          vehicleNumber: '',
+          fuelDate: '',
+        })
+      } else {
+        throw new Error('OCR結果が取得できませんでした')
+      }
 
       setShowResultModal(true)
     } catch (err) {
@@ -163,6 +227,12 @@ export default function ScanPage() {
         deliveryFee: dummyResult.delivery_fee?.toString() || '',
         projectId: 'kurume',
         category: mapDocTypeToCategory(dummyResult.document_type),
+        fuelType: 'レギュラー',
+        fuelQuantity: '',
+        fuelUnitPrice: '',
+        fuelTotalAmount: '',
+        vehicleNumber: '',
+        fuelDate: '',
       })
       setShowResultModal(true)
     } finally {
@@ -501,68 +571,190 @@ export default function ScanPage() {
           </div>
         </div>
 
-        {/* 入力フォーム */}
-        <Input
-          label="取引先"
-          value={editData.vendor}
-          onChange={(e) => setEditData({ ...editData, vendor: e.target.value })}
-          placeholder="取引先名を入力"
-        />
-
-        <Input
-          label="品名"
-          value={editData.itemName}
-          onChange={(e) => setEditData({ ...editData, itemName: e.target.value })}
-          placeholder="品名を入力"
-        />
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1.5" style={{ color: currentBg.textLight }}>単価</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              className="flex-1 px-4 py-3 rounded-xl"
-              style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
-              value={editData.price}
-              onChange={(e) => setEditData({ ...editData, price: e.target.value })}
-              placeholder="0"
+        {/* 入力フォーム - ガソリン専用 or 通常 */}
+        {editData.docType === 'fuel' ? (
+          <>
+            {/* ガソリン専用フォーム */}
+            <Input
+              label="スタンド名"
+              value={editData.vendor}
+              onChange={(e) => setEditData({ ...editData, vendor: e.target.value })}
+              placeholder="コスモ石油、ENEOS など"
             />
-            <select
-              className="w-24 px-3 py-3 rounded-xl"
-              style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
-              value={editData.unit}
-              onChange={(e) => setEditData({ ...editData, unit: e.target.value })}
-            >
-              <option value="円/日">円/日</option>
-              <option value="円/t">円/t</option>
-              <option value="円/㎥">円/㎥</option>
-              <option value="円">円</option>
-            </select>
-          </div>
-        </div>
 
-        {(editData.docType === 'estimate' || editData.docType === 'rental') && (
-          <Input
-            label="回送費"
-            value={editData.deliveryFee}
-            onChange={(e) => setEditData({ ...editData, deliveryFee: e.target.value })}
-            placeholder="0"
-          />
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1.5" style={{ color: currentBg.textLight }}>日付</label>
+              <input
+                type="date"
+                className="w-full px-4 py-3 rounded-xl"
+                style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
+                value={editData.fuelDate}
+                onChange={(e) => setEditData({ ...editData, fuelDate: e.target.value })}
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1.5" style={{ color: currentBg.textLight }}>油種</label>
+              <div className="flex gap-2">
+                {['レギュラー', 'ハイオク', '軽油'].map((type) => (
+                  <button
+                    key={type}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors"
+                    style={editData.fuelType === type
+                      ? { backgroundColor: theme.primary, borderColor: 'transparent', color: '#fff' }
+                      : { background: inputBg, borderColor: inputBorder, color: currentBg.textLight }
+                    }
+                    onClick={() => setEditData({ ...editData, fuelType: type })}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5" style={{ color: currentBg.textLight }}>数量（L）</label>
+                <input
+                  type="number"
+                  className="w-full px-4 py-3 rounded-xl"
+                  style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
+                  value={editData.fuelQuantity}
+                  onChange={(e) => setEditData({ ...editData, fuelQuantity: e.target.value })}
+                  placeholder="45.5"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5" style={{ color: currentBg.textLight }}>単価（円/L）</label>
+                <input
+                  type="number"
+                  className="w-full px-4 py-3 rounded-xl"
+                  style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
+                  value={editData.fuelUnitPrice}
+                  onChange={(e) => setEditData({ ...editData, fuelUnitPrice: e.target.value })}
+                  placeholder="165"
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1.5" style={{ color: currentBg.textLight }}>合計金額</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  className="w-full px-4 py-3 rounded-xl pr-12"
+                  style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
+                  value={editData.fuelTotalAmount}
+                  onChange={(e) => setEditData({ ...editData, fuelTotalAmount: e.target.value })}
+                  placeholder="7500"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: currentBg.textLight }}>円</span>
+              </div>
+            </div>
+
+            <Input
+              label="車両番号（任意）"
+              value={editData.vehicleNumber}
+              onChange={(e) => setEditData({ ...editData, vehicleNumber: e.target.value })}
+              placeholder="久留米 100 あ 1234"
+            />
+
+            <Select
+              label="現場（紐付け）"
+              value={editData.projectId}
+              onChange={(e) => setEditData({ ...editData, projectId: e.target.value })}
+              options={projects}
+            />
+
+            {/* ガソリン集計情報 */}
+            {editData.fuelQuantity && editData.fuelUnitPrice && (
+              <div className="rounded-xl p-4 mt-4" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
+                <div className="text-xs font-semibold mb-2" style={{ color: '#ef4444' }}>⛽ 給油情報サマリ</div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-lg font-bold" style={{ color: currentBg.text }}>{editData.fuelQuantity}L</div>
+                    <div className="text-[10px]" style={{ color: currentBg.textLight }}>給油量</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold" style={{ color: currentBg.text }}>{editData.fuelUnitPrice}円</div>
+                    <div className="text-[10px]" style={{ color: currentBg.textLight }}>単価/L</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold" style={{ color: '#ef4444' }}>
+                      {editData.fuelTotalAmount || Math.round(parseFloat(editData.fuelQuantity || 0) * parseFloat(editData.fuelUnitPrice || 0))}円
+                    </div>
+                    <div className="text-[10px]" style={{ color: currentBg.textLight }}>合計</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* 通常フォーム */}
+            <Input
+              label="取引先"
+              value={editData.vendor}
+              onChange={(e) => setEditData({ ...editData, vendor: e.target.value })}
+              placeholder="取引先名を入力"
+            />
+
+            <Input
+              label="品名"
+              value={editData.itemName}
+              onChange={(e) => setEditData({ ...editData, itemName: e.target.value })}
+              placeholder="品名を入力"
+            />
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1.5" style={{ color: currentBg.textLight }}>単価</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 px-4 py-3 rounded-xl"
+                  style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
+                  value={editData.price}
+                  onChange={(e) => setEditData({ ...editData, price: e.target.value })}
+                  placeholder="0"
+                />
+                <select
+                  className="w-24 px-3 py-3 rounded-xl"
+                  style={{ background: inputBg, border: `1px solid ${inputBorder}`, color: currentBg.text }}
+                  value={editData.unit}
+                  onChange={(e) => setEditData({ ...editData, unit: e.target.value })}
+                >
+                  <option value="円/日">円/日</option>
+                  <option value="円/t">円/t</option>
+                  <option value="円/㎥">円/㎥</option>
+                  <option value="円">円</option>
+                </select>
+              </div>
+            </div>
+
+            {(editData.docType === 'estimate' || editData.docType === 'rental') && (
+              <Input
+                label="回送費"
+                value={editData.deliveryFee}
+                onChange={(e) => setEditData({ ...editData, deliveryFee: e.target.value })}
+                placeholder="0"
+              />
+            )}
+
+            <Select
+              label="現場（紐付け）"
+              value={editData.projectId}
+              onChange={(e) => setEditData({ ...editData, projectId: e.target.value })}
+              options={projects}
+            />
+
+            <Select
+              label="カテゴリ"
+              value={editData.category}
+              onChange={(e) => setEditData({ ...editData, category: e.target.value })}
+              options={categories}
+            />
+          </>
         )}
-
-        <Select
-          label="現場（紐付け）"
-          value={editData.projectId}
-          onChange={(e) => setEditData({ ...editData, projectId: e.target.value })}
-          options={projects}
-        />
-
-        <Select
-          label="カテゴリ"
-          value={editData.category}
-          onChange={(e) => setEditData({ ...editData, category: e.target.value })}
-          options={categories}
-        />
 
         {/* 自動連携先 */}
         <div className="rounded-xl p-4 mt-4" style={{ background: inputBg }}>

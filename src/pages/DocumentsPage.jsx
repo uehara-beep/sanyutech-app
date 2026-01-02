@@ -233,63 +233,68 @@ export default function DocumentsPage() {
       <AnimatePresence>
         {showUploadModal && (
           <motion.div
-            className="fixed inset-0 bg-black/70 z-50 flex items-end"
+            className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowUploadModal(false)}
           >
             <motion.div
-              className="w-full rounded-t-2xl p-5"
-              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none' }}
+              className="w-full rounded-t-2xl flex flex-col"
+              style={{ background: cardBg, backdropFilter: isOcean ? 'blur(10px)' : 'none', maxHeight: 'calc(100vh - 60px)' }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0">
                 <h3 className="text-lg font-bold" style={{ color: currentBg.text }}>
                   📤 書類をアップロード
                 </h3>
                 <button onClick={() => setShowUploadModal(false)} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>現場を選択</label>
-                  <select
-                    className="w-full rounded-lg px-4 py-3 text-sm"
-                    style={{ background: inputBg, color: currentBg.text }}
-                  >
-                    <option value="">現場を選択</option>
-                    {sites.map(site => (
-                      <option key={site.id} value={site.id}>{site.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>書類の種類</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {DOC_TYPES.map(type => (
-                      <button
-                        key={type.value}
-                        className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1`}
-                        style={{ background: inputBg, color: currentBg.textLight }}
-                      >
-                        {type.icon} {type.label}
-                      </button>
-                    ))}
+              <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>現場を選択</label>
+                    <select
+                      className="w-full rounded-lg px-4 py-3 text-sm"
+                      style={{ background: inputBg, color: currentBg.text }}
+                    >
+                      <option value="">現場を選択</option>
+                      {sites.map(site => (
+                        <option key={site.id} value={site.id}>{site.name}</option>
+                      ))}
+                    </select>
                   </div>
+
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>書類の種類</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {DOC_TYPES.map(type => (
+                        <button
+                          key={type.value}
+                          className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1`}
+                          style={{ background: inputBg, color: currentBg.textLight }}
+                        >
+                          {type.icon} {type.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <label className="block py-12 border-2 border-dashed rounded-xl text-center cursor-pointer" style={{ borderColor: currentBg.textLight }}>
+                    <div className="text-4xl mb-2">📄</div>
+                    <div className="text-sm font-semibold" style={{ color: currentBg.text }}>ファイルを選択</div>
+                    <div className="text-xs mt-1" style={{ color: currentBg.textLight }}>PDF、Word、Excel、画像ファイルに対応</div>
+                    <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" multiple className="hidden" onChange={handleUpload} />
+                  </label>
                 </div>
+              </div>
 
-                <label className="block py-12 border-2 border-dashed rounded-xl text-center cursor-pointer" style={{ borderColor: currentBg.textLight }}>
-                  <div className="text-4xl mb-2">📄</div>
-                  <div className="text-sm font-semibold" style={{ color: currentBg.text }}>ファイルを選択</div>
-                  <div className="text-xs mt-1" style={{ color: currentBg.textLight }}>PDF、Word、Excel、画像ファイルに対応</div>
-                  <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" multiple className="hidden" onChange={handleUpload} />
-                </label>
-
+              {/* 固定フッター */}
+              <div className="p-5 pt-3 flex-shrink-0" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
                 <button
                   onClick={() => setShowUploadModal(false)}
                   className="w-full py-3 rounded-xl font-bold"

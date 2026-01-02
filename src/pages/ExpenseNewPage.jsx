@@ -76,9 +76,47 @@ export default function ExpenseNewPage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`${API_BASE}/ocr/receipt`, {
+      // まずガソリンOCRを試す
+      const gasolineRes = await fetch(`${API_BASE}/ocr/gasoline`, {
         method: 'POST',
         body: formData,
+      })
+
+      if (gasolineRes.ok) {
+        const gasolineResult = await gasolineRes.json()
+        console.log('ガソリンOCR結果:', gasolineResult)
+        // ガソリンレシートと判定された場合（is_gasolineフラグまたはfuel_typeで判定）
+        const isGasoline = gasolineResult.is_gasoline || gasolineResult.data?.is_gasoline || gasolineResult.data?.fuel_type
+        if (gasolineResult.success && isGasoline) {
+          const data = gasolineResult.data
+          // 燃料費カテゴリを自動選択
+          const fuelCategory = categories.find(c => c.is_fuel || c.name === '燃料費')
+          const fuelTypeMap = {
+            'レギュラー': 'regular',
+            'ハイオク': 'premium',
+            '軽油': 'diesel',
+          }
+          setForm(prev => ({
+            ...prev,
+            category_id: fuelCategory?.id ? String(fuelCategory.id) : prev.category_id,
+            store_name: data.store_name || '',
+            amount: data.total_amount ? String(data.total_amount) : '',
+            fuel_liter: data.quantity ? String(data.quantity) : '',
+            fuel_type: fuelTypeMap[data.fuel_type] || 'regular',
+            memo: data.vehicle_number ? `車両: ${data.vehicle_number}` : '',
+          }))
+          showToast(`⛽ ガソリンレシート読取完了（${data.fuel_type} ${data.quantity || ''}L）`)
+          return
+        }
+      }
+
+      // ガソリンでない場合は通常のレシートOCR
+      const formData2 = new FormData()
+      formData2.append('file', file)
+
+      const res = await fetch(`${API_BASE}/ocr/receipt`, {
+        method: 'POST',
+        body: formData2,
       })
 
       if (res.ok) {

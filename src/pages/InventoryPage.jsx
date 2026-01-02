@@ -203,18 +203,32 @@ export default function InventoryPage() {
       {/* 新規追加モーダル */}
       {showForm && (
         <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end"
+          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           onClick={() => setShowForm(false)}
         >
           <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto"
+            className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 60px)' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-lg font-bold mb-6">在庫追加</div>
+            {/* ヘッダー（保存ボタン含む） */}
+            <div className="flex justify-between items-center p-6 pb-3 flex-shrink-0">
+              <div className="text-lg font-bold">📦 在庫追加</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 py-1.5 bg-app-primary rounded-lg text-sm font-bold text-white"
+                >
+                  追加
+                </button>
+                <button onClick={() => setShowForm(false)} className="text-2xl text-slate-400">×</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
 
             <div className="mb-4">
               <label className="text-sm text-slate-400 mb-2 block">品名</label>
@@ -283,13 +297,8 @@ export default function InventoryPage() {
                 className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
               />
             </div>
+            </div>
 
-            <button
-              onClick={handleSubmit}
-              className="w-full py-4 bg-app-primary rounded-xl font-bold text-white"
-            >
-              追加する
-            </button>
           </motion.div>
         </motion.div>
       )}
@@ -297,58 +306,69 @@ export default function InventoryPage() {
       {/* 入出庫モーダル */}
       {showTransaction && (
         <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end"
+          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           onClick={() => setShowTransaction(null)}
         >
           <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl p-6"
+            className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 60px)' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-lg font-bold mb-2">{showTransaction.name}</div>
-            <div className="text-sm text-slate-400 mb-6">
-              現在庫: {showTransaction.quantity} {showTransaction.unit}
+            {/* ヘッダー（入出庫ボタン含む） */}
+            <div className="p-6 pb-3 flex-shrink-0">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="text-lg font-bold mb-1">📦 {showTransaction.name}</div>
+                  <div className="text-sm text-slate-400">
+                    現在庫: {showTransaction.quantity} {showTransaction.unit}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleTransaction('in')}
+                    className="px-3 py-1.5 bg-emerald-500 rounded-lg text-sm font-bold text-white"
+                  >
+                    入庫
+                  </button>
+                  <button
+                    onClick={() => handleTransaction('out')}
+                    className="px-3 py-1.5 bg-red-500 rounded-lg text-sm font-bold text-white"
+                  >
+                    出庫
+                  </button>
+                  <button onClick={() => setShowTransaction(null)} className="text-2xl text-slate-400 ml-1">×</button>
+                </div>
+              </div>
             </div>
 
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">数量</label>
-              <input
-                type="number"
-                value={transactionForm.quantity}
-                onChange={(e) => setTransactionForm({ ...transactionForm, quantity: e.target.value })}
-                placeholder="0"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
+            <div className="flex-1 overflow-y-auto px-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="mb-4">
+                <label className="text-sm text-slate-400 mb-2 block">数量</label>
+                <input
+                  type="number"
+                  value={transactionForm.quantity}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, quantity: e.target.value })}
+                  placeholder="0"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="text-sm text-slate-400 mb-2 block">メモ（任意）</label>
+                <input
+                  type="text"
+                  value={transactionForm.note}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, note: e.target.value })}
+                  placeholder="備考を入力"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
+                />
+              </div>
             </div>
 
-            <div className="mb-6">
-              <label className="text-sm text-slate-400 mb-2 block">メモ（任意）</label>
-              <input
-                type="text"
-                value={transactionForm.note}
-                onChange={(e) => setTransactionForm({ ...transactionForm, note: e.target.value })}
-                placeholder="備考を入力"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => handleTransaction('in')}
-                className="py-4 bg-emerald-500 rounded-xl font-bold text-white"
-              >
-                入庫
-              </button>
-              <button
-                onClick={() => handleTransaction('out')}
-                className="py-4 bg-red-500 rounded-xl font-bold text-white"
-              >
-                出庫
-              </button>
-            </div>
           </motion.div>
         </motion.div>
       )}
