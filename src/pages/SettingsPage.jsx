@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon, RotateCcw, Plus, Trash2, Edit3, Megaphone } from 'lucide-react'
+import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon, RotateCcw, Plus, Trash2, Edit3, Megaphone, Building2, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useThemeStore, themeColors, backgroundStyles, fontSizes, useAppStore, useAuthStore, useDashboardStore, dashboardWidgets, dashboardCategories, kpiOptions } from '../store'
 import { ClipboardList, HardHat, FileText, BarChart3, ChevronDown } from 'lucide-react'
@@ -630,6 +630,17 @@ export default function SettingsPage() {
             <SettingItem icon={<Bell size={20} />} title="通知設定" subtitle="プッシュ通知、メール通知" themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
             <SettingItem icon={<Shield size={20} />} title="プライバシー" subtitle="データ管理、セキュリティ" themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
             <SettingItem icon={<User size={20} />} title="アカウント" subtitle="ログイン情報、パスワード変更" themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
+          </div>
+        </div>
+
+        {/* マスタ管理 */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>
+            マスタ管理
+          </div>
+          <div className="space-y-2">
+            <SettingItem icon={<Building2 size={20} />} title="会社設定" subtitle="会社情報、銀行口座設定" onClick={() => navigate('/settings/company')} themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
+            <SettingItem icon={<Users size={20} />} title="ユーザー管理" subtitle="ユーザー追加・編集・権限設定" onClick={() => navigate('/settings/users')} themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
           </div>
         </div>
 
