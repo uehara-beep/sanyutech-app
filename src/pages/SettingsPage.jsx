@@ -896,7 +896,308 @@ function PlaceholderPage({ title, icon }) {
 }
 
 export function UsersPage() {
-  return <PlaceholderPage title="ユーザー管理" icon="👥" />
+  const navigate = useNavigate()
+  const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const currentTheme = getCurrentTheme()
+  const currentBackground = getCurrentBackground()
+  const isOcean = currentBackground?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [formData, setFormData] = useState({
+    username: '',
+    display_name: '',
+    email: '',
+    role: 'employee',
+    department: '',
+    password: ''
+  })
+
+  const roles = [
+    { value: 'admin', label: '管理者', color: '#EF4444' },
+    { value: 'employee', label: '社員', color: '#3B82F6' },
+    { value: 'subcontractor', label: '下請', color: '#10B981' }
+  ]
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/users/`)
+      if (res.ok) {
+        const data = await res.json()
+        setUsers(data)
+      }
+    } catch (e) {
+      console.error('Failed to fetch users:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      const method = editingUser ? 'PUT' : 'POST'
+      const url = editingUser ? `${API_BASE}/users/${editingUser.id}` : `${API_BASE}/users/`
+
+      const payload = { ...formData }
+      if (!payload.password) delete payload.password  // パスワード空なら送信しない
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (res.ok) {
+        fetchUsers()
+        closeModal()
+      } else {
+        const err = await res.json()
+        alert(err.detail || '保存に失敗しました')
+      }
+    } catch (e) {
+      console.error('Failed to save user:', e)
+      alert('保存に失敗しました')
+    }
+  }
+
+  const handleDelete = async (userId) => {
+    if (!confirm('このユーザーを削除しますか？')) return
+    try {
+      const res = await fetch(`${API_BASE}/users/${userId}`, { method: 'DELETE' })
+      if (res.ok) {
+        fetchUsers()
+      }
+    } catch (e) {
+      console.error('Failed to delete user:', e)
+    }
+  }
+
+  const openAddModal = () => {
+    setEditingUser(null)
+    setFormData({ username: '', display_name: '', email: '', role: 'employee', department: '', password: '' })
+    setShowModal(true)
+  }
+
+  const openEditModal = (user) => {
+    setEditingUser(user)
+    setFormData({
+      username: user.username || '',
+      display_name: user.display_name || '',
+      email: user.email || '',
+      role: user.role || 'employee',
+      department: user.department || '',
+      password: ''
+    })
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingUser(null)
+  }
+
+  const inputStyle = {
+    background: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
+    color: currentBackground.text,
+  }
+
+  const cardStyle = {
+    background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
+    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}`,
+    backdropFilter: isOcean ? 'blur(10px)' : 'none',
+  }
+
+  const getRoleInfo = (role) => roles.find(r => r.value === role) || roles[1]
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBackground.bg }}>
+        <div className="text-center" style={{ color: currentBackground.textLight }}>読み込み中...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
+      {/* ヘッダー */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
+        <div className="flex items-center gap-3.5 px-6 py-4">
+          <motion.button
+            className="w-10 h-10 flex items-center justify-center rounded-xl"
+            style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }}
+            onClick={() => navigate(-1)}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+          </motion.button>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl" style={{ background: isOcean ? 'rgba(255,255,255,0.2)' : `linear-gradient(145deg, ${currentTheme.primary}, ${currentTheme.primary}dd)` }}>
+            👥
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-medium tracking-wide" style={{ color: currentBackground.text }}>ユーザー管理</h2>
+            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>{users.length}人のユーザー</p>
+          </div>
+          <motion.button
+            className="px-3 py-2 rounded-lg text-xs font-medium text-white flex items-center gap-1"
+            style={{ backgroundColor: currentTheme.primary }}
+            onClick={openAddModal}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Plus size={14} />
+            追加
+          </motion.button>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-2">
+        {users.length === 0 ? (
+          <div className="text-center py-12" style={{ color: currentBackground.textLight }}>
+            <User size={48} className="mx-auto mb-3 opacity-50" />
+            <p>ユーザーがいません</p>
+          </div>
+        ) : (
+          users.map((user) => {
+            const roleInfo = getRoleInfo(user.role)
+            return (
+              <motion.div
+                key={user.id}
+                className="rounded-xl p-4 flex items-center gap-3"
+                style={cardStyle}
+                whileTap={{ scale: 0.99 }}
+              >
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg text-white font-medium"
+                  style={{ backgroundColor: roleInfo.color }}
+                >
+                  {(user.display_name || user.username || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate" style={{ color: currentBackground.text }}>
+                    {user.display_name || user.username}
+                  </div>
+                  <div className="text-xs flex items-center gap-2" style={{ color: currentBackground.textLight }}>
+                    <span>{user.username}</span>
+                    {user.department && <span>/ {user.department}</span>}
+                  </div>
+                </div>
+                <span
+                  className="px-2 py-1 rounded-lg text-xs font-medium"
+                  style={{ backgroundColor: `${roleInfo.color}20`, color: roleInfo.color }}
+                >
+                  {roleInfo.label}
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    className="p-2 rounded-lg hover:bg-blue-500/20 transition-colors"
+                    onClick={() => openEditModal(user)}
+                  >
+                    <Edit3 size={16} style={{ color: currentBackground.textLight }} />
+                  </button>
+                  <button
+                    className="p-2 rounded-lg hover:bg-red-500/20 transition-colors"
+                    onClick={() => handleDelete(user.id)}
+                  >
+                    <Trash2 size={16} className="text-red-400" />
+                  </button>
+                </div>
+              </motion.div>
+            )
+          })
+        )}
+      </div>
+
+      {/* 追加/編集モーダル */}
+      {showModal && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={closeModal}
+        >
+          <motion.div
+            className="w-full max-w-md rounded-2xl p-6"
+            style={{
+              background: isOcean ? 'rgba(30, 80, 90, 0.95)' : isLightTheme ? '#fff' : 'rgba(50,50,50,0.98)',
+              border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
+            }}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold mb-4" style={{ color: currentBackground.text }}>
+              {editingUser ? 'ユーザーを編集' : '新しいユーザー'}
+            </h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>ユーザー名（ログインID）</label>
+                <input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="tanaka" disabled={!!editingUser} />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>表示名</label>
+                <input type="text" value={formData.display_name} onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="田中太郎" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>メールアドレス</label>
+                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="tanaka@example.com" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>ロール</label>
+                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle}>
+                    {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>部署</label>
+                  <input type="text" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="工務部" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>
+                  パスワード {editingUser && '（変更する場合のみ入力）'}
+                </label>
+                <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="********" />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium"
+                style={{ background: 'rgba(100,100,100,0.1)', color: currentBackground.textLight }}
+                onClick={closeModal}
+              >
+                キャンセル
+              </button>
+              <button
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: currentTheme.primary }}
+                onClick={handleSave}
+                disabled={!formData.username || (!editingUser && !formData.password)}
+              >
+                {editingUser ? '更新' : '追加'}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </div>
+  )
 }
 
 export function IntegrationsPage() {
@@ -912,5 +1213,234 @@ export function LineWorksPage() {
 }
 
 export function CompanySettingsPage() {
-  return <PlaceholderPage title="会社設定" icon="🏢" />
+  const navigate = useNavigate()
+  const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const currentTheme = getCurrentTheme()
+  const currentBackground = getCurrentBackground()
+  const isOcean = currentBackground?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const [settings, setSettings] = useState({
+    company_name: '',
+    postal_code: '',
+    address: '',
+    phone: '',
+    fax: '',
+    email: '',
+    invoice_number: '',
+    bank_name: '',
+    bank_branch: '',
+    account_type: '普通',
+    account_number: '',
+    account_name: '',
+    fiscal_year_start: 4,
+    annual_target: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/company-settings/`)
+      if (res.ok) {
+        const data = await res.json()
+        setSettings(data)
+      }
+    } catch (e) {
+      console.error('Failed to fetch company settings:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch(`${API_BASE}/company-settings/`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      })
+      if (res.ok) {
+        alert('保存しました')
+      }
+    } catch (e) {
+      console.error('Failed to save:', e)
+      alert('保存に失敗しました')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleChange = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  const inputStyle = {
+    background: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
+    color: currentBackground.text,
+  }
+
+  const cardStyle = {
+    background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
+    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}`,
+    backdropFilter: isOcean ? 'blur(10px)' : 'none',
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBackground.bg }}>
+        <div className="text-center" style={{ color: currentBackground.textLight }}>読み込み中...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
+      {/* ヘッダー */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
+        <div className="flex items-center gap-3.5 px-6 py-4">
+          <motion.button
+            className="w-10 h-10 flex items-center justify-center rounded-xl"
+            style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }}
+            onClick={() => navigate(-1)}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+          </motion.button>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl" style={{ background: isOcean ? 'rgba(255,255,255,0.2)' : `linear-gradient(145deg, ${currentTheme.primary}, ${currentTheme.primary}dd)` }}>
+            🏢
+          </div>
+          <div>
+            <h2 className="text-lg font-medium tracking-wide" style={{ color: currentBackground.text }}>会社設定</h2>
+            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>会社情報・銀行口座</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-4">
+        {/* 会社情報 */}
+        <div className="rounded-2xl p-4" style={cardStyle}>
+          <h3 className="text-sm font-bold mb-4" style={{ color: currentBackground.text }}>会社情報</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>会社名</label>
+              <input type="text" value={settings.company_name || ''} onChange={e => handleChange('company_name', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="株式会社サンユウテック" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>郵便番号</label>
+                <input type="text" value={settings.postal_code || ''} onChange={e => handleChange('postal_code', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="000-0000" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>電話番号</label>
+                <input type="text" value={settings.phone || ''} onChange={e => handleChange('phone', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="000-000-0000" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>住所</label>
+              <input type="text" value={settings.address || ''} onChange={e => handleChange('address', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="福岡県..." />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>FAX</label>
+                <input type="text" value={settings.fax || ''} onChange={e => handleChange('fax', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="000-000-0000" />
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>メール</label>
+                <input type="email" value={settings.email || ''} onChange={e => handleChange('email', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="info@example.com" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>適格請求書発行事業者登録番号</label>
+              <input type="text" value={settings.invoice_number || ''} onChange={e => handleChange('invoice_number', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="T0000000000000" />
+            </div>
+          </div>
+        </div>
+
+        {/* 銀行口座 */}
+        <div className="rounded-2xl p-4" style={cardStyle}>
+          <h3 className="text-sm font-bold mb-4" style={{ color: currentBackground.text }}>振込先口座</h3>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>銀行名</label>
+                <input type="text" value={settings.bank_name || ''} onChange={e => handleChange('bank_name', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="〇〇銀行" />
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>支店名</label>
+                <input type="text" value={settings.bank_branch || ''} onChange={e => handleChange('bank_branch', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="〇〇支店" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>口座種別</label>
+                <select value={settings.account_type || '普通'} onChange={e => handleChange('account_type', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle}>
+                  <option value="普通">普通</option>
+                  <option value="当座">当座</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>口座番号</label>
+                <input type="text" value={settings.account_number || ''} onChange={e => handleChange('account_number', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="0000000" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>口座名義</label>
+              <input type="text" value={settings.account_name || ''} onChange={e => handleChange('account_name', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="カ）サンユウテック" />
+            </div>
+          </div>
+        </div>
+
+        {/* 経営設定 */}
+        <div className="rounded-2xl p-4" style={cardStyle}>
+          <h3 className="text-sm font-bold mb-4" style={{ color: currentBackground.text }}>経営設定</h3>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>期首月</label>
+                <select value={settings.fiscal_year_start || 4} onChange={e => handleChange('fiscal_year_start', parseInt(e.target.value))}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle}>
+                  {[...Array(12)].map((_, i) => <option key={i+1} value={i+1}>{i+1}月</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>年間売上目標（万円）</label>
+                <input type="number" value={settings.annual_target || 0} onChange={e => handleChange('annual_target', parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 保存ボタン */}
+        <motion.button
+          className="w-full py-3 rounded-xl font-medium text-white"
+          style={{ backgroundColor: currentTheme.primary }}
+          onClick={handleSave}
+          disabled={saving}
+          whileTap={{ scale: 0.98 }}
+        >
+          {saving ? '保存中...' : '保存する'}
+        </motion.button>
+      </div>
+    </div>
+  )
 }
