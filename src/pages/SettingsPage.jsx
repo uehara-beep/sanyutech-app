@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon, RotateCcw } from 'lucide-react'
+import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon, RotateCcw, Plus, Trash2, Edit3, Megaphone } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useThemeStore, themeColors, backgroundStyles, fontSizes, useAppStore, useAuthStore, useDashboardStore, dashboardWidgets, dashboardCategories, kpiOptions } from '../store'
 import { ClipboardList, HardHat, FileText, BarChart3, ChevronDown } from 'lucide-react'
+import { API_BASE } from '../config/api'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -26,6 +27,84 @@ export default function SettingsPage() {
   // ダッシュボード設定
   const { enabledWidgets, toggleWidget, resetToDefault, enabledKpis, toggleKpi } = useDashboardStore()
   const [expandedCategory, setExpandedCategory] = useState(null)
+
+  // お知らせ管理
+  const [notifications, setNotifications] = useState([])
+  const [showNotificationModal, setShowNotificationModal] = useState(false)
+  const [editingNotification, setEditingNotification] = useState(null)
+  const [notificationForm, setNotificationForm] = useState({
+    title: '',
+    message: '',
+    type: 'info'
+  })
+
+  useEffect(() => {
+    fetchNotifications()
+  }, [])
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications/`)
+      if (res.ok) {
+        const data = await res.json()
+        setNotifications(data)
+      }
+    } catch (e) {
+      console.error('Failed to fetch notifications:', e)
+    }
+  }
+
+  const handleSaveNotification = async () => {
+    try {
+      const method = editingNotification ? 'PUT' : 'POST'
+      const url = editingNotification
+        ? `${API_BASE}/notifications/${editingNotification.id}`
+        : `${API_BASE}/notifications/`
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notificationForm)
+      })
+
+      if (res.ok) {
+        fetchNotifications()
+        setShowNotificationModal(false)
+        setEditingNotification(null)
+        setNotificationForm({ title: '', message: '', type: 'info' })
+      }
+    } catch (e) {
+      console.error('Failed to save notification:', e)
+    }
+  }
+
+  const handleDeleteNotification = async (id) => {
+    if (!confirm('このお知らせを削除しますか？')) return
+    try {
+      const res = await fetch(`${API_BASE}/notifications/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        fetchNotifications()
+      }
+    } catch (e) {
+      console.error('Failed to delete notification:', e)
+    }
+  }
+
+  const openEditModal = (notification) => {
+    setEditingNotification(notification)
+    setNotificationForm({
+      title: notification.title,
+      message: notification.message,
+      type: notification.type || 'info'
+    })
+    setShowNotificationModal(true)
+  }
+
+  const openAddModal = () => {
+    setEditingNotification(null)
+    setNotificationForm({ title: '', message: '', type: 'info' })
+    setShowNotificationModal(true)
+  }
 
   // カテゴリアイコンマッピング
   const categoryIcons = {
@@ -554,6 +633,85 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* お知らせ管理 */}
+        <div>
+          <div className="flex items-center justify-between px-1 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>
+              お知らせ管理（管理者用）
+            </div>
+            <motion.button
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              style={{ backgroundColor: currentTheme.primary }}
+              onClick={openAddModal}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Plus size={14} />
+              追加
+            </motion.button>
+          </div>
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
+              border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}`,
+              backdropFilter: isOcean ? 'blur(10px)' : 'none',
+            }}
+          >
+            {notifications.length === 0 ? (
+              <div className="text-center py-8" style={{ color: currentBackground.textLight }}>
+                <Megaphone size={32} className="mx-auto mb-2 opacity-50" />
+                <p className="text-sm">お知らせはありません</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {notifications.slice(0, 10).map((notification) => (
+                  <div
+                    key={notification.id}
+                    className="p-3 rounded-xl flex items-start gap-3"
+                    style={{
+                      background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)',
+                      border: `1px solid ${isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}`,
+                    }}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: notification.type === 'alert' ? 'rgba(239, 68, 68, 0.2)'
+                          : notification.type === 'approval' ? 'rgba(59, 130, 246, 0.2)'
+                          : 'rgba(16, 185, 129, 0.2)',
+                      }}
+                    >
+                      {notification.type === 'alert' ? '⚠️' : notification.type === 'approval' ? '✅' : 'ℹ️'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate" style={{ color: currentBackground.text }}>
+                        {notification.title}
+                      </div>
+                      <div className="text-xs truncate" style={{ color: currentBackground.textLight }}>
+                        {notification.message}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button
+                        className="p-1.5 rounded-lg hover:bg-blue-500/20 transition-colors"
+                        onClick={() => openEditModal(notification)}
+                      >
+                        <Edit3 size={14} style={{ color: currentBackground.textLight }} />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-lg hover:bg-red-500/20 transition-colors"
+                        onClick={() => handleDeleteNotification(notification.id)}
+                      >
+                        <Trash2 size={14} className="text-red-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+
         {/* その他 */}
         <div>
           <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>
@@ -580,6 +738,117 @@ export default function SettingsPage() {
           ログアウト
         </motion.button>
       </div>
+
+      {/* お知らせ追加/編集モーダル */}
+      {showNotificationModal && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => setShowNotificationModal(false)}
+        >
+          <motion.div
+            className="w-full max-w-md rounded-2xl p-6"
+            style={{
+              background: isOcean ? 'rgba(30, 80, 90, 0.95)' : isLightTheme ? '#fff' : 'rgba(50,50,50,0.98)',
+              border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
+            }}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold mb-4" style={{ color: currentBackground.text }}>
+              {editingNotification ? 'お知らせを編集' : '新しいお知らせ'}
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>
+                  タイトル
+                </label>
+                <input
+                  type="text"
+                  value={notificationForm.title}
+                  onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{
+                    background: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
+                    color: currentBackground.text,
+                  }}
+                  placeholder="お知らせのタイトル"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>
+                  内容
+                </label>
+                <textarea
+                  value={notificationForm.message}
+                  onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                  rows={3}
+                  style={{
+                    background: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
+                    color: currentBackground.text,
+                  }}
+                  placeholder="お知らせの内容"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>
+                  タイプ
+                </label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'info', label: 'お知らせ', emoji: 'ℹ️' },
+                    { value: 'alert', label: '警告', emoji: '⚠️' },
+                    { value: 'approval', label: '承認', emoji: '✅' },
+                  ].map((type) => (
+                    <button
+                      key={type.value}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors`}
+                      style={{
+                        background: notificationForm.type === type.value ? `${currentTheme.primary}20` : 'rgba(100,100,100,0.1)',
+                        border: notificationForm.type === type.value ? `2px solid ${currentTheme.primary}` : '2px solid transparent',
+                        color: currentBackground.text,
+                      }}
+                      onClick={() => setNotificationForm({ ...notificationForm, type: type.value })}
+                    >
+                      {type.emoji} {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium"
+                style={{
+                  background: 'rgba(100,100,100,0.1)',
+                  color: currentBackground.textLight,
+                }}
+                onClick={() => setShowNotificationModal(false)}
+              >
+                キャンセル
+              </button>
+              <button
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: currentTheme.primary }}
+                onClick={handleSaveNotification}
+                disabled={!notificationForm.title || !notificationForm.message}
+              >
+                {editingNotification ? '更新' : '追加'}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   )
 }

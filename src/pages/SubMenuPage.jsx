@@ -223,7 +223,7 @@ const categories = {
       {
         title: 'システム',
         items: [
-          { name: 'テーマ設定', description: '背景・カラー変更', path: '/settings/theme', icon: Settings },
+          { name: 'テーマ設定', description: '背景・カラー変更', path: '/settings', icon: Settings },
         ]
       }
     ]

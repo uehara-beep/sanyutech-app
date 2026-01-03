@@ -108,13 +108,13 @@ export function ApprovePage() {
                 <div className="text-xs mb-3" style={{ color: currentBg.textLight }}>申請者: {item.requested_by || '不明'}</div>
                 <div className="flex gap-2.5">
                   <button
-                    className="flex-1 py-2.5 bg-red-500/20 text-red-400 rounded-lg text-sm font-semibold"
+                    className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
                     onClick={() => handleAction(item.id, 'reject')}
                   >
                     却下
                   </button>
                   <button
-                    className="flex-1 py-2.5 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-semibold"
+                    className="flex-1 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors"
                     onClick={() => handleAction(item.id, 'approve')}
                   >
                     承認

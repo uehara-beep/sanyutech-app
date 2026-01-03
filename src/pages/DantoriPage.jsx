@@ -255,14 +255,14 @@ function TodayView({ sites, workers, assignments, onRefresh, showToast }) {
         <button
           onClick={handleCopyPreviousDay}
           disabled={copying}
-          className="flex-1 py-2.5 px-3 bg-blue-600/20 text-blue-300 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 disabled:opacity-50"
+          className="flex-1 py-2.5 px-3 bg-blue-600 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1 disabled:opacity-50 hover:bg-blue-700 transition-colors"
         >
           📅 前日コピー
         </button>
         <button
           onClick={handleCopyLastWeek}
           disabled={copying}
-          className="flex-1 py-2.5 px-3 bg-purple-600/20 text-purple-300 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 disabled:opacity-50"
+          className="flex-1 py-2.5 px-3 bg-purple-600 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1 disabled:opacity-50 hover:bg-purple-700 transition-colors"
         >
           🔄 先週コピー
         </button>
@@ -335,7 +335,7 @@ function TodayView({ sites, workers, assignments, onRefresh, showToast }) {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setAddWorkerModal({ open: true, siteId: site.id, siteName: site.name })}
-                    className="flex-1 py-2.5 bg-emerald-600/20 text-emerald-300 rounded-xl text-sm font-semibold flex items-center justify-center gap-1"
+                    className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1 hover:bg-emerald-700 transition-colors"
                   >
                     ＋ 追加
                   </button>

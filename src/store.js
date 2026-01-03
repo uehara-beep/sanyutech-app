@@ -182,8 +182,8 @@ export const useAppStore = create(
       ],
       unreadCount: 2,
       
-      // 承認待ち
-      pendingApprovals: 3,
+      // 承認待ち（APIから取得）
+      pendingApprovals: 0,
 
       // 日報確認待ち
       pendingDailyReportConfirmations: 0,
