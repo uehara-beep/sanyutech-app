@@ -18,6 +18,28 @@ export const themeColors = [
 // 背景スタイル定義（3テーマ）
 export const backgroundStyles = [
   {
+    id: 'night_road',
+    name: 'ナイトロード',
+    desc: '夜の道路',
+    bg: 'url(/backgrounds/SunyuTEC_login_bg_iphone_1170x2532.jpg)',
+    bgStyle: {
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+    },
+    bgLight: 'rgba(10, 21, 37, 0.7)',
+    card: 'rgba(10, 21, 37, 0.75)',
+    cardHover: 'rgba(10, 21, 37, 0.85)',
+    border: 'rgba(255,255,255,0.15)',
+    text: '#ffffff',
+    textLight: 'rgba(255,255,255,0.7)',
+    shadow: '0 8px 32px rgba(0,0,0,0.3)',
+    headerBg: 'rgba(10, 21, 37, 0.85)',
+    navBg: 'rgba(10, 21, 37, 0.92)',
+    hasNightEffect: true,
+    useGlassmorphism: true,
+  },
+  {
     id: 'white',
     name: 'ホワイト',
     desc: 'クリーンで明るい',
@@ -79,7 +101,7 @@ export const useThemeStore = create(
   persist(
     (set, get) => ({
       themeId: 'orange', // デフォルトはオレンジ
-      backgroundId: 'ocean', // デフォルトはオーシャン
+      backgroundId: 'night_road', // デフォルトはナイトロード
       fontSizeId: 'medium', // デフォルトは中
 
       setTheme: (themeId) => {
@@ -128,6 +150,16 @@ export const useThemeStore = create(
       getCurrentTheme: () => {
         const state = get()
         return themeColors.find(t => t.id === state.themeId) || themeColors[0]
+      },
+
+      // 背景スタイルを取得（画像背景とCSSプロパティを含む）
+      getBackgroundStyle: () => {
+        const state = get()
+        const bg = backgroundStyles.find(b => b.id === state.backgroundId) || backgroundStyles[0]
+        return {
+          background: bg.bg,
+          ...(bg.bgStyle || {}),
+        }
       },
 
       getCurrentBackground: () => {

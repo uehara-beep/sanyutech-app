@@ -243,9 +243,16 @@ export default function HomePage() {
     notifications: [],
   })
 
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const showOceanEffect = currentBg?.hasOceanEffect
+  const showNightEffect = currentBg?.hasNightEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  // 背景スタイルを構築（画像背景とグラデーション/単色を分離）
+  const bgStyle = {
+    background: currentBg.bg,
+    ...(currentBg.bgStyle || {}),
+  }
 
   const today = new Date()
   const dateStr = `${today.getMonth() + 1}月${today.getDate()}日（${'日月火水木金土'[today.getDay()]}）`
@@ -341,8 +348,14 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen relative" style={{ background: currentBg.bg }}>
+    <div className="min-h-screen relative" style={bgStyle}>
       {showOceanEffect && <OceanBackground />}
+      {/* 夜の道路テーマ用オーバーレイ */}
+      {showNightEffect && (
+        <div className="fixed inset-0 pointer-events-none z-0" style={{
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.15) 30%, rgba(0,0,0,0.25) 100%)',
+        }} />
+      )}
 
       {/* PC用サイドバー */}
       <Sidebar currentBg={currentBg} isLightTheme={isLightTheme} />
