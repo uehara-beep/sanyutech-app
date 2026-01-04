@@ -98,11 +98,11 @@ export default function WorkersPage() {
       />
 
       <div className="px-5 py-4 space-y-4">
-        {/* 社員マスタへのリンク */}
+        {/* ユーザー管理へのリンク */}
         {user?.role === 'admin' && (
           <Card
             className="p-3 cursor-pointer"
-            onClick={() => navigate('/settings/employees')}
+            onClick={() => navigate('/settings/users')}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -110,9 +110,9 @@ export default function WorkersPage() {
                   👥
                 </div>
                 <div>
-                  <div className="font-medium text-sm" style={{ color: currentBg.text }}>社員マスタで管理</div>
+                  <div className="font-medium text-sm" style={{ color: currentBg.text }}>ユーザー管理で社員を管理</div>
                   <div className="text-xs" style={{ color: currentBg.textLight }}>
-                    社員マスタで「現場作業員」にチェックした人がここに表示されます
+                    「現場作業員」にチェックした人がここに表示されます
                   </div>
                 </div>
               </div>
@@ -174,10 +174,10 @@ export default function WorkersPage() {
           <Card className="text-center py-8" style={{ color: currentBg.textLight }}>
             <div className="text-3xl mb-3">👷</div>
             <div className="text-sm mb-1">現場作業員がいません</div>
-            <div className="text-xs mb-4">社員マスタで「現場作業員」にチェックしてください</div>
+            <div className="text-xs mb-4">ユーザー管理で「現場作業員」にチェックしてください</div>
             {user?.role === 'admin' && (
-              <Button onClick={() => navigate('/settings/employees')}>
-                社員マスタを開く
+              <Button onClick={() => navigate('/settings/users')}>
+                ユーザー管理を開く
               </Button>
             )}
           </Card>

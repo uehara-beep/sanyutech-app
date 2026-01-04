@@ -216,7 +216,7 @@ const categories = {
       {
         title: 'マスタ管理',
         items: [
-          { name: '社員マスタ', description: '全社員を管理・LINE WORKSインポート', path: '/settings/employees', icon: UserCog, badge: 'NEW' },
+          { name: 'ユーザー管理', description: '社員・アカウント管理・LINE WORKS連携', path: '/settings/users', icon: UserCog },
           { name: '業者マスタ', description: '協力会社情報', path: '/subcon', icon: Building },
         ]
       },

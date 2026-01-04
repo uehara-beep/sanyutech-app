@@ -1,30 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Header, Card, Button, Modal, Input, Select, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
-import { useThemeStore, backgroundStyles, useAuthStore } from '../store'
-import { Upload, Users, CheckCircle, AlertCircle, Edit2, Trash2, HardHat, X, Search } from 'lucide-react'
 
+// 社員マスタは /settings/users に統合されました
 export default function EmployeeMasterPage() {
   const navigate = useNavigate()
-  const { backgroundId } = useThemeStore()
-  const { user, token } = useAuthStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
-  const isOcean = currentBg?.hasOceanEffect
-  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
 
-  const [employees, setEmployees] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [editingEmployee, setEditingEmployee] = useState(null)
-  const [toast, setToast] = useState({ show: false, message: '' })
-  const [filter, setFilter] = useState('')
-  const [deptFilter, setDeptFilter] = useState('all')
-  const [importing, setImporting] = useState(false)
-  const [importResult, setImportResult] = useState(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
-  const fileInputRef = useRef(null)
+  useEffect(() => {
+    // ユーザー管理ページにリダイレクト
+    navigate('/settings/users', { replace: true })
+  }, [navigate])
+
+  return null
+}
+
+// 以下は参照用に残しますが使用されません
+function EmployeeMasterPageLegacy() {
+  const navigate = useNavigate()
 
   useEffect(() => {
     fetchEmployees()

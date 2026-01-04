@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon, RotateCcw, Plus, Trash2, Edit3, Megaphone, Building2, Users } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Check, ChevronRight, User, Bell, Shield, Palette, Info, HelpCircle, LogOut, Monitor, Type, ArrowLeft, Settings as SettingsIcon, RotateCcw, Plus, Trash2, Edit3, Megaphone, Building2, Users, Upload, CheckCircle, AlertCircle, HardHat, Search, Key } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useThemeStore, themeColors, backgroundStyles, fontSizes, useAppStore, useAuthStore, useDashboardStore, dashboardWidgets, dashboardCategories, kpiOptions } from '../store'
-import { ClipboardList, HardHat, FileText, BarChart3, ChevronDown } from 'lucide-react'
+import { ClipboardList, FileText, BarChart3, ChevronDown } from 'lucide-react'
 import { API_BASE } from '../config/api'
 
 export default function SettingsPage() {
@@ -909,22 +909,32 @@ function PlaceholderPage({ title, icon }) {
 export function UsersPage() {
   const navigate = useNavigate()
   const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const { token, user: authUser } = useAuthStore()
   const currentTheme = getCurrentTheme()
   const currentBackground = getCurrentBackground()
   const isOcean = currentBackground?.hasOceanEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
 
+  // State
+  const [workers, setWorkers] = useState([])
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('')
+  const [deptFilter, setDeptFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
-  const [editingUser, setEditingUser] = useState(null)
+  const [editingWorker, setEditingWorker] = useState(null)
+  const [showAccountModal, setShowAccountModal] = useState(false)
+  const [accountWorker, setAccountWorker] = useState(null)
+  const [accountForm, setAccountForm] = useState({ username: '', password: '', role: 'employee' })
+
+  // LINE WORKS Import
+  const fileInputRef = useRef(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+
   const [formData, setFormData] = useState({
-    username: '',
-    display_name: '',
-    email: '',
-    role: 'employee',
-    department: '',
-    password: ''
+    name: '', department: '', position: '', team: '', employment_type: '社員',
+    phone: '', email: '', lineworks_id: '', daily_rate: '', is_field_worker: false, is_active: true
   })
 
   const roles = [
@@ -934,104 +944,176 @@ export function UsersPage() {
   ]
 
   useEffect(() => {
-    fetchUsers()
+    fetchData()
   }, [])
 
-  const fetchUsers = async () => {
+  const fetchData = async () => {
+    setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/users/`)
-      if (res.ok) {
-        const data = await res.json()
-        setUsers(data)
-      }
+      const [workersRes, usersRes] = await Promise.all([
+        fetch(`${API_BASE}/workers/`),
+        fetch(`${API_BASE}/users/`)
+      ])
+      if (workersRes.ok) setWorkers(await workersRes.json())
+      if (usersRes.ok) setUsers(await usersRes.json())
     } catch (e) {
-      console.error('Failed to fetch users:', e)
+      console.error('Failed to fetch:', e)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSave = async () => {
+  // LINE WORKS インポート
+  const handleImportFile = async (event) => {
+    const file = event.target.files[0]
+    if (!file || !token) return
+
+    setImporting(true)
+    setImportResult(null)
+    const formData = new FormData()
+    formData.append('file', file)
+
     try {
-      const method = editingUser ? 'PUT' : 'POST'
-      const url = editingUser ? `${API_BASE}/users/${editingUser.id}` : `${API_BASE}/users/`
-
-      const payload = { ...formData }
-      if (!payload.password) delete payload.password  // パスワード空なら送信しない
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const res = await fetch(`${API_BASE}/workers/import-lineworks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
       })
-
+      const data = await res.json()
       if (res.ok) {
-        fetchUsers()
-        closeModal()
+        setImportResult({ success: true, imported: data.imported, updated: data.updated, errors: data.errors })
+        fetchData()
       } else {
-        const err = await res.json()
-        alert(err.detail || '保存に失敗しました')
+        setImportResult({ success: false, error: data.detail || 'インポート失敗' })
       }
     } catch (e) {
-      console.error('Failed to save user:', e)
-      alert('保存に失敗しました')
+      setImportResult({ success: false, error: e.message })
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
-  const handleDelete = async (userId) => {
-    if (!confirm('このユーザーを削除しますか？')) return
+  // 社員保存
+  const handleSaveWorker = async () => {
+    if (!formData.name) { alert('名前を入力してください'); return }
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}`, { method: 'DELETE' })
-      if (res.ok) {
-        fetchUsers()
-      }
-    } catch (e) {
-      console.error('Failed to delete user:', e)
+      const url = editingWorker ? `${API_BASE}/workers/${editingWorker.id}` : `${API_BASE}/workers/`
+      const method = editingWorker ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ ...formData, daily_rate: formData.daily_rate ? parseInt(formData.daily_rate) : null })
+      })
+      if (res.ok) { fetchData(); closeModal() }
+      else alert('保存に失敗しました')
+    } catch (e) { alert('エラーが発生しました') }
+  }
+
+  // 社員削除
+  const handleDeleteWorker = async (id) => {
+    if (!confirm('この社員を削除しますか？')) return
+    try {
+      const res = await fetch(`${API_BASE}/workers/${id}`, {
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
+      if (res.ok) fetchData()
+    } catch (e) { console.error(e) }
+  }
+
+  // S-BASEアカウント作成
+  const openAccountModal = (worker) => {
+    setAccountWorker(worker)
+    setAccountForm({
+      username: worker.name.replace(/\s+/g, '').toLowerCase(),
+      password: '',
+      role: 'employee'
+    })
+    setShowAccountModal(true)
+  }
+
+  const handleCreateAccount = async () => {
+    if (!accountForm.username || !accountForm.password) {
+      alert('ユーザー名とパスワードを入力してください')
+      return
     }
+    if (accountForm.password.length < 8) {
+      alert('パスワードは8文字以上で入力してください')
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: accountForm.username,
+          password: accountForm.password,
+          display_name: accountWorker.name,
+          email: accountWorker.email || `${accountForm.username}@sbase.local`,
+          role: accountForm.role,
+          department: accountWorker.department || '',
+          worker_id: accountWorker.id
+        })
+      })
+      if (res.ok) {
+        alert('アカウントを作成しました')
+        fetchData()
+        setShowAccountModal(false)
+      } else {
+        const err = await res.json()
+        alert(err.detail || '作成に失敗しました')
+      }
+    } catch (e) { alert('エラーが発生しました') }
   }
 
   const openAddModal = () => {
-    setEditingUser(null)
-    setFormData({ username: '', display_name: '', email: '', role: 'employee', department: '', password: '' })
+    setEditingWorker(null)
+    setFormData({ name: '', department: '', position: '', team: '', employment_type: '社員', phone: '', email: '', lineworks_id: '', daily_rate: '', is_field_worker: false, is_active: true })
     setShowModal(true)
   }
 
-  const openEditModal = (user) => {
-    setEditingUser(user)
+  const openEditModal = (worker) => {
+    setEditingWorker(worker)
     setFormData({
-      username: user.username || '',
-      display_name: user.display_name || '',
-      email: user.email || '',
-      role: user.role || 'employee',
-      department: user.department || '',
-      password: ''
+      name: worker.name || '', department: worker.department || '', position: worker.position || '',
+      team: worker.team || '', employment_type: worker.employment_type || '社員',
+      phone: worker.phone || '', email: worker.email || '', lineworks_id: worker.lineworks_id || '',
+      daily_rate: worker.daily_rate || '', is_field_worker: worker.is_field_worker || false,
+      is_active: worker.is_active !== false
     })
     setShowModal(true)
   }
 
-  const closeModal = () => {
-    setShowModal(false)
-    setEditingUser(null)
-  }
+  const closeModal = () => { setShowModal(false); setEditingWorker(null) }
+
+  // フィルタリング
+  const departments = [...new Set(workers.map(w => w.department).filter(Boolean))]
+  const filteredWorkers = workers.filter(w => {
+    if (filter && !w.name?.includes(filter) && !w.department?.includes(filter) && !w.position?.includes(filter)) return false
+    if (deptFilter !== 'all' && w.department !== deptFilter) return false
+    return w.is_active !== false
+  })
+
+  // ユーザーマップ（worker_id -> user）
+  const userMap = users.reduce((acc, u) => { if (u.worker_id) acc[u.worker_id] = u; return acc }, {})
+  const getRoleInfo = (role) => roles.find(r => r.value === role) || roles[1]
 
   const inputStyle = {
     background: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
     border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
     color: currentBackground.text,
   }
-
   const cardStyle = {
     background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
     border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}`,
     backdropFilter: isOcean ? 'blur(10px)' : 'none',
   }
 
-  const getRoleInfo = (role) => roles.find(r => r.value === role) || roles[1]
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: currentBackground.bg }}>
-        <div className="text-center" style={{ color: currentBackground.textLight }}>読み込み中...</div>
+        <div style={{ color: currentBackground.textLight }}>読み込み中...</div>
       </div>
     )
   }
@@ -1040,21 +1122,21 @@ export function UsersPage() {
     <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
       {/* ヘッダー */}
       <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
-        <div className="flex items-center gap-3.5 px-6 py-4">
+        <div className="flex items-center gap-3 px-5 py-4">
           <motion.button
             className="w-10 h-10 flex items-center justify-center rounded-xl"
             style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }}
             onClick={() => navigate(-1)}
             whileTap={{ scale: 0.9 }}
           >
-            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+            <ArrowLeft size={20} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
           </motion.button>
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl" style={{ background: isOcean ? 'rgba(255,255,255,0.2)' : `linear-gradient(145deg, ${currentTheme.primary}, ${currentTheme.primary}dd)` }}>
-            👥
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+            <Users size={22} className="text-white" />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-medium tracking-wide" style={{ color: currentBackground.text }}>ユーザー管理</h2>
-            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>{users.length}人のユーザー</p>
+            <h2 className="text-lg font-bold" style={{ color: currentBackground.text }}>ユーザー管理</h2>
+            <p className="text-xs" style={{ color: currentBackground.textLight }}>{filteredWorkers.length}名の社員</p>
           </div>
           <motion.button
             className="px-3 py-2 rounded-lg text-xs font-medium text-white flex items-center gap-1"
@@ -1062,146 +1144,310 @@ export function UsersPage() {
             onClick={openAddModal}
             whileTap={{ scale: 0.95 }}
           >
-            <Plus size={14} />
-            追加
+            <Plus size={14} /> 追加
           </motion.button>
         </div>
       </header>
 
-      <div className="p-4 space-y-2">
-        {users.length === 0 ? (
-          <div className="text-center py-12" style={{ color: currentBackground.textLight }}>
-            <User size={48} className="mx-auto mb-3 opacity-50" />
-            <p>ユーザーがいません</p>
+      <div className="px-5 py-4 space-y-4">
+        {/* 検索・フィルター */}
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50" style={{ color: currentBackground.text }} />
+            <input
+              type="text" value={filter} onChange={(e) => setFilter(e.target.value)}
+              placeholder="名前・部署・役職で検索..."
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm"
+              style={inputStyle}
+            />
+          </div>
+          <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}
+            className="px-3 py-2.5 rounded-xl text-sm" style={inputStyle}>
+            <option value="all">全部署</option>
+            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+
+        {/* 集計カード */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl p-3 text-center" style={cardStyle}>
+            <div className="text-2xl font-bold text-indigo-400">{workers.filter(w => w.is_active !== false).length}</div>
+            <div className="text-xs" style={{ color: currentBackground.textLight }}>全社員</div>
+          </div>
+          <div className="rounded-xl p-3 text-center" style={cardStyle}>
+            <div className="text-2xl font-bold text-emerald-400">{workers.filter(w => w.is_field_worker && w.is_active !== false).length}</div>
+            <div className="text-xs" style={{ color: currentBackground.textLight }}>現場作業員</div>
+          </div>
+          <div className="rounded-xl p-3 text-center" style={cardStyle}>
+            <div className="text-2xl font-bold text-blue-400">{users.length}</div>
+            <div className="text-xs" style={{ color: currentBackground.textLight }}>ログイン可</div>
+          </div>
+        </div>
+
+        {/* LINE WORKSインポート（管理者のみ） */}
+        {authUser?.role === 'admin' && (
+          <div className="rounded-xl p-4" style={cardStyle}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <Upload size={20} className="text-green-500" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm" style={{ color: currentBackground.text }}>LINE WORKSインポート</div>
+                  <div className="text-xs" style={{ color: currentBackground.textLight }}>CSVから社員を一括登録</div>
+                </div>
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+                className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 text-white"
+                style={{ background: 'linear-gradient(135deg, #00C73C, #00B136)', opacity: importing ? 0.7 : 1 }}
+              >
+                <Upload size={16} />
+                {importing ? 'インポート中...' : 'CSV選択'}
+              </button>
+            </div>
+            <input ref={fileInputRef} type="file" accept=".csv" onChange={handleImportFile} className="hidden" />
+
+            <AnimatePresence>
+              {importResult && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-4 p-3 rounded-xl"
+                  style={{ background: importResult.success ? '#10b98120' : '#ef444420' }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    {importResult.success ? <CheckCircle size={18} className="text-emerald-500" /> : <AlertCircle size={18} className="text-red-500" />}
+                    <span className={`text-sm font-medium ${importResult.success ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {importResult.success ? 'インポート完了' : 'インポート失敗'}
+                    </span>
+                  </div>
+                  {importResult.success ? (
+                    <div className="text-xs space-y-1" style={{ color: currentBackground.text }}>
+                      <p>新規登録: {importResult.imported}名</p>
+                      <p>更新: {importResult.updated}名</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-400">{importResult.error}</p>
+                  )}
+                  <button onClick={() => setImportResult(null)} className="mt-2 text-xs underline" style={{ color: currentBackground.textLight }}>閉じる</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* 社員リスト */}
+        <div className="text-sm font-bold" style={{ color: currentBackground.text }}>社員一覧</div>
+        {filteredWorkers.length === 0 ? (
+          <div className="text-center py-8 rounded-xl" style={{ ...cardStyle, color: currentBackground.textLight }}>
+            <User size={32} className="mx-auto mb-2 opacity-50" />
+            <p>社員がいません</p>
           </div>
         ) : (
-          users.map((user) => {
-            const roleInfo = getRoleInfo(user.role)
-            return (
-              <motion.div
-                key={user.id}
-                className="rounded-xl p-4 flex items-center gap-3"
-                style={cardStyle}
-                whileTap={{ scale: 0.99 }}
-              >
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg text-white font-medium"
-                  style={{ backgroundColor: roleInfo.color }}
-                >
-                  {(user.display_name || user.username || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate" style={{ color: currentBackground.text }}>
-                    {user.display_name || user.username}
+          <div className="space-y-2">
+            {filteredWorkers.map((worker) => {
+              const linkedUser = userMap[worker.id]
+              const roleInfo = linkedUser ? getRoleInfo(linkedUser.role) : null
+              return (
+                <motion.div key={worker.id} className="rounded-xl p-3" style={cardStyle}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${worker.is_field_worker ? 'bg-emerald-500/20' : 'bg-indigo-500/20'}`}>
+                      {worker.is_field_worker ? '👷' : '👤'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium" style={{ color: currentBackground.text }}>{worker.name}</span>
+                        {worker.position && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/20 text-blue-400">{worker.position}</span>
+                        )}
+                        {worker.is_field_worker && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 flex items-center gap-0.5">
+                            <HardHat size={10} /> 現場
+                          </span>
+                        )}
+                        {linkedUser && roleInfo && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ backgroundColor: `${roleInfo.color}20`, color: roleInfo.color }}>
+                            {roleInfo.label}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs" style={{ color: currentBackground.textLight }}>
+                        {worker.department || '未配属'} / {worker.employment_type || '社員'}
+                      </div>
+                      {worker.lineworks_id && (
+                        <div className="text-[10px] mt-0.5" style={{ color: currentBackground.textLight }}>
+                          <span className="text-green-500">●</span> LINE WORKS連携済
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      {!linkedUser && (
+                        <button
+                          onClick={() => openAccountModal(worker)}
+                          className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 transition-colors"
+                          title="S-BASEアカウント作成"
+                        >
+                          <Key size={16} className="text-blue-400" />
+                        </button>
+                      )}
+                      <button onClick={() => openEditModal(worker)} className="p-2 rounded-lg hover:bg-gray-500/20 transition-colors">
+                        <Edit3 size={16} style={{ color: currentBackground.textLight }} />
+                      </button>
+                      <button onClick={() => handleDeleteWorker(worker.id)} className="p-2 rounded-lg hover:bg-red-500/20 transition-colors">
+                        <Trash2 size={16} className="text-red-400" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-xs flex items-center gap-2" style={{ color: currentBackground.textLight }}>
-                    <span>{user.username}</span>
-                    {user.department && <span>/ {user.department}</span>}
-                  </div>
-                </div>
-                <span
-                  className="px-2 py-1 rounded-lg text-xs font-medium"
-                  style={{ backgroundColor: `${roleInfo.color}20`, color: roleInfo.color }}
-                >
-                  {roleInfo.label}
-                </span>
-                <div className="flex gap-1">
-                  <button
-                    className="p-2 rounded-lg hover:bg-blue-500/20 transition-colors"
-                    onClick={() => openEditModal(user)}
-                  >
-                    <Edit3 size={16} style={{ color: currentBackground.textLight }} />
-                  </button>
-                  <button
-                    className="p-2 rounded-lg hover:bg-red-500/20 transition-colors"
-                    onClick={() => handleDelete(user.id)}
-                  >
-                    <Trash2 size={16} className="text-red-400" />
-                  </button>
-                </div>
-              </motion.div>
-            )
-          })
+                </motion.div>
+              )
+            })}
+          </div>
         )}
       </div>
 
-      {/* 追加/編集モーダル */}
+      {/* 社員追加/編集モーダル */}
       {showModal && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={closeModal}
-        >
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={closeModal}>
           <motion.div
-            className="w-full max-w-md rounded-2xl p-6"
-            style={{
-              background: isOcean ? 'rgba(30, 80, 90, 0.95)' : isLightTheme ? '#fff' : 'rgba(50,50,50,0.98)',
-              border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
-            }}
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-          >
+            className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl p-6"
+            style={{ background: isOcean ? 'rgba(30, 80, 90, 0.95)' : isLightTheme ? '#fff' : 'rgba(50,50,50,0.98)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}` }}
+            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4" style={{ color: currentBackground.text }}>
-              {editingUser ? 'ユーザーを編集' : '新しいユーザー'}
+              {editingWorker ? '社員を編集' : '新しい社員'}
             </h3>
-
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>ユーザー名（ログインID）</label>
-                <input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="tanaka" disabled={!!editingUser} />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>表示名</label>
-                <input type="text" value={formData.display_name} onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>名前 *</label>
+                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="田中太郎" />
               </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>メールアドレス</label>
-                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="tanaka@example.com" />
-              </div>
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>ロール</label>
-                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle}>
-                    {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
-                </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>部署</label>
                   <input type="text" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="工務部" />
                 </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>役職</label>
+                  <input type="text" value={formData.position} onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="課長" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>班</label>
+                  <select value={formData.team} onChange={(e) => setFormData({ ...formData, team: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle}>
+                    <option value="">選択してください</option>
+                    <option value="舗装班">舗装班</option>
+                    <option value="高速班">高速班</option>
+                    <option value="土木班">土木班</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>雇用形態</label>
+                  <select value={formData.employment_type} onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle}>
+                    <option value="社員">社員</option>
+                    <option value="契約">契約</option>
+                    <option value="外注">外注</option>
+                  </select>
+                </div>
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>
-                  パスワード {editingUser && '（変更する場合のみ入力）'}
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>電話番号</label>
+                <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="090-1234-5678" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>メール</label>
+                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="tanaka@example.com" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>LINE WORKS ID</label>
+                <input type="text" value={formData.lineworks_id} onChange={(e) => setFormData({ ...formData, lineworks_id: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="LINE WORKS連携用" />
+              </div>
+              <div className="flex items-center gap-3 py-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={formData.is_field_worker}
+                    onChange={(e) => setFormData({ ...formData, is_field_worker: e.target.checked })}
+                    className="w-5 h-5 rounded accent-emerald-500" />
+                  <span className="text-sm flex items-center gap-1" style={{ color: currentBackground.text }}>
+                    <HardHat size={16} className="text-emerald-500" /> 現場作業員
+                  </span>
                 </label>
-                <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="********" />
               </div>
             </div>
-
             <div className="flex gap-3 mt-6">
-              <button
-                className="flex-1 py-2.5 rounded-lg text-sm font-medium"
-                style={{ background: 'rgba(100,100,100,0.1)', color: currentBackground.textLight }}
-                onClick={closeModal}
-              >
+              <button className="flex-1 py-2.5 rounded-lg text-sm font-medium"
+                style={{ background: 'rgba(100,100,100,0.1)', color: currentBackground.textLight }} onClick={closeModal}>
                 キャンセル
               </button>
-              <button
-                className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white"
-                style={{ backgroundColor: currentTheme.primary }}
-                onClick={handleSave}
-                disabled={!formData.username || (!editingUser && !formData.password)}
-              >
-                {editingUser ? '更新' : '追加'}
+              <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: currentTheme.primary }} onClick={handleSaveWorker}>
+                {editingWorker ? '更新' : '追加'}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* S-BASEアカウント作成モーダル */}
+      {showAccountModal && accountWorker && (
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowAccountModal(false)}>
+          <motion.div
+            className="w-full max-w-sm rounded-2xl p-6"
+            style={{ background: isOcean ? 'rgba(30, 80, 90, 0.95)' : isLightTheme ? '#fff' : 'rgba(50,50,50,0.98)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}` }}
+            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                <Key size={20} className="text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-bold" style={{ color: currentBackground.text }}>S-BASEアカウント作成</h3>
+                <p className="text-xs" style={{ color: currentBackground.textLight }}>{accountWorker.name}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>ログインID *</label>
+                <input type="text" value={accountForm.username}
+                  onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>パスワード *</label>
+                <input type="password" value={accountForm.password}
+                  onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle} placeholder="8文字以上" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: currentBackground.textLight }}>ロール</label>
+                <select value={accountForm.role}
+                  onChange={(e) => setAccountForm({ ...accountForm, role: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm" style={inputStyle}>
+                  {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button className="flex-1 py-2.5 rounded-lg text-sm font-medium"
+                style={{ background: 'rgba(100,100,100,0.1)', color: currentBackground.textLight }}
+                onClick={() => setShowAccountModal(false)}>
+                キャンセル
+              </button>
+              <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: '#3B82F6' }} onClick={handleCreateAccount}>
+                アカウント作成
               </button>
             </div>
           </motion.div>
