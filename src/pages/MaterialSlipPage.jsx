@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Camera } from 'lucide-react'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 const SLIP_TYPES = [
@@ -66,22 +66,12 @@ export default function MaterialSlipPage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`${API_BASE}/ocr/material-slip`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (res.ok) {
-        const result = await res.json()
-        if (result.success && result.data) {
-          setOcrResult(result.data)
-          showToast('伝票を読み取りました')
-        } else {
-          showToast(result.error || '読み取りに失敗しました')
-          setShowResult(false)
-        }
+      const result = await authPostFormData(`${API_BASE}/ocr/material-slip`, formData)
+      if (result.success && result.data) {
+        setOcrResult(result.data)
+        showToast('伝票を読み取りました')
       } else {
-        showToast('サーバーエラーが発生しました')
+        showToast(result.error || '読み取りに失敗しました')
         setShowResult(false)
       }
     } catch (error) {

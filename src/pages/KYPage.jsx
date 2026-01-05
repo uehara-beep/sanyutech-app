@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function KYPage() {
@@ -119,32 +119,23 @@ export default function KYPage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`${API_BASE}/ocr/ky-sheet`, {
-        method: 'POST',
-        body: formData,
-      })
+      const result = await authPostFormData(`${API_BASE}/ocr/ky-sheet`, formData)
+      if (result.success && result.data) {
+        setOcrFields(result.data.fields || [])
 
-      if (res.ok) {
-        const result = await res.json()
-        if (result.success && result.data) {
-          setOcrFields(result.data.fields || [])
+        // summaryからフォームに自動入力
+        const summary = result.data.summary || {}
+        setForm(prev => ({
+          ...prev,
+          date: summary.date || prev.date,
+          work_content: summary.work_content || '',
+          hazards: summary.hazards || '',
+          countermeasures: summary.countermeasures || '',
+        }))
 
-          // summaryからフォームに自動入力
-          const summary = result.data.summary || {}
-          setForm(prev => ({
-            ...prev,
-            date: summary.date || prev.date,
-            work_content: summary.work_content || '',
-            hazards: summary.hazards || '',
-            countermeasures: summary.countermeasures || '',
-          }))
-
-          showToast('KYシートを読み取りました')
-        } else {
-          showToast(result.error || 'KYシートの読み取りに失敗しました')
-        }
+        showToast('KYシートを読み取りました')
       } else {
-        showToast('サーバーエラーが発生しました')
+        showToast(result.error || 'KYシートの読み取りに失敗しました')
       }
     } catch (error) {
       console.error('KY OCR Error:', error)

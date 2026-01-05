@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function SchedulePage() {
@@ -119,30 +119,14 @@ export default function SchedulePage() {
       formData.append('file', file)
       formData.append('type', 'schedule')
 
-      const res = await fetch(`${API_BASE}/ocr/schedule`, {
-        method: 'POST',
-        body: formData,
+      const data = await authPostFormData(`${API_BASE}/ocr/schedule`, formData)
+      setScannedData({
+        project_name: data.project_name || '',
+        start_date: data.start_date || '',
+        end_date: data.end_date || '',
+        progress_rate: data.progress_rate || 0,
+        color: data.color || '#3b82f6',
       })
-
-      if (res.ok) {
-        const data = await res.json()
-        setScannedData({
-          project_name: data.project_name || '',
-          start_date: data.start_date || '',
-          end_date: data.end_date || '',
-          progress_rate: data.progress_rate || 0,
-          color: data.color || '#3b82f6',
-        })
-      } else {
-        // デモ用のダミーデータ
-        setScannedData({
-          project_name: '新規工事',
-          start_date: `${currentYear}-04-01`,
-          end_date: `${currentYear}-09-30`,
-          progress_rate: 0,
-          color: '#3b82f6',
-        })
-      }
     } catch (error) {
       console.error('OCR error:', error)
       // デモ用のダミーデータ

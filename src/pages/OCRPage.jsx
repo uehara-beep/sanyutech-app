@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, Upload, FileText, CreditCard, Scan, X, Check, Copy, Download } from 'lucide-react'
 import { Header, Card, Button, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function OCRPage() {
@@ -64,17 +64,7 @@ export default function OCRPage() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}${endpoints[activeTab]}`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.detail || 'OCR処理に失敗しました')
-      }
-
-      const data = await res.json()
+      const data = await authPostFormData(`${API_BASE}${endpoints[activeTab]}`, formData)
       setResult(data)
       showToast('OCR処理が完了しました')
     } catch (error) {

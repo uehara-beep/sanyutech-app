@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Edit3, Download, FileText, Wallet, Calculator, FolderOpen, Info, CheckCircle, PlayCircle, Flag, XCircle, X, Trash2, Receipt, Plus } from 'lucide-react'
 import { Card, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 // ステータス定義
@@ -1833,17 +1833,9 @@ function DocsTab({ project, styles, theme, onShowToast }) {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`${API_BASE}/quotes/${project.id}/documents`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (res.ok) {
-        onShowToast && onShowToast('ファイルをアップロードしました')
-        fetchDocuments()
-      } else {
-        onShowToast && onShowToast('アップロードに失敗しました')
-      }
+      await authPostFormData(`${API_BASE}/quotes/${project.id}/documents`, formData)
+      onShowToast && onShowToast('ファイルをアップロードしました')
+      fetchDocuments()
     } catch (error) {
       console.error('Failed to upload document:', error)
       onShowToast && onShowToast('エラーが発生しました')

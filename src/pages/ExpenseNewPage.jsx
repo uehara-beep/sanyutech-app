@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Camera, Receipt } from 'lucide-react'
 import { Header, Card, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function ExpenseNewPage() {
@@ -77,65 +77,49 @@ export default function ExpenseNewPage() {
       formData.append('file', file)
 
       // まずガソリンOCRを試す
-      const gasolineRes = await fetch(`${API_BASE}/ocr/gasoline`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (gasolineRes.ok) {
-        const gasolineResult = await gasolineRes.json()
-        console.log('ガソリンOCR結果:', gasolineResult)
-        // ガソリンレシートと判定された場合（is_gasolineフラグまたはfuel_typeで判定）
-        const isGasoline = gasolineResult.is_gasoline || gasolineResult.data?.is_gasoline || gasolineResult.data?.fuel_type
-        if (gasolineResult.success && isGasoline) {
-          const data = gasolineResult.data
-          // 燃料費カテゴリを自動選択
-          const fuelCategory = categories.find(c => c.is_fuel || c.name === '燃料費')
-          const fuelTypeMap = {
-            'レギュラー': 'regular',
-            'ハイオク': 'premium',
-            '軽油': 'diesel',
-          }
-          setForm(prev => ({
-            ...prev,
-            category_id: fuelCategory?.id ? String(fuelCategory.id) : prev.category_id,
-            store_name: data.store_name || '',
-            amount: data.total_amount ? String(data.total_amount) : '',
-            fuel_liter: data.quantity ? String(data.quantity) : '',
-            fuel_type: fuelTypeMap[data.fuel_type] || 'regular',
-            memo: data.vehicle_number ? `車両: ${data.vehicle_number}` : '',
-          }))
-          showToast(`⛽ ガソリンレシート読取完了（${data.fuel_type} ${data.quantity || ''}L）`)
-          return
+      const gasolineResult = await authPostFormData(`${API_BASE}/ocr/gasoline`, formData)
+      console.log('ガソリンOCR結果:', gasolineResult)
+      // ガソリンレシートと判定された場合（is_gasolineフラグまたはfuel_typeで判定）
+      const isGasoline = gasolineResult.is_gasoline || gasolineResult.data?.is_gasoline || gasolineResult.data?.fuel_type
+      if (gasolineResult.success && isGasoline) {
+        const data = gasolineResult.data
+        // 燃料費カテゴリを自動選択
+        const fuelCategory = categories.find(c => c.is_fuel || c.name === '燃料費')
+        const fuelTypeMap = {
+          'レギュラー': 'regular',
+          'ハイオク': 'premium',
+          '軽油': 'diesel',
         }
+        setForm(prev => ({
+          ...prev,
+          category_id: fuelCategory?.id ? String(fuelCategory.id) : prev.category_id,
+          store_name: data.store_name || '',
+          amount: data.total_amount ? String(data.total_amount) : '',
+          fuel_liter: data.quantity ? String(data.quantity) : '',
+          fuel_type: fuelTypeMap[data.fuel_type] || 'regular',
+          memo: data.vehicle_number ? `車両: ${data.vehicle_number}` : '',
+        }))
+        showToast(`⛽ ガソリンレシート読取完了（${data.fuel_type} ${data.quantity || ''}L）`)
+        return
       }
 
       // ガソリンでない場合は通常のレシートOCR
       const formData2 = new FormData()
       formData2.append('file', file)
 
-      const res = await fetch(`${API_BASE}/ocr/receipt`, {
-        method: 'POST',
-        body: formData2,
-      })
-
-      if (res.ok) {
-        const result = await res.json()
-        if (result.success && result.data) {
-          // 金額を設定
-          if (result.data.total_amount) {
-            setForm(prev => ({ ...prev, amount: String(result.data.total_amount) }))
-          }
-          // 店舗名を設定
-          if (result.data.store_name) {
-            setForm(prev => ({ ...prev, store_name: result.data.store_name }))
-          }
-          showToast('レシートを読み取りました')
-        } else {
-          showToast(result.error || 'レシートの読み取りに失敗しました')
+      const result = await authPostFormData(`${API_BASE}/ocr/receipt`, formData2)
+      if (result.success && result.data) {
+        // 金額を設定
+        if (result.data.total_amount) {
+          setForm(prev => ({ ...prev, amount: String(result.data.total_amount) }))
         }
+        // 店舗名を設定
+        if (result.data.store_name) {
+          setForm(prev => ({ ...prev, store_name: result.data.store_name }))
+        }
+        showToast('レシートを読み取りました')
       } else {
-        showToast('サーバーエラーが発生しました')
+        showToast(result.error || 'レシートの読み取りに失敗しました')
       }
     } catch (error) {
       console.error('Receipt OCR Error:', error)

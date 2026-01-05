@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Header, Card, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function InvoicePage() {
@@ -53,23 +53,14 @@ export default function InvoicePage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`${API_BASE}/ocr/invoice`, {
-        method: 'POST',
-        body: formData,
-      })
+      const result = await authPostFormData(`${API_BASE}/ocr/invoice`, formData)
+      console.log('OCR結果:', result)
 
-      if (res.ok) {
-        const result = await res.json()
-        console.log('OCR結果:', result)
-
-        if (result.success && result.data) {
-          setOcrResult(result.data)
-          showToast('AI解析完了')
-        } else {
-          showToast(result.error || '解析に失敗しました')
-        }
+      if (result.success && result.data) {
+        setOcrResult(result.data)
+        showToast('AI解析完了')
       } else {
-        showToast('サーバーエラーが発生しました')
+        showToast(result.error || '解析に失敗しました')
       }
     } catch (error) {
       console.error('OCR Error:', error)

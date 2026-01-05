@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, Image, FileText, X, Check, Loader2, ChevronRight, AlertCircle } from 'lucide-react'
 import { PageHeader, Card, SectionTitle, Button, Input, Select, Modal, Toast } from '../components/common'
 import { useThemeStore, backgroundStyles } from '../store'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 
 // 書類タイプ定義
 const documentTypes = [
@@ -131,14 +131,10 @@ export default function ScanPage() {
       formData.append('file', file)
 
       // ガソリンOCR APIを呼び出し
-      const gasolineResponse = await fetch(`${API_BASE}/ocr/gasoline`, {
-        method: 'POST',
-        body: formData,
-      })
+      const gasolineResult = await authPostFormData(`${API_BASE}/ocr/gasoline`, formData)
+      console.log('ガソリンOCR結果:', gasolineResult)
 
-      if (gasolineResponse.ok) {
-        const gasolineResult = await gasolineResponse.json()
-        console.log('ガソリンOCR結果:', gasolineResult)
+      if (gasolineResult) {
 
         // ガソリンレシートと判定された場合（is_gasolineフラグまたはfuel_typeで判定）
         const isGasoline = gasolineResult.is_gasoline || gasolineResult.data?.is_gasoline || gasolineResult.data?.fuel_type
@@ -173,16 +169,7 @@ export default function ScanPage() {
       formData2.append('file', file)
       formData2.append('type', fileType)
 
-      const response = await fetch(`${API_BASE}/ocr/invoice`, {
-        method: 'POST',
-        body: formData2,
-      })
-
-      if (!response.ok) {
-        throw new Error('OCR処理に失敗しました')
-      }
-
-      const result = await response.json()
+      const result = await authPostFormData(`${API_BASE}/ocr/invoice`, formData2)
 
       if (result.success && result.data) {
         setOcrResult(result.data)

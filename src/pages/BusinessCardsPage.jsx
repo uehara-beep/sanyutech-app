@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 const TAGS = [
@@ -84,23 +84,14 @@ export default function BusinessCardsPage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`${API_BASE}/ocr/business-card`, {
-        method: 'POST',
-        body: formData,
-      })
+      const result = await authPostFormData(`${API_BASE}/ocr/business-card`, formData)
 
-      if (res.ok) {
-        const result = await res.json()
-
-        if (result.success && result.data) {
-          setForm(result.data)
-          showToast('名刺を読み取りました')
-        } else {
-          // エラー時はフォームを空で表示（手動入力を促す）
-          showToast(result.error || 'OCR処理に失敗しました。手動で入力してください。')
-        }
+      if (result.success && result.data) {
+        setForm(result.data)
+        showToast('名刺を読み取りました')
       } else {
-        showToast('サーバーエラーが発生しました')
+        // エラー時はフォームを空で表示（手動入力を促す）
+        showToast(result.error || 'OCR処理に失敗しました。手動で入力してください。')
       }
     } catch (error) {
       console.error('OCR Error:', error)
