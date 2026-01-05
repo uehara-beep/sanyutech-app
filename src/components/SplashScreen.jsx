@@ -62,12 +62,26 @@ export default function SplashScreen({ isVisible, onComplete }) {
             <img
               src="/logo/sunyuTECH_logo.png"
               alt="SunyuTEC"
-              className="h-24 mb-6"
+              className="w-24 h-24 mb-6"
               style={{
-                width: 'auto',
-                filter: 'drop-shadow(0 10px 40px rgba(0,0,0,0.3))',
+                borderRadius: '16px',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
               }}
             />
+            <motion.h1
+              className="text-white"
+              style={{
+                fontSize: '3.5rem',
+                fontWeight: 300,
+                letterSpacing: '0.3em',
+                textShadow: `
+                  0 0 30px rgba(255,255,255,0.3),
+                  0 0 60px rgba(255,255,255,0.2)
+                `,
+              }}
+            >
+              S-BASE
+            </motion.h1>
             <motion.p
               className="text-white/60 text-sm mt-2"
               style={{ letterSpacing: '0.2em' }}
@@ -75,7 +89,7 @@ export default function SplashScreen({ isVisible, onComplete }) {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
             >
-              現場管理システム
+              サンユウテック現場管理
             </motion.p>
           </motion.div>
         </motion.div>
