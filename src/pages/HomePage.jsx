@@ -281,7 +281,7 @@ export default function HomePage() {
         }))
 
         // 売上・請求データ取得
-        const billings = await authFetch(`${API_BASE}/billing/`)
+        const billings = await authFetch(`${API_BASE}/billings`)
         const thisMonth = new Date().getMonth()
         const monthlySales = billings
           .filter(b => new Date(b.billing_date).getMonth() === thisMonth)
