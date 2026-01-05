@@ -249,11 +249,16 @@ export async function apiPostFormData(endpoint, formData) {
 // 認証付きFormData POST（ファイルアップロード用）
 export async function authPostFormData(endpoint, formData) {
   const token = getAuthToken()
+  console.log('[authPostFormData] token:', token ? 'exists' : 'null')
+  console.log('[authPostFormData] endpoint:', endpoint)
+
   const headers = {}
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
+
+  console.log('[authPostFormData] headers:', headers)
 
   const response = await fetch(endpoint, {
     method: 'POST',
