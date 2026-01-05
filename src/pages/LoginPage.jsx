@@ -1,10 +1,28 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { User, Lock, Mail, Eye, EyeOff, ArrowRight, UserPlus } from 'lucide-react'
+import { User, Lock, Mail, Eye, EyeOff, ArrowRight, UserPlus, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuthStore, useThemeStore } from '../store'
 import { API_BASE } from '../config/api'
+
+// ユーザー名バリデーション
+const validateUsername = (username) => {
+  if (!username) return { valid: true, message: '' }
+  if (username.length < 3) return { valid: false, message: '3文字以上で入力してください' }
+  if (username.length > 50) return { valid: false, message: '50文字以内で入力してください' }
+  if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+    return { valid: false, message: '英数字、アンダースコア(_)、ハイフン(-)のみ使用可能です' }
+  }
+  return { valid: true, message: '' }
+}
+
+// パスワードバリデーション
+const validatePassword = (password) => {
+  if (!password) return { valid: true, message: '' }
+  if (password.length < 8) return { valid: false, message: '8文字以上で入力してください' }
+  return { valid: true, message: '' }
+}
 
 // LINE WORKSのロゴアイコン（SVG）
 const LineWorksIcon = () => (
@@ -189,9 +207,26 @@ export default function LoginPage() {
                 placeholder="username"
                 required
                 className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2"
-                style={{ ...inputStyle, '--tw-ring-color': theme.primary }}
+                style={{
+                  ...inputStyle,
+                  '--tw-ring-color': theme.primary,
+                  borderColor: formData.username && !validateUsername(formData.username).valid
+                    ? '#ef4444'
+                    : 'rgba(255,255,255,0.2)'
+                }}
               />
             </div>
+            {/* バリデーションメッセージ */}
+            {formData.username && !validateUsername(formData.username).valid ? (
+              <div className="flex items-center gap-1 mt-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                <span className="text-xs text-red-400">{validateUsername(formData.username).message}</span>
+              </div>
+            ) : mode === 'register' && (
+              <p className="text-xs mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                英数字、アンダースコア(_)、ハイフン(-)のみ使用可能（3〜50文字）
+              </p>
+            )}
           </div>
 
           {/* Email (Register only) */}
@@ -254,9 +289,15 @@ export default function LoginPage() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="********"
                 required
-                minLength={4}
+                minLength={mode === 'register' ? 8 : 1}
                 className="w-full pl-10 pr-12 py-3 rounded-xl focus:outline-none focus:ring-2"
-                style={{ ...inputStyle, '--tw-ring-color': theme.primary }}
+                style={{
+                  ...inputStyle,
+                  '--tw-ring-color': theme.primary,
+                  borderColor: mode === 'register' && formData.password && !validatePassword(formData.password).valid
+                    ? '#ef4444'
+                    : 'rgba(255,255,255,0.2)'
+                }}
               />
               <button
                 type="button"
@@ -270,12 +311,30 @@ export default function LoginPage() {
                 )}
               </button>
             </div>
+            {/* パスワードバリデーション（新規登録時のみ） */}
+            {mode === 'register' && formData.password && !validatePassword(formData.password).valid ? (
+              <div className="flex items-center gap-1 mt-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                <span className="text-xs text-red-400">{validatePassword(formData.password).message}</span>
+              </div>
+            ) : mode === 'register' && (
+              <p className="text-xs mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                8文字以上で入力してください
+              </p>
+            )}
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading || lineWorksLoading}
+            disabled={
+              loading ||
+              lineWorksLoading ||
+              (mode === 'register' && (
+                !validateUsername(formData.username).valid ||
+                !validatePassword(formData.password).valid
+              ))
+            }
             className="w-full py-3 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
             style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.dark})` }}
           >
