@@ -11,7 +11,7 @@ import { useThemeStore, backgroundStyles } from '../store'
 export default function AnalyticsPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const isOcean = currentBg?.hasOceanEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
   const [year, setYear] = useState(new Date().getFullYear())

@@ -8,7 +8,7 @@ import { useThemeStore, backgroundStyles } from '../store'
 export default function SchedulePage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const scrollRef = useRef(null)
   const [schedules, setSchedules] = useState([])
   const [projects, setProjects] = useState([])

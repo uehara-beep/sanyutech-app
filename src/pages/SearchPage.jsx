@@ -15,7 +15,7 @@ const SEARCH_TYPES = [
 export default function SearchPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [query, setQuery] = useState('')
   const [searchType, setSearchType] = useState('all')
   const [results, setResults] = useState(null)

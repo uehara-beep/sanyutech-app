@@ -8,7 +8,7 @@ import { useThemeStore, backgroundStyles } from '../store'
 export default function ExpensePage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [expenses, setExpenses] = useState([])
   const [categories, setCategories] = useState([])
   const [fuelPrice, setFuelPrice] = useState(170)

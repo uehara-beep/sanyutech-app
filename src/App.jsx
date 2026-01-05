@@ -53,7 +53,7 @@ import PhotosPage from './pages/PhotosPage'
 import InspectionsPage from './pages/InspectionsPage'
 import SafetyPage from './pages/SafetyPage'
 import ChatPage, { ChatListPage } from './pages/ChatPage'
-import SettingsPage, { UsersPage, IntegrationsPage, ExportPage, LineWorksPage, CompanySettingsPage } from './pages/SettingsPage'
+import SettingsPage, { UsersPage, IntegrationsPage, ExportPage, LineWorksPage, LineWorksSettingsPage, CompanySettingsPage } from './pages/SettingsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import BusinessCardsPage from './pages/BusinessCardsPage'
 import QuotesPage from './pages/QuotesPage'
@@ -86,7 +86,7 @@ export default function App() {
   const { initTheme, backgroundId } = useThemeStore()
   const { isAuthenticated } = useAuthStore()
   const [showSplash, setShowSplash] = useState(true)
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const location = useLocation()
 
   // ログインページかどうか
@@ -106,8 +106,15 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [])
 
+  // 背景スタイルを構築
+  const bgStyle = {
+    background: currentBg.bg,
+    ...(currentBg.bgStyle || {}),
+    color: 'var(--text)',
+  }
+
   return (
-    <div className="min-h-screen" style={{ background: currentBg.bg, color: 'var(--text)' }}>
+    <div className="min-h-screen" style={bgStyle}>
       {/* スプラッシュスクリーン（ログインページ以外で表示） */}
       {!isLoginPage && <SplashScreen isVisible={showSplash} />}
 
@@ -189,7 +196,7 @@ export default function App() {
         <Route path="/settings/users" element={<UsersPage />} />
         <Route path="/settings/integrations" element={<IntegrationsPage />} />
         <Route path="/settings/export" element={<ExportPage />} />
-        <Route path="/settings/lineworks" element={<LineWorksPage />} />
+        <Route path="/settings/lineworks" element={<LineWorksSettingsPage />} />
         <Route path="/settings/company" element={<CompanySettingsPage />} />
         <Route path="/settings/employees" element={<EmployeeMasterPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />

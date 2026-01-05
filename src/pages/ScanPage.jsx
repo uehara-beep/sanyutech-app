@@ -37,7 +37,7 @@ export default function ScanPage() {
   const navigate = useNavigate()
   const { getCurrentTheme, backgroundId } = useThemeStore()
   const theme = getCurrentTheme()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const isOcean = currentBg?.hasOceanEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
 
@@ -819,7 +819,7 @@ export default function ScanPage() {
 export function ScanResultPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
 
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>

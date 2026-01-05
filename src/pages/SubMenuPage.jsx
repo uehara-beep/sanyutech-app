@@ -333,7 +333,7 @@ export default function SubMenuPage() {
   const { token } = useAuthStore()
 
   const categoryData = categories[category]
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const showOceanEffect = currentBg?.hasOceanEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
 

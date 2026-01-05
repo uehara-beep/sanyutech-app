@@ -8,7 +8,7 @@ import { API_BASE } from '../config/api'
 // テーマフック
 const useTheme = () => {
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   return currentBg
 }
 

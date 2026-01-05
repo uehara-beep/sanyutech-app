@@ -9,7 +9,7 @@ export function FeedbackPage() {
   const navigate = useNavigate()
   const { feedbacks, addFeedback } = useAppStore()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [category, setCategory] = useState('')
   const [app, setApp] = useState('')
   const [content, setContent] = useState('')
@@ -155,7 +155,7 @@ export function FeedbackPage() {
 export function HelpPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [openItems, setOpenItems] = useState([])
   
   const toggleItem = (id) => {

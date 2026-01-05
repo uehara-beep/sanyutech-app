@@ -9,7 +9,7 @@ import { useThemeStore, backgroundStyles } from '../store'
 export default function OCRPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
 
   const [activeTab, setActiveTab] = useState('invoice') // invoice, general, business-card
@@ -343,7 +343,7 @@ export default function OCRPage() {
 // 結果行コンポーネント
 function ResultRow({ label, value, highlight = false }) {
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
 
   if (!value) return null
 

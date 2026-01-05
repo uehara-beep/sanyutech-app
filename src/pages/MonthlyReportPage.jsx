@@ -8,7 +8,7 @@ import { API_BASE } from '../config/api'
 export default function MonthlyReportPage() {
   const navigate = useNavigate()
   const { backgroundId, getCurrentTheme } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const theme = getCurrentTheme()
   const isOcean = currentBg?.hasOceanEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'

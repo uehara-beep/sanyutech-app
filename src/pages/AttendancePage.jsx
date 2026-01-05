@@ -8,7 +8,7 @@ import { useThemeStore, backgroundStyles } from '../store'
 export default function AttendancePage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [attendances, setAttendances] = useState([])
   const [summary, setSummary] = useState([])
   const [workers, setWorkers] = useState([])

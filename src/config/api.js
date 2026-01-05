@@ -8,6 +8,10 @@ const ENV = import.meta.env
 // 本番環境: 環境変数 VITE_API_BASE_URL を使用
 export const API_BASE = ENV.VITE_API_BASE_URL || '/api'
 
+// デバッグ用（本番確認後に削除）
+console.log('[API Config] VITE_API_BASE_URL:', ENV.VITE_API_BASE_URL)
+console.log('[API Config] API_BASE:', API_BASE)
+
 // 個別のエンドポイント
 export const API_ENDPOINTS = {
   // 認証関連

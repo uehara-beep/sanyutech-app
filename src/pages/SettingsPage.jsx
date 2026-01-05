@@ -644,6 +644,27 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* 外部連携（管理者のみ） */}
+        {authUser?.role === 'admin' && (
+          <div>
+            <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>
+              外部連携
+            </div>
+            <div className="space-y-2">
+              <SettingItem
+                icon={<div className="w-5 h-5 bg-[#00C300] rounded flex items-center justify-center text-white text-xs font-bold">L</div>}
+                title="LINE WORKS設定"
+                subtitle="OAuth認証・API連携設定"
+                onClick={() => navigate('/settings/lineworks')}
+                themeStyle={currentBackground}
+                isOcean={isOcean}
+                isLightTheme={isLightTheme}
+                currentTheme={currentTheme}
+              />
+            </div>
+          </div>
+        )}
+
         {/* お知らせ管理 */}
         <div>
           <div className="flex items-center justify-between px-1 py-2">
@@ -894,7 +915,7 @@ function SettingItem({ icon, title, subtitle, onClick, themeStyle, isOcean, isLi
 // プレースホルダーページ
 function PlaceholderPage({ title, icon }) {
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   return (
     <div className="min-h-screen pb-20" style={{ background: currentBg.bg }}>
       <PageHeader title={title} icon={icon} />
@@ -1467,6 +1488,310 @@ export function ExportPage() {
 
 export function LineWorksPage() {
   return <PlaceholderPage title="LINE WORKS連携" icon="💬" />
+}
+
+export function LineWorksSettingsPage() {
+  const navigate = useNavigate()
+  const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const { token } = useAuthStore()
+  const currentTheme = getCurrentTheme()
+  const currentBackground = getCurrentBackground()
+  const isOcean = currentBackground?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const [settings, setSettings] = useState({
+    client_id: '',
+    client_secret: '',
+    redirect_uri: '',
+    domain_id: '',
+    service_account: '',
+    private_key: '',
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
+
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/lineworks/settings`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSettings({
+          client_id: data.client_id || '',
+          client_secret: data.client_secret ? '********' : '',
+          redirect_uri: data.redirect_uri || `${window.location.origin}/login`,
+          domain_id: data.domain_id || '',
+          service_account: data.service_account || '',
+          private_key: data.has_private_key ? '********' : '',
+        })
+      }
+    } catch (e) {
+      console.error('Failed to fetch LINE WORKS settings:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setTestResult(null)
+    try {
+      // パスワードフィールドが********のままなら送信しない
+      const payload = { ...settings }
+      if (payload.client_secret === '********') delete payload.client_secret
+      if (payload.private_key === '********') delete payload.private_key
+
+      const res = await fetch(`${API_BASE}/lineworks/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      })
+      if (res.ok) {
+        alert('保存しました')
+        fetchSettings()
+      } else {
+        const err = await res.json()
+        alert(err.detail || '保存に失敗しました')
+      }
+    } catch (e) {
+      console.error('Failed to save:', e)
+      alert('保存に失敗しました')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTest = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch(`${API_BASE}/lineworks/test-connection`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
+      const data = await res.json()
+      setTestResult({
+        success: res.ok,
+        message: data.message || (res.ok ? '接続成功' : data.detail || '接続失敗')
+      })
+    } catch (e) {
+      setTestResult({ success: false, message: '接続テストに失敗しました' })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const handleChange = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  const inputStyle = {
+    background: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`,
+    color: currentBackground.text,
+  }
+
+  const cardStyle = {
+    background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
+    border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}`,
+    backdropFilter: isOcean ? 'blur(10px)' : 'none',
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBackground.bg }}>
+        <div className="text-center" style={{ color: currentBackground.textLight }}>読み込み中...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
+      {/* ヘッダー */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
+        <div className="flex items-center gap-3.5 px-6 py-4">
+          <motion.button
+            className="w-10 h-10 flex items-center justify-center rounded-xl"
+            style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }}
+            onClick={() => navigate(-1)}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+          </motion.button>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: '#00C300' }}>
+            <span className="text-white text-xl font-bold">L</span>
+          </div>
+          <div>
+            <h2 className="text-lg font-medium tracking-wide" style={{ color: currentBackground.text }}>LINE WORKS設定</h2>
+            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>OAuth認証・API連携</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-4">
+        {/* 説明 */}
+        <div className="rounded-2xl p-4" style={{ ...cardStyle, background: isOcean ? 'rgba(0,195,0,0.15)' : 'rgba(0,195,0,0.1)' }}>
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">💡</div>
+            <div>
+              <div className="font-medium text-sm mb-1" style={{ color: currentBackground.text }}>LINE WORKS連携について</div>
+              <div className="text-xs leading-relaxed" style={{ color: currentBackground.textLight }}>
+                LINE WORKSでログインするには、LINE WORKS Developer Consoleでアプリを作成し、以下の情報を設定してください。
+                <br />
+                <a href="https://developers.worksmobile.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
+                  LINE WORKS Developer Console
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* OAuth設定 */}
+        <div className="rounded-2xl p-4" style={cardStyle}>
+          <h3 className="text-sm font-bold mb-4" style={{ color: currentBackground.text }}>OAuth 2.0設定</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>Client ID</label>
+              <input
+                type="text"
+                value={settings.client_id}
+                onChange={e => handleChange('client_id', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+                style={inputStyle}
+                placeholder="LINE WORKS App Client ID"
+              />
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>Client Secret</label>
+              <input
+                type="password"
+                value={settings.client_secret}
+                onChange={e => handleChange('client_secret', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+                style={inputStyle}
+                placeholder="LINE WORKS App Client Secret"
+              />
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>Redirect URI</label>
+              <input
+                type="text"
+                value={settings.redirect_uri}
+                onChange={e => handleChange('redirect_uri', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+                style={inputStyle}
+                placeholder={`${window.location.origin}/login`}
+              />
+              <p className="text-[10px] mt-1" style={{ color: currentBackground.textLight }}>
+                LINE WORKS Developer Consoleの「Redirect URI」にも同じ値を登録してください
+              </p>
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>Domain ID</label>
+              <input
+                type="text"
+                value={settings.domain_id}
+                onChange={e => handleChange('domain_id', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+                style={inputStyle}
+                placeholder="LINE WORKS Domain ID"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Service Account設定 */}
+        <div className="rounded-2xl p-4" style={cardStyle}>
+          <h3 className="text-sm font-bold mb-4" style={{ color: currentBackground.text }}>Service Account設定（オプション）</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>Service Account</label>
+              <input
+                type="text"
+                value={settings.service_account}
+                onChange={e => handleChange('service_account', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+                style={inputStyle}
+                placeholder="xxxxx.serviceaccount@xxx"
+              />
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: currentBackground.textLight }}>Private Key</label>
+              <textarea
+                value={settings.private_key}
+                onChange={e => handleChange('private_key', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm font-mono resize-none"
+                rows={4}
+                style={inputStyle}
+                placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 接続テスト結果 */}
+        {testResult && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl p-4"
+            style={{
+              ...cardStyle,
+              background: testResult.success ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+              border: `1px solid ${testResult.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              {testResult.success ? (
+                <CheckCircle size={20} className="text-emerald-500" />
+              ) : (
+                <AlertCircle size={20} className="text-red-500" />
+              )}
+              <span className={`font-medium ${testResult.success ? 'text-emerald-500' : 'text-red-500'}`}>
+                {testResult.message}
+              </span>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ボタン */}
+        <div className="flex gap-3">
+          <motion.button
+            className="flex-1 py-3 rounded-xl font-medium"
+            style={{
+              background: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+              color: currentBackground.text,
+              border: `1px solid ${currentBackground.border}`,
+            }}
+            onClick={handleTest}
+            disabled={testing || !settings.client_id}
+            whileTap={{ scale: 0.98 }}
+          >
+            {testing ? '接続テスト中...' : '接続テスト'}
+          </motion.button>
+          <motion.button
+            className="flex-1 py-3 rounded-xl font-medium text-white"
+            style={{ backgroundColor: currentTheme.primary }}
+            onClick={handleSave}
+            disabled={saving}
+            whileTap={{ scale: 0.98 }}
+          >
+            {saving ? '保存中...' : '保存する'}
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function CompanySettingsPage() {

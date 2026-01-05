@@ -54,11 +54,8 @@ export default function LoginPage() {
   }
 
   const handleLineWorksLogin = () => {
-    // TODO: LINE WORKS OAuth認証（本番実装時に有効化）
-    // window.location.href = `${API_BASE}/auth/lineworks/authorize`
-
-    // 仮実装: ホーム画面に遷移
-    navigate('/')
+    // LINE WORKS OAuth認証エンドポイントにリダイレクト
+    window.location.href = `${API_BASE}/auth/lineworks/authorize`
   }
 
   const handleSubmit = async (e) => {

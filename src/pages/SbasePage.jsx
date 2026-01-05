@@ -161,7 +161,7 @@ const generateEstimatePDF = (estimate, project) => {
 export default function SbasePage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [searchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || 'list'
   const [activeTab, setActiveTab] = useState(initialTab)
@@ -1091,7 +1091,7 @@ export function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [searchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || 'overview'
   const [project, setProject] = useState(null)

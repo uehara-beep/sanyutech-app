@@ -6,7 +6,7 @@ import { useWeatherStore, useAppStore, useThemeStore, backgroundStyles } from '.
 export default function WeatherPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const { weatherData, lastUpdated, refreshWeather } = useWeatherStore()
   const { sites } = useAppStore()
   

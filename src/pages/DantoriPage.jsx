@@ -15,7 +15,7 @@ const tabs = [
 export default function DantoriPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [activeTab, setActiveTab] = useState('today')
   const [showAddModal, setShowAddModal] = useState(false)
   const [projects, setProjects] = useState([])

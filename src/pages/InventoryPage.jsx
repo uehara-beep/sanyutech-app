@@ -8,7 +8,7 @@ import { useThemeStore, backgroundStyles } from '../store'
 export default function InventoryPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [inventory, setInventory] = useState([])
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)

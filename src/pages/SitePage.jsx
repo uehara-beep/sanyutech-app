@@ -9,7 +9,7 @@ export default function SitePage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [project, setProject] = useState(null)
   const [weather, setWeather] = useState(null)
   const [assignments, setAssignments] = useState([])

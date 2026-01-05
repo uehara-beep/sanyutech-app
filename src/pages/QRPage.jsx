@@ -8,7 +8,7 @@ import { useThemeStore, backgroundStyles } from '../store'
 export default function QRPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState('')
   const [mode, setMode] = useState(null) // 'checkin' | 'checkout'

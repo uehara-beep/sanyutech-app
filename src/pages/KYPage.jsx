@@ -8,7 +8,7 @@ import { useThemeStore, backgroundStyles } from '../store'
 export default function KYPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const [kyReports, setKyReports] = useState([])
   const [projects, setProjects] = useState([])
   const [workers, setWorkers] = useState([])

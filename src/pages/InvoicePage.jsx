@@ -1,75 +1,55 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Header, Card, SectionTitle, Toast } from '../components/common'
+import { Header, Card, Toast } from '../components/common'
 import { API_BASE } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
-
-const BILLING_CATEGORIES = [
-  { id: 'material', label: '材料費', icon: '🧱' },
-  { id: 'subcontract', label: '外注費', icon: '👷' },
-  { id: 'machine', label: '機械費', icon: '🚜' },
-  { id: 'expense', label: '経費', icon: '💰' },
-]
 
 export default function InvoicePage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
-  const [billings, setBillings] = useState([])
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
+
   const [projects, setProjects] = useState([])
-  const [vendors, setVendors] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [toast, setToast] = useState({ show: false, message: '' })
 
-  const [form, setForm] = useState({
-    vendor_name: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-    items: '',
-    category: 'material',
-    project_id: '',
-  })
+  // OCR結果
+  const [ocrResult, setOcrResult] = useState(null)
+  // 明細と現場の紐付け
+  const [itemProjects, setItemProjects] = useState({})
 
   useEffect(() => {
-    fetchData()
+    fetchProjects()
   }, [])
 
-  const fetchData = async () => {
+  const fetchProjects = async () => {
     try {
-      const [billingsRes, projectsRes, vendorsRes] = await Promise.all([
-        fetch(`${API_BASE}/billings/`),
-        fetch(`${API_BASE}/projects`),
-        fetch(`${API_BASE}/vendors/`),
-      ])
-
-      if (billingsRes.ok) setBillings(await billingsRes.json())
-      if (projectsRes.ok) setProjects(await projectsRes.json())
-      if (vendorsRes.ok) setVendors(await vendorsRes.json())
+      const res = await fetch(`${API_BASE}/projects`)
+      if (res.ok) setProjects(await res.json())
     } catch (error) {
       console.error('Fetch error:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
   const handleFileUpload = async (e) => {
     const file = e?.target?.files?.[0]
     if (!file) {
-      // ファイル選択ダイアログを開く
       const input = document.createElement('input')
       input.type = 'file'
       input.accept = 'image/*,application/pdf'
-      input.capture = 'environment'
       input.onchange = (ev) => handleFileUpload(ev)
       input.click()
       return
     }
 
     setAnalyzing(true)
+    setOcrResult(null)
+    setItemProjects({})
+
     try {
+      console.log('=== OCRアップロード ===')
+      console.log('ファイル:', file.name, file.size, 'bytes')
+
       const formData = new FormData()
       formData.append('file', file)
 
@@ -80,15 +60,10 @@ export default function InvoicePage() {
 
       if (res.ok) {
         const result = await res.json()
+        console.log('OCR結果:', result)
+
         if (result.success && result.data) {
-          setForm({
-            ...form,
-            vendor_name: result.data.vendor_name || '',
-            amount: result.data.total_amount ? String(result.data.total_amount) : '',
-            date: result.data.invoice_date || new Date().toISOString().split('T')[0],
-            items: result.data.items_text || result.data.items?.map(i => i.name).join(', ') || '',
-            category: result.data.category || 'material',
-          })
+          setOcrResult(result.data)
           showToast('AI解析完了')
         } else {
           showToast(result.error || '解析に失敗しました')
@@ -97,44 +72,59 @@ export default function InvoicePage() {
         showToast('サーバーエラーが発生しました')
       }
     } catch (error) {
-      console.error('Invoice OCR Error:', error)
+      console.error('OCR Error:', error)
       showToast('通信エラーが発生しました')
     } finally {
       setAnalyzing(false)
     }
   }
 
-  const handleSubmit = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/billings/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vendor: form.vendor_name,
-          amount: parseInt(form.amount) || 0,
-          date: form.date,
-          items: form.items,
-          category: form.category,
-          project_id: form.project_id ? parseInt(form.project_id) : null,
-          status: 'pending',
-        }),
-      })
+  const handleProjectChange = (index, projectId) => {
+    setItemProjects(prev => ({
+      ...prev,
+      [index]: projectId
+    }))
+  }
 
-      if (res.ok) {
-        showToast('承認フローへ送信しました')
-        setShowForm(false)
-        setForm({
-          vendor_name: '',
-          amount: '',
-          date: new Date().toISOString().split('T')[0],
-          items: '',
-          category: 'material',
-          project_id: '',
+  const handleRegister = async () => {
+    if (!ocrResult) return
+
+    const items = ocrResult.items || []
+    let successCount = 0
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const projectId = itemProjects[i]
+
+      if (!projectId) continue
+
+      try {
+        const res = await fetch(`${API_BASE}/billings/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vendor: ocrResult.vendor_name || '',
+            amount: item.amount || 0,
+            date: ocrResult.invoice_date || new Date().toISOString().split('T')[0],
+            items: item.name || '',
+            category: 'subcontract',
+            project_id: parseInt(projectId),
+            status: 'pending',
+          }),
         })
-        fetchData()
+
+        if (res.ok) successCount++
+      } catch (error) {
+        console.error('登録エラー:', error)
       }
-    } catch (error) {
-      showToast('エラーが発生しました')
+    }
+
+    if (successCount > 0) {
+      showToast(`${successCount}件を登録しました`)
+      setOcrResult(null)
+      setItemProjects({})
+    } else {
+      showToast('現場を選択してください')
     }
   }
 
@@ -143,233 +133,128 @@ export default function InvoicePage() {
     setTimeout(() => setToast({ show: false, message: '' }), 2000)
   }
 
-  const getStatusStyle = (status) => {
-    const styles = {
-      pending: 'bg-amber-500/20 text-amber-400',
-      approved: 'bg-emerald-500/20 text-emerald-400',
-      rejected: 'bg-red-500/20 text-red-400',
-    }
-    return styles[status] || styles.pending
-  }
-
-  const getStatusLabel = (status) => {
-    const labels = { pending: '承認待ち', approved: '承認済', rejected: '却下' }
-    return labels[status] || status
-  }
-
-  const getCategoryInfo = (category) => {
-    return BILLING_CATEGORIES.find(c => c.id === category) || { icon: '📄', label: category }
+  const formatAmount = (amount) => {
+    if (!amount) return '¥0'
+    return `¥${Number(amount).toLocaleString()}`
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
+    <div className="min-h-screen pb-24 overflow-y-auto" style={{ background: currentBg.bg }}>
       <Header
         title="請求書AI"
         icon="📄"
         gradient="from-orange-900 to-orange-500"
         onBack={() => navigate(-1)}
-        action={
-          <button
-            onClick={() => setShowForm(true)}
-            className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg"
-          >
-            +
-          </button>
-        }
       />
 
       <div className="px-5 py-4">
-        {/* アップロードエリア */}
-        <Card
-          className="mb-6 py-8 text-center border-2 border-dashed border-app-primary/50 cursor-pointer"
-          onClick={() => setShowForm(true)}
+        {/* アップロードボタン */}
+        <button
+          onClick={handleFileUpload}
+          disabled={analyzing}
+          className="w-full py-6 mb-6 border-2 border-dashed border-orange-500/50 rounded-xl text-center bg-orange-500/10"
         >
-          <div className="text-4xl mb-3">📤</div>
-          <div className="text-sm font-semibold mb-1">請求書をアップロード</div>
-          <div className="text-xs text-slate-400">PDF/画像をAIが自動解析</div>
-        </Card>
+          {analyzing ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-orange-400">AI解析中...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-4xl mb-2">📤</div>
+              <div className="text-sm font-semibold">請求書をアップロード</div>
+              <div className="text-xs text-slate-400 mt-1">PDF / 画像</div>
+            </>
+          )}
+        </button>
 
-        <SectionTitle>📋 請求書一覧</SectionTitle>
+        {/* OCR結果表示 */}
+        {ocrResult && (
+          <div className="space-y-4">
+            {/* ヘッダー情報 */}
+            <Card className="p-4">
+              <div className="text-xs text-slate-400 mb-1">請求元</div>
+              <div className="text-lg font-bold mb-3">{ocrResult.vendor_name || '不明'}</div>
 
-        {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
-        ) : billings.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
-            <div className="text-4xl mb-2">📭</div>
-            <div>請求書がありません</div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-xs text-slate-400">日付</div>
+                  <div>{ocrResult.invoice_date || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400">合計金額</div>
+                  <div className="text-orange-400 font-bold">{formatAmount(ocrResult.total_amount)}</div>
+                </div>
+              </div>
+
+              {ocrResult.subject && (
+                <div className="mt-3">
+                  <div className="text-xs text-slate-400">件名</div>
+                  <div className="text-sm">{ocrResult.subject}</div>
+                </div>
+              )}
+            </Card>
+
+            {/* 明細一覧 */}
+            <div className="text-sm font-semibold text-slate-300 mb-2">📋 明細一覧</div>
+
+            {(ocrResult.items || []).length === 0 ? (
+              <Card className="p-4 text-center text-slate-400">
+                明細がありません
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {ocrResult.items.map((item, index) => (
+                  <Card key={index} className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1 pr-4">
+                        <div className="text-sm font-medium">{item.name || `明細 ${index + 1}`}</div>
+                        {item.quantity && (
+                          <div className="text-xs text-slate-400">
+                            {item.quantity} {item.unit || '式'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-orange-400 font-bold">{formatAmount(item.amount)}</div>
+                      </div>
+                    </div>
+
+                    {/* 現場選択 */}
+                    <select
+                      value={itemProjects[index] || ''}
+                      onChange={(e) => handleProjectChange(index, e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">現場を選択...</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* 登録ボタン */}
+            <button
+              onClick={handleRegister}
+              className="w-full py-4 bg-orange-500 rounded-xl text-white font-bold mt-4"
+            >
+              選択した現場に登録
+            </button>
           </div>
-        ) : (
-          billings.map((billing, i) => {
-            const cat = getCategoryInfo(billing.category)
-            return (
-              <motion.div
-                key={billing.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <Card className="mb-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <div className="text-sm font-semibold">{billing.vendor || '不明'}</div>
-                      <div className="text-xs text-slate-400">{billing.items || billing.category}</div>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getStatusStyle(billing.status)}`}>
-                      {getStatusLabel(billing.status)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span>{cat.icon}</span>
-                      <span className="text-xs text-slate-400">{cat.label}</span>
-                    </div>
-                    <span className="text-lg font-bold text-app-primary">
-                      ¥{billing.amount?.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-2">{billing.date}</div>
-                </Card>
-              </motion.div>
-            )
-          })
+        )}
+
+        {/* 初期状態 */}
+        {!ocrResult && !analyzing && (
+          <div className="text-center py-12 text-slate-400">
+            <div className="text-5xl mb-4">🧾</div>
+            <div className="text-sm">請求書をアップロードすると</div>
+            <div className="text-sm">AIが自動で情報を抽出します</div>
+          </div>
         )}
       </div>
-
-      {/* 入力フォームモーダル */}
-      {showForm && (
-        <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={() => setShowForm(false)}
-        >
-          <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
-            style={{ maxHeight: '90vh' }}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* ヘッダー（保存ボタン含む） */}
-            <div className="flex justify-between items-center p-4 border-b border-app-border">
-              <div className="text-lg font-bold">📋 請求書登録</div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSubmit}
-                  className="px-4 py-1.5 bg-app-primary rounded-lg text-sm font-bold text-white"
-                >
-                  送信
-                </button>
-                <button onClick={() => setShowForm(false)} className="text-2xl text-slate-400">×</button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-4" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-
-            {/* AI解析ボタン */}
-            <button
-              onClick={handleFileUpload}
-              className="w-full py-4 mb-6 border-2 border-dashed border-app-primary/50 rounded-xl text-center"
-              disabled={analyzing}
-            >
-              {analyzing ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-app-primary border-t-transparent rounded-full animate-spin" />
-                  <span>AI解析中...</span>
-                </div>
-              ) : (
-                <>
-                  <div className="text-2xl mb-1">🤖</div>
-                  <div className="text-sm">PDF/画像をAI解析</div>
-                </>
-              )}
-            </button>
-
-            {/* 業者名 */}
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">業者名</label>
-              <input
-                type="text"
-                value={form.vendor_name}
-                onChange={(e) => setForm({ ...form, vendor_name: e.target.value })}
-                placeholder="〇〇建材株式会社"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            {/* 金額 */}
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">金額</label>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                placeholder="¥0"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            {/* 日付 */}
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">日付</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            {/* 品目 */}
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">品目</label>
-              <input
-                type="text"
-                value={form.items}
-                onChange={(e) => setForm({ ...form, items: e.target.value })}
-                placeholder="アスファルト合材 35t"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-
-            {/* 分類 */}
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">分類</label>
-              <div className="grid grid-cols-4 gap-2">
-                {BILLING_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setForm({ ...form, category: cat.id })}
-                    className={`py-3 rounded-xl text-center ${
-                      form.category === cat.id
-                        ? 'bg-app-primary text-white'
-                        : 'bg-app-card text-slate-300'
-                    }`}
-                  >
-                    <div className="text-xl mb-1">{cat.icon}</div>
-                    <div className="text-[10px]">{cat.label}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 現場 */}
-            <div className="mb-6">
-              <label className="text-sm text-slate-400 mb-2 block">現場</label>
-              <select
-                value={form.project_id}
-                onChange={(e) => setForm({ ...form, project_id: e.target.value })}
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              >
-                <option value="">選択してください</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
 
       <Toast message={toast.message} isVisible={toast.show} />
     </div>

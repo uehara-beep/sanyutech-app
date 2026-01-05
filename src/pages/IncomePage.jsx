@@ -15,7 +15,7 @@ const STATUS_OPTIONS = [
 export default function IncomePage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
-  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[2]
+  const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const isOcean = currentBg?.hasOceanEffect
   const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
 
