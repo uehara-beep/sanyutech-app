@@ -627,9 +627,9 @@ export default function SettingsPage() {
             一般設定
           </div>
           <div className="space-y-2">
-            <SettingItem icon={<Bell size={20} />} title="通知設定" subtitle="プッシュ通知、メール通知" themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
-            <SettingItem icon={<Shield size={20} />} title="プライバシー" subtitle="データ管理、セキュリティ" themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
-            <SettingItem icon={<User size={20} />} title="アカウント" subtitle="ログイン情報、パスワード変更" themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
+            <SettingItem icon={<Bell size={20} />} title="通知設定" subtitle="プッシュ通知、メール通知" onClick={() => navigate('/settings/notifications')} themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
+            <SettingItem icon={<Shield size={20} />} title="プライバシー" subtitle="データ管理、セキュリティ" onClick={() => navigate('/settings/privacy')} themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
+            <SettingItem icon={<User size={20} />} title="アカウント" subtitle="ログイン情報、パスワード変更" onClick={() => navigate('/settings/account')} themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
           </div>
         </div>
 
@@ -750,8 +750,8 @@ export default function SettingsPage() {
             その他
           </div>
           <div className="space-y-2">
-            <SettingItem icon={<HelpCircle size={20} />} title="ヘルプ" subtitle="使い方、FAQ" themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
-            <SettingItem icon={<Info size={20} />} title="アプリ情報" subtitle="バージョン 1.0.0" themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
+            <SettingItem icon={<HelpCircle size={20} />} title="ヘルプ" subtitle="使い方、FAQ" onClick={() => navigate('/settings/help')} themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
+            <SettingItem icon={<Info size={20} />} title="アプリ情報" subtitle="バージョン 1.0.0" onClick={() => navigate('/settings/about')} themeStyle={currentBackground} isOcean={isOcean} isLightTheme={isLightTheme} currentTheme={currentTheme} />
           </div>
         </div>
 
@@ -2022,6 +2022,484 @@ export function CompanySettingsPage() {
         >
           {saving ? '保存中...' : '保存する'}
         </motion.button>
+      </div>
+    </div>
+  )
+}
+
+// 通知設定ページ
+export function NotificationsSettingsPage() {
+  const navigate = useNavigate()
+  const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const currentTheme = getCurrentTheme()
+  const currentBackground = getCurrentBackground()
+  const isOcean = currentBackground?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const [settings, setSettings] = useState({
+    pushEnabled: true,
+    emailEnabled: true,
+    lineWorksEnabled: false,
+    projectUpdates: true,
+    approvalRequests: true,
+    expenseReminders: true,
+    scheduleAlerts: true,
+    safetyAlerts: true,
+  })
+
+  const toggleSetting = (key) => {
+    setSettings(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const ToggleSwitch = ({ enabled, onToggle }) => (
+    <button
+      onClick={onToggle}
+      className={`w-12 h-6 rounded-full relative transition-colors ${enabled ? 'bg-emerald-500' : 'bg-gray-400'}`}
+    >
+      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${enabled ? 'right-1' : 'left-1'}`} />
+    </button>
+  )
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
+        <div className="flex items-center gap-3.5 px-6 py-4">
+          <motion.button className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }} onClick={() => navigate('/settings')} whileTap={{ scale: 0.9 }}>
+            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+          </motion.button>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(145deg, ${currentTheme.primary}, ${currentTheme.primary}dd)` }}>
+            <Bell size={20} className="text-white" strokeWidth={1.5} />
+          </div>
+          <div>
+            <h2 className="text-lg font-medium" style={{ color: currentBackground.text }}>通知設定</h2>
+            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>プッシュ通知・メール通知</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* 通知チャンネル */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>通知チャンネル</div>
+          <div className="rounded-2xl p-4 space-y-4" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }}>
+            <div className="flex items-center justify-between">
+              <div><div className="text-sm font-medium" style={{ color: currentBackground.text }}>プッシュ通知</div><div className="text-xs" style={{ color: currentBackground.textLight }}>アプリ通知を受け取る</div></div>
+              <ToggleSwitch enabled={settings.pushEnabled} onToggle={() => toggleSetting('pushEnabled')} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><div className="text-sm font-medium" style={{ color: currentBackground.text }}>メール通知</div><div className="text-xs" style={{ color: currentBackground.textLight }}>重要なお知らせをメールで受け取る</div></div>
+              <ToggleSwitch enabled={settings.emailEnabled} onToggle={() => toggleSetting('emailEnabled')} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><div className="text-sm font-medium" style={{ color: currentBackground.text }}>LINE WORKS通知</div><div className="text-xs" style={{ color: currentBackground.textLight }}>LINE WORKSに通知を送信</div></div>
+              <ToggleSwitch enabled={settings.lineWorksEnabled} onToggle={() => toggleSetting('lineWorksEnabled')} />
+            </div>
+          </div>
+        </div>
+
+        {/* 通知種別 */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>通知の種類</div>
+          <div className="rounded-2xl p-4 space-y-4" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }}>
+            <div className="flex items-center justify-between">
+              <div><div className="text-sm font-medium" style={{ color: currentBackground.text }}>案件更新</div><div className="text-xs" style={{ color: currentBackground.textLight }}>案件の状態変更</div></div>
+              <ToggleSwitch enabled={settings.projectUpdates} onToggle={() => toggleSetting('projectUpdates')} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><div className="text-sm font-medium" style={{ color: currentBackground.text }}>承認依頼</div><div className="text-xs" style={{ color: currentBackground.textLight }}>承認待ちの通知</div></div>
+              <ToggleSwitch enabled={settings.approvalRequests} onToggle={() => toggleSetting('approvalRequests')} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><div className="text-sm font-medium" style={{ color: currentBackground.text }}>経費精算リマインド</div><div className="text-xs" style={{ color: currentBackground.textLight }}>未精算経費の通知</div></div>
+              <ToggleSwitch enabled={settings.expenseReminders} onToggle={() => toggleSetting('expenseReminders')} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><div className="text-sm font-medium" style={{ color: currentBackground.text }}>スケジュールアラート</div><div className="text-xs" style={{ color: currentBackground.textLight }}>予定のリマインダー</div></div>
+              <ToggleSwitch enabled={settings.scheduleAlerts} onToggle={() => toggleSetting('scheduleAlerts')} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><div className="text-sm font-medium" style={{ color: currentBackground.text }}>安全管理アラート</div><div className="text-xs" style={{ color: currentBackground.textLight }}>KY・安全関連の通知</div></div>
+              <ToggleSwitch enabled={settings.safetyAlerts} onToggle={() => toggleSetting('safetyAlerts')} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// プライバシー設定ページ
+export function PrivacySettingsPage() {
+  const navigate = useNavigate()
+  const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const { logout } = useAuthStore()
+  const currentTheme = getCurrentTheme()
+  const currentBackground = getCurrentBackground()
+  const isOcean = currentBackground?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const [exporting, setExporting] = useState(false)
+
+  const handleExportData = async () => {
+    setExporting(true)
+    setTimeout(() => {
+      setExporting(false)
+      alert('データのエクスポートを開始しました。完了後メールでお知らせします。')
+    }, 1500)
+  }
+
+  const handleDeleteAccount = () => {
+    if (confirm('アカウントを削除すると、すべてのデータが失われます。本当に削除しますか？')) {
+      if (confirm('最終確認：この操作は取り消せません。本当にアカウントを削除しますか？')) {
+        alert('アカウント削除リクエストを送信しました。')
+        logout()
+        navigate('/login')
+      }
+    }
+  }
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
+        <div className="flex items-center gap-3.5 px-6 py-4">
+          <motion.button className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }} onClick={() => navigate('/settings')} whileTap={{ scale: 0.9 }}>
+            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+          </motion.button>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(145deg, ${currentTheme.primary}, ${currentTheme.primary}dd)` }}>
+            <Shield size={20} className="text-white" strokeWidth={1.5} />
+          </div>
+          <div>
+            <h2 className="text-lg font-medium" style={{ color: currentBackground.text }}>プライバシー</h2>
+            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>データ管理・セキュリティ</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* データ管理 */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>データ管理</div>
+          <div className="rounded-2xl p-4 space-y-3" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }}>
+            <motion.button onClick={handleExportData} disabled={exporting} className="w-full p-4 rounded-xl flex items-center gap-3" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)' }} whileTap={{ scale: 0.98 }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-500"><Upload size={20} className="text-white" /></div>
+              <div className="flex-1 text-left"><div className="text-sm font-medium" style={{ color: currentBackground.text }}>データエクスポート</div><div className="text-xs" style={{ color: currentBackground.textLight }}>{exporting ? 'エクスポート中...' : '全データをダウンロード'}</div></div>
+              <ChevronRight size={20} style={{ color: currentBackground.textLight }} />
+            </motion.button>
+            <div className="p-4 rounded-xl flex items-center gap-3" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-500"><CheckCircle size={20} className="text-white" /></div>
+              <div className="flex-1"><div className="text-sm font-medium" style={{ color: currentBackground.text }}>ログイン履歴</div><div className="text-xs" style={{ color: currentBackground.textLight }}>最終ログイン: 今日</div></div>
+            </div>
+          </div>
+        </div>
+
+        {/* 危険ゾーン */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest text-red-500">危険ゾーン</div>
+          <div className="rounded-2xl p-4" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+            <motion.button onClick={handleDeleteAccount} className="w-full p-4 rounded-xl flex items-center gap-3" style={{ background: 'rgba(239, 68, 68, 0.1)' }} whileTap={{ scale: 0.98 }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-red-500"><Trash2 size={20} className="text-white" /></div>
+              <div className="flex-1 text-left"><div className="text-sm font-medium text-red-500">アカウント削除</div><div className="text-xs text-red-400">全データが削除されます</div></div>
+              <ChevronRight size={20} className="text-red-400" />
+            </motion.button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// アカウント設定ページ
+export function AccountSettingsPage() {
+  const navigate = useNavigate()
+  const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const { user: authUser } = useAuthStore()
+  const currentTheme = getCurrentTheme()
+  const currentBackground = getCurrentBackground()
+  const isOcean = currentBackground?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const [form, setForm] = useState({
+    display_name: authUser?.display_name || '',
+    email: authUser?.email || '',
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [showPasswordSection, setShowPasswordSection] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    setTimeout(() => {
+      setSaving(false)
+      alert('保存しました')
+    }, 1000)
+  }
+
+  const handleChangePassword = async () => {
+    if (form.new_password !== form.confirm_password) {
+      alert('新しいパスワードが一致しません')
+      return
+    }
+    if (form.new_password.length < 8) {
+      alert('パスワードは8文字以上で入力してください')
+      return
+    }
+    setSaving(true)
+    setTimeout(() => {
+      setSaving(false)
+      setForm({ ...form, current_password: '', new_password: '', confirm_password: '' })
+      setShowPasswordSection(false)
+      alert('パスワードを変更しました')
+    }, 1000)
+  }
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
+        <div className="flex items-center gap-3.5 px-6 py-4">
+          <motion.button className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }} onClick={() => navigate('/settings')} whileTap={{ scale: 0.9 }}>
+            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+          </motion.button>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(145deg, ${currentTheme.primary}, ${currentTheme.primary}dd)` }}>
+            <User size={20} className="text-white" strokeWidth={1.5} />
+          </div>
+          <div>
+            <h2 className="text-lg font-medium" style={{ color: currentBackground.text }}>アカウント</h2>
+            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>プロフィール・パスワード</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* プロフィール */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>プロフィール</div>
+          <div className="rounded-2xl p-4 space-y-4" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }}>
+            <div>
+              <label className="text-xs font-medium" style={{ color: currentBackground.textLight }}>ユーザー名</label>
+              <input value={authUser?.username || ''} disabled className="w-full mt-1 p-3 rounded-xl text-sm" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)', color: currentBackground.textLight, border: `1px solid ${isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }} />
+            </div>
+            <div>
+              <label className="text-xs font-medium" style={{ color: currentBackground.textLight }}>表示名</label>
+              <input value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} className="w-full mt-1 p-3 rounded-xl text-sm" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)', color: currentBackground.text, border: `1px solid ${isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }} />
+            </div>
+            <div>
+              <label className="text-xs font-medium" style={{ color: currentBackground.textLight }}>メールアドレス</label>
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full mt-1 p-3 rounded-xl text-sm" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)', color: currentBackground.text, border: `1px solid ${isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }} />
+            </div>
+            <motion.button onClick={handleSave} disabled={saving} className="w-full py-3 rounded-xl font-medium text-white" style={{ backgroundColor: currentTheme.primary }} whileTap={{ scale: 0.98 }}>
+              {saving ? '保存中...' : '保存する'}
+            </motion.button>
+          </div>
+        </div>
+
+        {/* パスワード変更 */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>セキュリティ</div>
+          <div className="rounded-2xl p-4" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }}>
+            {!showPasswordSection ? (
+              <motion.button onClick={() => setShowPasswordSection(true)} className="w-full p-4 rounded-xl flex items-center gap-3" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)' }} whileTap={{ scale: 0.98 }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: currentTheme.primary }}><Key size={20} className="text-white" /></div>
+                <div className="flex-1 text-left"><div className="text-sm font-medium" style={{ color: currentBackground.text }}>パスワード変更</div><div className="text-xs" style={{ color: currentBackground.textLight }}>定期的な変更を推奨</div></div>
+                <ChevronRight size={20} style={{ color: currentBackground.textLight }} />
+              </motion.button>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium" style={{ color: currentBackground.textLight }}>現在のパスワード</label>
+                  <input type="password" value={form.current_password} onChange={(e) => setForm({ ...form, current_password: e.target.value })} className="w-full mt-1 p-3 rounded-xl text-sm" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)', color: currentBackground.text, border: `1px solid ${isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: currentBackground.textLight }}>新しいパスワード</label>
+                  <input type="password" value={form.new_password} onChange={(e) => setForm({ ...form, new_password: e.target.value })} className="w-full mt-1 p-3 rounded-xl text-sm" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)', color: currentBackground.text, border: `1px solid ${isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }} placeholder="8文字以上" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: currentBackground.textLight }}>新しいパスワード（確認）</label>
+                  <input type="password" value={form.confirm_password} onChange={(e) => setForm({ ...form, confirm_password: e.target.value })} className="w-full mt-1 p-3 rounded-xl text-sm" style={{ background: isOcean ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)', color: currentBackground.text, border: `1px solid ${isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }} />
+                </div>
+                <div className="flex gap-2">
+                  <motion.button onClick={() => setShowPasswordSection(false)} className="flex-1 py-3 rounded-xl font-medium" style={{ background: 'rgba(100,100,100,0.1)', color: currentBackground.textLight }} whileTap={{ scale: 0.98 }}>キャンセル</motion.button>
+                  <motion.button onClick={handleChangePassword} disabled={saving} className="flex-1 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: currentTheme.primary }} whileTap={{ scale: 0.98 }}>{saving ? '変更中...' : '変更する'}</motion.button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ヘルプページ
+export function HelpSettingsPage() {
+  const navigate = useNavigate()
+  const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const currentTheme = getCurrentTheme()
+  const currentBackground = getCurrentBackground()
+  const isOcean = currentBackground?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  const [expandedFaq, setExpandedFaq] = useState(null)
+
+  const faqs = [
+    { q: '案件の追加方法は？', a: 'S-BASE画面右上の「+」ボタンから新規案件を追加できます。案件名、取引先、金額など必要な情報を入力してください。' },
+    { q: '経費精算の申請方法は？', a: '経費精算画面から「新規申請」をタップし、日付・金額・カテゴリを入力、レシート写真を添付して申請します。' },
+    { q: 'LINE WORKSとの連携方法は？', a: '設定 → 外部連携 → LINE WORKS設定から、APIキーを入力して連携を有効にします。管理者権限が必要です。' },
+    { q: 'パスワードを忘れた場合は？', a: 'ログイン画面の「パスワードを忘れた」から、登録メールアドレスにリセットリンクを送信できます。' },
+    { q: '通知が届かない場合は？', a: '設定 → 通知設定で各通知が有効になっているか確認してください。また、端末の通知設定も確認してください。' },
+  ]
+
+  const guides = [
+    { icon: '📋', title: '案件管理', desc: 'S-BASEで案件を管理' },
+    { icon: '💰', title: '経費精算', desc: '経費の申請と承認' },
+    { icon: '📊', title: 'ダッシュボード', desc: 'KPI・分析の見方' },
+    { icon: '👷', title: '現場管理', desc: 'KY・安全管理' },
+  ]
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
+        <div className="flex items-center gap-3.5 px-6 py-4">
+          <motion.button className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }} onClick={() => navigate('/settings')} whileTap={{ scale: 0.9 }}>
+            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+          </motion.button>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(145deg, ${currentTheme.primary}, ${currentTheme.primary}dd)` }}>
+            <HelpCircle size={20} className="text-white" strokeWidth={1.5} />
+          </div>
+          <div>
+            <h2 className="text-lg font-medium" style={{ color: currentBackground.text }}>ヘルプ</h2>
+            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>使い方・FAQ</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* 使い方ガイド */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>使い方ガイド</div>
+          <div className="grid grid-cols-2 gap-3">
+            {guides.map((guide, i) => (
+              <motion.div key={i} className="rounded-xl p-4 text-center" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }} whileTap={{ scale: 0.98 }}>
+                <div className="text-3xl mb-2">{guide.icon}</div>
+                <div className="text-sm font-medium" style={{ color: currentBackground.text }}>{guide.title}</div>
+                <div className="text-xs" style={{ color: currentBackground.textLight }}>{guide.desc}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>よくある質問</div>
+          <div className="rounded-2xl overflow-hidden" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }}>
+            {faqs.map((faq, i) => (
+              <div key={i} className="border-b last:border-b-0" style={{ borderColor: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
+                <motion.button onClick={() => setExpandedFaq(expandedFaq === i ? null : i)} className="w-full p-4 flex items-center justify-between text-left" whileTap={{ scale: 0.99 }}>
+                  <span className="text-sm font-medium pr-4" style={{ color: currentBackground.text }}>{faq.q}</span>
+                  <ChevronDown size={18} style={{ color: currentBackground.textLight, transform: expandedFaq === i ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
+                </motion.button>
+                <AnimatePresence>
+                  {expandedFaq === i && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                      <div className="px-4 pb-4 text-sm" style={{ color: currentBackground.textLight }}>{faq.a}</div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* お問い合わせ */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>お問い合わせ</div>
+          <motion.a href="mailto:support@sanyutech.co.jp" className="block rounded-xl p-4 flex items-center gap-3" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }} whileTap={{ scale: 0.98 }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: currentTheme.primary }}>📧</div>
+            <div className="flex-1"><div className="text-sm font-medium" style={{ color: currentBackground.text }}>メールでお問い合わせ</div><div className="text-xs" style={{ color: currentBackground.textLight }}>support@sanyutech.co.jp</div></div>
+            <ChevronRight size={20} style={{ color: currentBackground.textLight }} />
+          </motion.a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// アプリ情報ページ
+export function AboutSettingsPage() {
+  const navigate = useNavigate()
+  const { getCurrentTheme, getCurrentBackground, backgroundId } = useThemeStore()
+  const currentTheme = getCurrentTheme()
+  const currentBackground = getCurrentBackground()
+  const isOcean = currentBackground?.hasOceanEffect
+  const isLightTheme = backgroundId === 'white' || backgroundId === 'gray'
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: currentBackground.bg }}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBackground.headerBg, borderBottom: `1px solid ${currentBackground.border}` }}>
+        <div className="flex items-center gap-3.5 px-6 py-4">
+          <motion.button className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }} onClick={() => navigate('/settings')} whileTap={{ scale: 0.9 }}>
+            <ArrowLeft size={20} strokeWidth={1.5} style={{ color: isLightTheme ? '#666' : 'rgba(255,255,255,0.9)' }} />
+          </motion.button>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(145deg, ${currentTheme.primary}, ${currentTheme.primary}dd)` }}>
+            <Info size={20} className="text-white" strokeWidth={1.5} />
+          </div>
+          <div>
+            <h2 className="text-lg font-medium" style={{ color: currentBackground.text }}>アプリ情報</h2>
+            <p className="text-xs mt-0.5" style={{ color: currentBackground.textLight }}>バージョン・ライセンス</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* アプリ情報 */}
+        <div className="text-center py-8">
+          <img src="/logo/sunyuTEC_logo.png" alt="S-BASE" className="w-20 h-20 mx-auto mb-4 rounded-xl" />
+          <h1 style={{ fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>
+            <span className="text-2xl" style={{ color: '#1a365d' }}>S-</span>
+            <span className="text-2xl" style={{ color: '#FF6B00' }}>BASE</span>
+          </h1>
+          <p className="text-sm mt-1" style={{ color: currentBackground.textLight }}>サンユウテック現場管理システム</p>
+          <p className="text-xs mt-2" style={{ color: currentBackground.textLight }}>バージョン 1.0.0</p>
+        </div>
+
+        {/* 詳細情報 */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>詳細情報</div>
+          <div className="rounded-2xl overflow-hidden" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }}>
+            <div className="p-4 flex justify-between border-b" style={{ borderColor: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
+              <span className="text-sm" style={{ color: currentBackground.textLight }}>ビルド番号</span>
+              <span className="text-sm font-medium" style={{ color: currentBackground.text }}>2024.01.06</span>
+            </div>
+            <div className="p-4 flex justify-between border-b" style={{ borderColor: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
+              <span className="text-sm" style={{ color: currentBackground.textLight }}>開発元</span>
+              <span className="text-sm font-medium" style={{ color: currentBackground.text }}>サンユウテック株式会社</span>
+            </div>
+            <div className="p-4 flex justify-between">
+              <span className="text-sm" style={{ color: currentBackground.textLight }}>著作権</span>
+              <span className="text-sm font-medium" style={{ color: currentBackground.text }}>© 2024 SunyuTEC</span>
+            </div>
+          </div>
+        </div>
+
+        {/* リンク */}
+        <div>
+          <div className="px-1 py-2 text-[10px] font-medium uppercase tracking-widest" style={{ color: currentBackground.textLight }}>リンク</div>
+          <div className="rounded-2xl overflow-hidden" style={{ background: isOcean ? 'rgba(255,255,255,0.12)' : isLightTheme ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)', border: `1px solid ${isOcean ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.06)'}` }}>
+            <motion.a href="#" className="p-4 flex items-center justify-between border-b" style={{ borderColor: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }} whileTap={{ scale: 0.99 }}>
+              <span className="text-sm font-medium" style={{ color: currentBackground.text }}>利用規約</span>
+              <ChevronRight size={18} style={{ color: currentBackground.textLight }} />
+            </motion.a>
+            <motion.a href="#" className="p-4 flex items-center justify-between border-b" style={{ borderColor: isOcean ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }} whileTap={{ scale: 0.99 }}>
+              <span className="text-sm font-medium" style={{ color: currentBackground.text }}>プライバシーポリシー</span>
+              <ChevronRight size={18} style={{ color: currentBackground.textLight }} />
+            </motion.a>
+            <motion.a href="#" className="p-4 flex items-center justify-between" whileTap={{ scale: 0.99 }}>
+              <span className="text-sm font-medium" style={{ color: currentBackground.text }}>オープンソースライセンス</span>
+              <ChevronRight size={18} style={{ color: currentBackground.textLight }} />
+            </motion.a>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -51,7 +51,7 @@ import PhotosPage from './pages/PhotosPage'
 import InspectionsPage from './pages/InspectionsPage'
 import SafetyPage from './pages/SafetyPage'
 import ChatPage, { ChatListPage } from './pages/ChatPage'
-import SettingsPage, { UsersPage, IntegrationsPage, ExportPage, LineWorksPage, LineWorksSettingsPage, CompanySettingsPage } from './pages/SettingsPage'
+import SettingsPage, { UsersPage, IntegrationsPage, ExportPage, LineWorksPage, LineWorksSettingsPage, CompanySettingsPage, NotificationsSettingsPage, PrivacySettingsPage, AccountSettingsPage, HelpSettingsPage, AboutSettingsPage } from './pages/SettingsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import BusinessCardsPage from './pages/BusinessCardsPage'
 import QuotesPage from './pages/QuotesPage'
@@ -221,6 +221,11 @@ export default function App() {
         <Route path="/settings/lineworks" element={<LineWorksSettingsPage />} />
         <Route path="/settings/company" element={<CompanySettingsPage />} />
         <Route path="/settings/employees" element={<EmployeeMasterPage />} />
+        <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
+        <Route path="/settings/privacy" element={<PrivacySettingsPage />} />
+        <Route path="/settings/account" element={<AccountSettingsPage />} />
+        <Route path="/settings/help" element={<HelpSettingsPage />} />
+        <Route path="/settings/about" element={<AboutSettingsPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/monthly-report" element={<MonthlyReportPage />} />
         <Route path="/business-cards" element={<BusinessCardsPage />} />
