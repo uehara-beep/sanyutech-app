@@ -68,6 +68,12 @@ import OCRPage from './pages/OCRPage'
 import HotelSearch from './components/HotelSearch'
 import ProjectDetailPage2 from './pages/ProjectDetailPage'
 
+// Phase 1: 経理・事務機能
+import PurchaseOrdersPage from './pages/PurchaseOrdersPage'
+import InvoicesPage from './pages/InvoicesPage'
+import TransactionsPage from './pages/TransactionsPage'
+import PaymentsPage from './pages/PaymentsPage'
+
 // 認証が必要なルートを保護するコンポーネント
 function ProtectedRoute({ children }) {
   const { isAuthenticated, _hasHydrated } = useAuthStore()
@@ -214,6 +220,12 @@ export default function App() {
         <Route path="/monthly-report" element={<MonthlyReportPage />} />
         <Route path="/business-cards" element={<BusinessCardsPage />} />
         <Route path="/hotel" element={<HotelSearch />} />
+
+        {/* Phase 1: 経理・事務機能 */}
+        <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
+        <Route path="/invoices-issue" element={<InvoicesPage />} />
+        <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/payments" element={<PaymentsPage />} />
       </Routes>
 
       {/* ログインページ以外でナビゲーションを表示 */}
