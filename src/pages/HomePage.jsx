@@ -354,9 +354,9 @@ export default function HomePage() {
           {/* 左側：ロゴ + S-BASE + サブタイトル */}
           <div className="flex items-center gap-4">
             <img
-              src="/logo/sunyuTECH_logo.png"
+              src="/logo/sunyuTEC_logo.png"
               alt="SunyuTEC"
-              style={{ height: '100px', width: 'auto' }}
+              style={{ height: '80px', width: 'auto' }}
             />
             <div className="flex flex-col">
               <div style={{ fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>
@@ -388,7 +388,7 @@ export default function HomePage() {
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src="/logo/sunyuTECH_logo.png"
+                src="/logo/sunyuTEC_logo.png"
                 alt="SunyuTEC"
                 className="h-12 w-auto"
               />

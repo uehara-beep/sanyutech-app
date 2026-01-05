@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, TrendingUp, TrendingDown, Trash2 } from 'lucide-react'
-import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE, getAuthHeaders } from '../config/api'
+import { Header, Card, SectionTitle } from '../components/common'
+import Toast from '../components/ui/Toast'
+import { ListSkeleton, SummaryCardSkeleton } from '../components/ui/Skeleton'
+import { api } from '../utils/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 const CATEGORIES = {
@@ -34,7 +36,7 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [filter, setFilter] = useState('all')
-  const [toast, setToast] = useState({ show: false, message: '' })
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
 
   const [form, setForm] = useState({
     type: 'expense',
@@ -51,48 +53,45 @@ export default function TransactionsPage() {
   }, [])
 
   const fetchData = async () => {
+    setLoading(true)
     try {
-      const headers = getAuthHeaders()
       const [transactionsRes, summaryRes, projectsRes] = await Promise.all([
-        fetch(`${API_BASE}/transactions`, { headers }),
-        fetch(`${API_BASE}/transactions/summary`, { headers }),
-        fetch(`${API_BASE}/projects`, { headers }),
+        api.get('/transactions'),
+        api.get('/transactions/summary'),
+        api.get('/projects'),
       ])
 
-      if (transactionsRes.ok) setTransactions(await transactionsRes.json())
-      if (summaryRes.ok) setSummary(await summaryRes.json())
-      if (projectsRes.ok) setProjects(await projectsRes.json())
+      if (transactionsRes.success !== false) setTransactions(transactionsRes.data || transactionsRes || [])
+      if (summaryRes.success !== false) setSummary(summaryRes.data || summaryRes || { total_income: 0, total_expense: 0, balance: 0 })
+      if (projectsRes.success !== false) setProjects(projectsRes.data || projectsRes || [])
     } catch (error) {
-      console.error('Fetch error:', error)
+      showToast('データの取得に失敗しました', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const showToast = (message) => {
-    setToast({ show: true, message })
-    setTimeout(() => setToast({ show: false, message: '' }), 2000)
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type })
   }
+
+  const hideToast = () => setToast(prev => ({ ...prev, show: false }))
 
   const handleSubmit = async () => {
     if (!form.amount || !form.category) {
-      showToast('金額とカテゴリを入力してください')
+      showToast('金額とカテゴリを入力してください', 'error')
       return
     }
 
     try {
-      const res = await fetch(`${API_BASE}/transactions`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          amount: parseInt(form.amount),
-          project_id: form.project_id ? parseInt(form.project_id) : null,
-        }),
+      const result = await api.post('/transactions', {
+        ...form,
+        amount: parseInt(form.amount),
+        project_id: form.project_id ? parseInt(form.project_id) : null,
       })
 
-      if (res.ok) {
-        showToast('登録しました')
+      if (result.success || result.id) {
+        showToast('保存しました', 'success')
         setShowModal(false)
         setForm({
           type: 'expense',
@@ -105,10 +104,10 @@ export default function TransactionsPage() {
         })
         fetchData()
       } else {
-        showToast('登録に失敗しました')
+        showToast(`エラー: ${result.error || '登録に失敗しました'}`, 'error')
       }
     } catch (error) {
-      showToast('通信エラー')
+      showToast('エラー: 通信に失敗しました', 'error')
     }
   }
 
@@ -116,17 +115,15 @@ export default function TransactionsPage() {
     if (!confirm('この取引を削除しますか？')) return
 
     try {
-      const res = await fetch(`${API_BASE}/transactions/${transactionId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      })
-
-      if (res.ok) {
-        showToast('削除しました')
+      const result = await api.delete(`/transactions/${transactionId}`)
+      if (result.success || result.message) {
+        showToast('削除しました', 'success')
         fetchData()
+      } else {
+        showToast('エラー: 削除に失敗しました', 'error')
       }
     } catch (error) {
-      showToast('削除に失敗しました')
+      showToast('エラー: 削除に失敗しました', 'error')
     }
   }
 
@@ -396,7 +393,7 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      <Toast message={toast.message} isVisible={toast.show} />
+      <Toast message={toast.message} type={toast.type} isVisible={toast.show} onClose={hideToast} />
     </div>
   )
 }

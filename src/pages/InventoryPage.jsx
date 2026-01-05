@@ -1,25 +1,42 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { Plus, Package, AlertTriangle, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
+import { Header, Card, SectionTitle } from '../components/common'
+import Toast from '../components/ui/Toast'
+import { ListSkeleton, SummaryCardSkeleton } from '../components/ui/Skeleton'
+import FormField, { Input, Select, SubmitButton } from '../components/form/FormField'
+import { api } from '../utils/api'
+import { required, validateForm, isPositive } from '../utils/validators'
 import { useThemeStore, backgroundStyles } from '../store'
+
+const CATEGORIES = [
+  { value: '安全用品', label: '安全用品' },
+  { value: '工具', label: '工具' },
+  { value: '資材', label: '資材' },
+  { value: '消耗品', label: '消耗品' },
+  { value: 'その他', label: 'その他' },
+]
 
 export default function InventoryPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
+
   const [inventory, setInventory] = useState([])
-  const [alerts, setAlerts] = useState([])
+  const [lowStockItems, setLowStockItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [showTransaction, setShowTransaction] = useState(null)
-  const [toast, setToast] = useState({ show: false, message: '' })
+  const [filter, setFilter] = useState('all') // all, low
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
+  const [errors, setErrors] = useState({})
 
   const [form, setForm] = useState({
     name: '',
     category: '',
-    unit: '',
+    unit: '個',
     quantity: '',
     min_quantity: '',
     location: '',
@@ -29,92 +46,122 @@ export default function InventoryPage() {
     quantity: '',
     note: '',
   })
+  const [transactionErrors, setTransactionErrors] = useState({})
 
   useEffect(() => {
     fetchData()
   }, [])
 
   const fetchData = async () => {
+    setLoading(true)
     try {
-      const [inventoryRes, alertsRes] = await Promise.all([
-        fetch(`${API_BASE}/inventory/`),
-        fetch(`${API_BASE}/inventory/alerts`),
+      const [inventoryRes, lowStockRes] = await Promise.all([
+        api.get('/inventory'),
+        api.get('/inventory/low-stock'),
       ])
 
-      if (inventoryRes.ok) setInventory(await inventoryRes.json())
-      if (alertsRes.ok) setAlerts(await alertsRes.json())
+      if (inventoryRes.success !== false) setInventory(inventoryRes.data || inventoryRes || [])
+      if (lowStockRes.success !== false) setLowStockItems(lowStockRes.data || lowStockRes || [])
     } catch (error) {
-      console.error('Fetch error:', error)
+      showToast('データの取得に失敗しました', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSubmit = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/inventory/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          category: form.category,
-          unit: form.unit,
-          quantity: parseFloat(form.quantity) || 0,
-          min_quantity: parseFloat(form.min_quantity) || 0,
-          location: form.location,
-        }),
-      })
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type })
+  }
 
-      if (res.ok) {
-        showToast('在庫を追加しました')
+  const hideToast = () => setToast(prev => ({ ...prev, show: false }))
+
+  const validateInventoryForm = () => {
+    const schema = {
+      name: [(v) => required(v, '品名')],
+      quantity: [(v) => required(v, '在庫数量')],
+    }
+    const { isValid, errors: validationErrors } = validateForm(form, schema)
+    setErrors(validationErrors)
+    return { isValid, errors: validationErrors }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const { isValid } = validateInventoryForm()
+    if (!isValid) return
+
+    setSubmitting(true)
+    try {
+      const result = await api.post('/inventory', {
+        ...form,
+        quantity: parseFloat(form.quantity) || 0,
+        min_quantity: parseFloat(form.min_quantity) || 0,
+      })
+      if (result.success || result.id) {
+        showToast('保存しました', 'success')
         setShowForm(false)
-        setForm({
-          name: '',
-          category: '',
-          unit: '',
-          quantity: '',
-          min_quantity: '',
-          location: '',
-        })
+        setForm({ name: '', category: '', unit: '個', quantity: '', min_quantity: '', location: '' })
+        setErrors({})
         fetchData()
+      } else {
+        showToast(`エラー: ${result.error || '登録に失敗しました'}`, 'error')
       }
     } catch (error) {
-      showToast('エラーが発生しました')
+      showToast('エラー: 通信に失敗しました', 'error')
+    } finally {
+      setSubmitting(false)
     }
+  }
+
+  const validateTransactionForm = () => {
+    const schema = {
+      quantity: [
+        (v) => required(v, '数量'),
+        (v) => isPositive(v, '数量'),
+      ],
+    }
+    const { isValid, errors: validationErrors } = validateForm(transactionForm, schema)
+    setTransactionErrors(validationErrors)
+    return { isValid, errors: validationErrors }
   }
 
   const handleTransaction = async (type) => {
-    if (!showTransaction || !transactionForm.quantity) return
+    const { isValid } = validateTransactionForm()
+    if (!isValid || !showTransaction) return
 
+    setSubmitting(true)
     try {
-      const res = await fetch(`${API_BASE}/inventory/${showTransaction.id}/${type}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quantity: parseFloat(transactionForm.quantity),
-          note: transactionForm.note,
-        }),
+      const result = await api.post('/inventory/adjust', {
+        item_id: showTransaction.id,
+        adjustment_type: type,
+        quantity: parseFloat(transactionForm.quantity),
+        note: transactionForm.note,
       })
-
-      if (res.ok) {
-        showToast(type === 'in' ? '入庫しました' : '出庫しました')
+      if (result.success || result.id || result.message) {
+        showToast(type === 'in' ? '入庫しました' : '出庫しました', 'success')
         setShowTransaction(null)
         setTransactionForm({ quantity: '', note: '' })
+        setTransactionErrors({})
         fetchData()
+      } else {
+        showToast(`エラー: ${result.error || '処理に失敗しました'}`, 'error')
       }
     } catch (error) {
-      showToast('エラーが発生しました')
+      showToast('エラー: 通信に失敗しました', 'error')
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const showToast = (message) => {
-    setToast({ show: true, message })
-    setTimeout(() => setToast({ show: false, message: '' }), 2000)
+  const isLowStock = (item) => {
+    return item.quantity <= (item.min_quantity || 0)
   }
 
-  const isLowStock = (item) => {
-    return item.quantity <= item.min_quantity
-  }
+  const filteredInventory = filter === 'all'
+    ? inventory
+    : inventory.filter(item => isLowStock(item))
+
+  const lowStockCount = inventory.filter(item => isLowStock(item)).length
 
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
@@ -126,45 +173,87 @@ export default function InventoryPage() {
         action={
           <button
             onClick={() => setShowForm(true)}
-            className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg"
+            className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center"
           >
-            +
+            <Plus size={20} />
           </button>
         }
       />
 
       <div className="px-5 py-4">
-        {/* アラート */}
-        {alerts.length > 0 && (
+        {/* アラートサマリー */}
+        {loading ? (
+          <SummaryCardSkeleton />
+        ) : lowStockCount > 0 && (
           <Card className="mb-4 bg-gradient-to-r from-red-900/50 to-red-800/50 border-l-4 border-red-500">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🚨</span>
+              <AlertTriangle className="text-red-400" size={28} />
               <div>
                 <div className="text-sm font-bold text-red-400">在庫少アラート</div>
                 <div className="text-xs text-slate-300">
-                  {alerts.length}件の在庫が最小数量を下回っています
+                  {lowStockCount}件の在庫が最小数量を下回っています
                 </div>
               </div>
             </div>
           </Card>
         )}
 
-        <SectionTitle>📦 在庫一覧</SectionTitle>
+        {/* サマリー */}
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <SummaryCardSkeleton />
+            <SummaryCardSkeleton />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <Card className="text-center py-3">
+              <div className="text-xs text-slate-400">在庫品目数</div>
+              <div className="text-lg font-bold text-blue-400">{inventory.length}件</div>
+            </Card>
+            <Card className="text-center py-3">
+              <div className="text-xs text-slate-400">在庫少</div>
+              <div className="text-lg font-bold text-red-400">{lowStockCount}件</div>
+            </Card>
+          </div>
+        )}
+
+        {/* フィルター */}
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+          {[
+            { id: 'all', label: '全て' },
+            { id: 'low', label: '在庫少' },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap ${
+                filter === f.id ? 'bg-blue-500 text-white' : 'bg-slate-700/50 text-slate-300'
+              }`}
+            >
+              {f.label}
+              {f.id === 'low' && lowStockCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-[10px] rounded-full">{lowStockCount}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <SectionTitle>📦 在庫一覧（{filteredInventory.length}件）</SectionTitle>
 
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
-        ) : inventory.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
-            <div className="text-4xl mb-2">📭</div>
+          <ListSkeleton count={8} showHeader={false} />
+        ) : filteredInventory.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <Package size={48} className="mx-auto mb-4 opacity-50" />
             <div>在庫がありません</div>
           </div>
         ) : (
-          inventory.map((item, i) => (
+          filteredInventory.map((item, i) => (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
+              transition={{ delay: i * 0.03 }}
             >
               <Card
                 className={`mb-3 cursor-pointer ${isLowStock(item) ? 'border-l-4 border-red-500' : ''}`}
@@ -185,12 +274,12 @@ export default function InventoryPage() {
                       <span className="text-xs text-slate-400">
                         {item.category || '未分類'} / {item.location || '未設定'}
                       </span>
-                      <span className={`text-lg font-bold ${isLowStock(item) ? 'text-red-400' : 'text-app-primary'}`}>
+                      <span className={`text-lg font-bold ${isLowStock(item) ? 'text-red-400' : 'text-blue-400'}`}>
                         {item.quantity} {item.unit}
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-500 mt-1">
-                      最小数量: {item.min_quantity} {item.unit}
+                      最小数量: {item.min_quantity || 0} {item.unit}
                     </div>
                   </div>
                 </div>
@@ -202,178 +291,154 @@ export default function InventoryPage() {
 
       {/* 新規追加モーダル */}
       {showForm && (
-        <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={() => setShowForm(false)}
-        >
+        <div className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end">
           <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
-            style={{ maxHeight: 'calc(100vh - 60px)' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
-            onClick={(e) => e.stopPropagation()}
+            className="w-full bg-slate-800 rounded-t-2xl flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 60px)' }}
           >
-            {/* ヘッダー（保存ボタン含む） */}
-            <div className="flex justify-between items-center p-6 pb-3 flex-shrink-0">
-              <div className="text-lg font-bold">📦 在庫追加</div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSubmit}
-                  className="px-4 py-1.5 bg-app-primary rounded-lg text-sm font-bold text-white"
-                >
-                  追加
-                </button>
-                <button onClick={() => setShowForm(false)} className="text-2xl text-slate-400">×</button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-
-            <div className="mb-4">
-              <label className="text-sm text-slate-400 mb-2 block">品名</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="ヘルメット"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
+            <div className="flex justify-between items-center p-5 pb-3 border-b border-slate-700">
+              <h3 className="text-lg font-bold">📦 在庫追加</h3>
+              <button onClick={() => { setShowForm(false); setErrors({}) }} className="text-2xl text-slate-400">×</button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">カテゴリ</label>
-                <input
-                  type="text"
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  placeholder="安全用品"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">単位</label>
-                <input
-                  type="text"
-                  value={form.unit}
-                  onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                  placeholder="個"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-              </div>
-            </div>
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="space-y-4">
+                <FormField label="品名" required error={errors.name}>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="ヘルメット"
+                    error={errors.name}
+                  />
+                </FormField>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">在庫数量</label>
-                <input
-                  type="number"
-                  value={form.quantity}
-                  onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                  placeholder="10"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">最小数量</label>
-                <input
-                  type="number"
-                  value={form.min_quantity}
-                  onChange={(e) => setForm({ ...form, min_quantity: e.target.value })}
-                  placeholder="5"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="カテゴリ">
+                    <Select
+                      value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value })}
+                      placeholder="選択"
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  <FormField label="単位">
+                    <Input
+                      value={form.unit}
+                      onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                      placeholder="個"
+                    />
+                  </FormField>
+                </div>
 
-            <div className="mb-6">
-              <label className="text-sm text-slate-400 mb-2 block">保管場所</label>
-              <input
-                type="text"
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                placeholder="倉庫A"
-                className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-              />
-            </div>
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="在庫数量" required error={errors.quantity}>
+                    <Input
+                      type="number"
+                      value={form.quantity}
+                      onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                      placeholder="10"
+                      error={errors.quantity}
+                    />
+                  </FormField>
+                  <FormField label="最小数量">
+                    <Input
+                      type="number"
+                      value={form.min_quantity}
+                      onChange={(e) => setForm({ ...form, min_quantity: e.target.value })}
+                      placeholder="5"
+                    />
+                  </FormField>
+                </div>
 
+                <FormField label="保管場所">
+                  <Input
+                    value={form.location}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    placeholder="倉庫A"
+                  />
+                </FormField>
+
+                <SubmitButton loading={submitting} variant="primary">
+                  追加する
+                </SubmitButton>
+              </div>
+            </form>
           </motion.div>
-        </motion.div>
+        </div>
       )}
 
       {/* 入出庫モーダル */}
       {showTransaction && (
-        <motion.div
-          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={() => setShowTransaction(null)}
-        >
+        <div className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end">
           <motion.div
-            className="w-full bg-app-bg-light rounded-t-3xl flex flex-col"
-            style={{ maxHeight: 'calc(100vh - 60px)' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
-            onClick={(e) => e.stopPropagation()}
+            className="w-full bg-slate-800 rounded-t-2xl flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 60px)' }}
           >
-            {/* ヘッダー（入出庫ボタン含む） */}
-            <div className="p-6 pb-3 flex-shrink-0">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="text-lg font-bold mb-1">📦 {showTransaction.name}</div>
-                  <div className="text-sm text-slate-400">
-                    現在庫: {showTransaction.quantity} {showTransaction.unit}
-                  </div>
+            <div className="flex justify-between items-center p-5 pb-3 border-b border-slate-700">
+              <div>
+                <h3 className="text-lg font-bold">📦 {showTransaction.name}</h3>
+                <div className="text-sm text-slate-400">
+                  現在庫: {showTransaction.quantity} {showTransaction.unit}
                 </div>
-                <div className="flex items-center gap-2">
+              </div>
+              <button onClick={() => { setShowTransaction(null); setTransactionErrors({}) }} className="text-2xl text-slate-400">×</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="space-y-4">
+                <FormField label="数量" required error={transactionErrors.quantity}>
+                  <Input
+                    type="number"
+                    value={transactionForm.quantity}
+                    onChange={(e) => setTransactionForm({ ...transactionForm, quantity: e.target.value })}
+                    placeholder="0"
+                    error={transactionErrors.quantity}
+                  />
+                </FormField>
+
+                <FormField label="メモ">
+                  <Input
+                    value={transactionForm.note}
+                    onChange={(e) => setTransactionForm({ ...transactionForm, note: e.target.value })}
+                    placeholder="備考を入力（任意）"
+                  />
+                </FormField>
+
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => handleTransaction('in')}
-                    className="px-3 py-1.5 bg-emerald-500 rounded-lg text-sm font-bold text-white"
+                    disabled={submitting}
+                    className="py-3 bg-emerald-600 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    入庫
+                    {submitting ? '...' : <><ArrowDownToLine size={18} /> 入庫</>}
                   </button>
                   <button
                     onClick={() => handleTransaction('out')}
-                    className="px-3 py-1.5 bg-red-500 rounded-lg text-sm font-bold text-white"
+                    disabled={submitting}
+                    className="py-3 bg-red-600 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    出庫
+                    {submitting ? '...' : <><ArrowUpFromLine size={18} /> 出庫</>}
                   </button>
-                  <button onClick={() => setShowTransaction(null)} className="text-2xl text-slate-400 ml-1">×</button>
                 </div>
               </div>
             </div>
-
-            <div className="flex-1 overflow-y-auto px-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <div className="mb-4">
-                <label className="text-sm text-slate-400 mb-2 block">数量</label>
-                <input
-                  type="number"
-                  value={transactionForm.quantity}
-                  onChange={(e) => setTransactionForm({ ...transactionForm, quantity: e.target.value })}
-                  placeholder="0"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-              </div>
-
-              <div className="mb-6">
-                <label className="text-sm text-slate-400 mb-2 block">メモ（任意）</label>
-                <input
-                  type="text"
-                  value={transactionForm.note}
-                  onChange={(e) => setTransactionForm({ ...transactionForm, note: e.target.value })}
-                  placeholder="備考を入力"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-white"
-                />
-              </div>
-            </div>
-
           </motion.div>
-        </motion.div>
+        </div>
       )}
 
-      <Toast message={toast.message} isVisible={toast.show} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.show}
+        onClose={hideToast}
+      />
     </div>
   )
 }

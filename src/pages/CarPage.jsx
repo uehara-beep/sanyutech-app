@@ -1,21 +1,38 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Header, Card, SectionTitle, Toast } from '../components/common'
+import { AlertTriangle, Plus, Car, Calendar, Shield } from 'lucide-react'
+import { Header, Card, SectionTitle } from '../components/common'
+import Toast from '../components/ui/Toast'
+import { ListSkeleton, SummaryCardSkeleton } from '../components/ui/Skeleton'
+import FormField, { Input, Select, DateInput, SubmitButton } from '../components/form/FormField'
+import { api } from '../utils/api'
+import { required, validateForm } from '../utils/validators'
 import { useThemeStore, backgroundStyles } from '../store'
-import { API_BASE } from '../config/api'
+
+const VEHICLE_TYPES = [
+  { value: '乗用車', label: '乗用車' },
+  { value: 'バン', label: 'バン' },
+  { value: 'トラック', label: 'トラック' },
+  { value: 'ダンプ', label: 'ダンプ' },
+  { value: '重機', label: '重機' },
+]
 
 export default function CarPage() {
   const navigate = useNavigate()
   const { backgroundId } = useThemeStore()
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
+
   const [vehicles, setVehicles] = useState([])
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [scanning, setScanning] = useState(false)
-  const [toast, setToast] = useState(false)
-  const [toastMsg, setToastMsg] = useState('')
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
+  const [errors, setErrors] = useState({})
+  const [filter, setFilter] = useState('all') // all, alert, available
+
   const [form, setForm] = useState({
     name: '',
     plate_number: '',
@@ -25,24 +42,31 @@ export default function CarPage() {
   })
 
   useEffect(() => {
-    fetchVehicles()
+    fetchData()
   }, [])
 
-  const fetchVehicles = async () => {
+  const fetchData = async () => {
+    setLoading(true)
     try {
       const [vehiclesRes, alertsRes] = await Promise.all([
-        fetch(`${API_BASE}/vehicles/`),
-        fetch(`${API_BASE}/vehicles/alerts`),
+        api.get('/vehicles'),
+        api.get('/vehicles/alerts'),
       ])
 
-      if (vehiclesRes.ok) setVehicles(await vehiclesRes.json())
-      if (alertsRes.ok) setAlerts(await alertsRes.json())
+      if (vehiclesRes.success !== false) setVehicles(vehiclesRes.data || vehiclesRes || [])
+      if (alertsRes.success !== false) setAlerts(alertsRes.data || alertsRes || [])
     } catch (error) {
-      console.error('Fetch error:', error)
+      showToast('データの取得に失敗しました', 'error')
     } finally {
       setLoading(false)
     }
   }
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type })
+  }
+
+  const hideToast = () => setToast(prev => ({ ...prev, show: false }))
 
   const handleShakenUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -51,6 +75,7 @@ export default function CarPage() {
     setScanning(true)
     setShowModal(true)
 
+    // OCR処理（デモ用に2秒待機）
     await new Promise(resolve => setTimeout(resolve, 2000))
 
     const ocrResult = {
@@ -63,55 +88,89 @@ export default function CarPage() {
 
     setForm(ocrResult)
     setScanning(false)
-    setToastMsg('車検証を読み取りました')
-    setToast(true)
-    setTimeout(() => setToast(false), 2000)
+    showToast('車検証を読み取りました', 'success')
   }
 
-  const handleSubmit = async () => {
-    if (!form.name || !form.plate_number) {
-      setToastMsg('車名とナンバーは必須です')
-      setToast(true)
-      setTimeout(() => setToast(false), 2000)
-      return
+  const validateVehicleForm = () => {
+    const schema = {
+      name: [(v) => required(v, '車名')],
+      plate_number: [(v) => required(v, 'ナンバー')],
     }
+    const { isValid, errors: validationErrors } = validateForm(form, schema)
+    setErrors(validationErrors)
+    return { isValid, errors: validationErrors }
+  }
 
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const { isValid } = validateVehicleForm()
+    if (!isValid) return
+
+    setSubmitting(true)
     try {
-      const res = await fetch(`${API_BASE}/vehicles/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-
-      if (res.ok) {
-        setToastMsg('車両を登録しました')
-        setToast(true)
-        setTimeout(() => setToast(false), 2000)
+      const result = await api.post('/vehicles', form)
+      if (result.success || result.id) {
+        showToast('保存しました', 'success')
         setShowModal(false)
         setForm({ name: '', plate_number: '', type: '', inspection_date: '', insurance_date: '' })
-        fetchVehicles()
+        setErrors({})
+        fetchData()
+      } else {
+        showToast(`エラー: ${result.error || '登録に失敗しました'}`, 'error')
       }
     } catch (error) {
-      setToastMsg('登録に失敗しました')
-      setToast(true)
-      setTimeout(() => setToast(false), 2000)
+      showToast('エラー: 通信に失敗しました', 'error')
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const getStatusStyle = (status) => {
-    const styles = {
-      available: 'bg-emerald-500/20 text-emerald-400',
-      'in-use': 'bg-blue-500/20 text-blue-400',
-      in_use: 'bg-blue-500/20 text-blue-400',
-      maintenance: 'bg-amber-500/20 text-amber-400',
-    }
-    return styles[status] || styles.available
+  const getStatusStyle = (status) => ({
+    available: 'bg-emerald-500/20 text-emerald-400',
+    'in-use': 'bg-blue-500/20 text-blue-400',
+    in_use: 'bg-blue-500/20 text-blue-400',
+    maintenance: 'bg-amber-500/20 text-amber-400',
+  }[status] || 'bg-emerald-500/20 text-emerald-400')
+
+  const getStatusLabel = (status) => ({
+    available: '空き',
+    'in-use': '使用中',
+    in_use: '使用中',
+    maintenance: '点検中',
+  }[status] || status || '空き')
+
+  const isAlertVehicle = (vehicle) => {
+    return alerts.some(a => a.vehicle_id === vehicle.id)
   }
 
-  const getStatusLabel = (status) => {
-    const labels = { available: '空き', 'in-use': '使用中', in_use: '使用中', maintenance: '点検中' }
-    return labels[status] || status
+  const getDaysUntil = (dateStr) => {
+    if (!dateStr) return null
+    const target = new Date(dateStr)
+    const today = new Date()
+    const diffTime = target - today
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
   }
+
+  const getAlertLevel = (days) => {
+    if (days === null) return null
+    if (days <= 0) return 'expired'
+    if (days <= 30) return 'danger'
+    if (days <= 60) return 'warning'
+    return null
+  }
+
+  const filteredVehicles = filter === 'all'
+    ? vehicles
+    : filter === 'alert'
+      ? vehicles.filter(v => isAlertVehicle(v))
+      : vehicles.filter(v => v.status === 'available' || !v.status)
+
+  const alertCount = vehicles.filter(v => {
+    const inspDays = getDaysUntil(v.inspection_date)
+    const insDays = getDaysUntil(v.insurance_date)
+    return (inspDays !== null && inspDays <= 60) || (insDays !== null && insDays <= 60)
+  }).length
 
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
@@ -120,88 +179,142 @@ export default function CarPage() {
         icon="🚗"
         gradient="from-slate-700 to-slate-500"
         onBack={() => navigate(-1)}
+        action={
+          <button
+            onClick={() => setShowModal(true)}
+            className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center"
+          >
+            <Plus size={20} />
+          </button>
+        }
       />
 
       <div className="px-5 py-4">
-        <div className="flex gap-2 mb-4">
-          <label className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-center text-sm font-bold cursor-pointer text-white">
-            📷 車検証を撮影
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleShakenUpload}
-            />
-          </label>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex-1 py-3 rounded-xl text-sm font-bold"
-            style={{ background: currentBg.bg, color: currentBg.text }}
-          >
-            ✏️ 手動で追加
-          </button>
-        </div>
+        {/* 車検証撮影ボタン */}
+        <label className="block w-full py-3.5 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-center text-sm font-bold cursor-pointer text-white">
+          📷 車検証を撮影して登録
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleShakenUpload}
+          />
+        </label>
 
-        {alerts.length > 0 && (
+        {/* アラートサマリー */}
+        {loading ? (
+          <SummaryCardSkeleton />
+        ) : alertCount > 0 && (
           <Card className="mb-4 bg-gradient-to-r from-amber-900/50 to-amber-800/50 border-l-4 border-amber-500">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">⚠️</span>
+              <AlertTriangle className="text-amber-400" size={28} />
               <div>
                 <div className="text-sm font-bold text-amber-400">車検・保険アラート</div>
                 <div className="text-xs text-slate-300">
-                  {alerts.length}件の車両の期限が近づいています
+                  {alertCount}件の車両の期限が近づいています
                 </div>
               </div>
             </div>
           </Card>
         )}
 
-        <SectionTitle>🚗 車両一覧（{vehicles.length}台）</SectionTitle>
+        {/* フィルター */}
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+          {[
+            { id: 'all', label: '全て' },
+            { id: 'alert', label: '要注意' },
+            { id: 'available', label: '空き' },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap ${
+                filter === f.id ? 'bg-slate-500 text-white' : 'bg-slate-700/50 text-slate-300'
+              }`}
+            >
+              {f.label}
+              {f.id === 'alert' && alertCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-[10px] rounded-full">{alertCount}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <SectionTitle>🚗 車両一覧（{filteredVehicles.length}台）</SectionTitle>
 
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
-        ) : vehicles.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
-            <div className="text-4xl mb-2">🚗</div>
+          <ListSkeleton count={5} showHeader={false} />
+        ) : filteredVehicles.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <Car size={48} className="mx-auto mb-4 opacity-50" />
             <div>車両がありません</div>
             <div className="text-xs mt-2">車検証を撮影して登録しましょう</div>
           </div>
         ) : (
-          vehicles.map((vehicle, i) => (
-            <motion.div
-              key={vehicle.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-            >
-              <Card className={`mb-3 ${vehicle.status === 'maintenance' ? 'border-l-2 border-amber-400' : ''}`}>
-                <div className="flex items-center gap-3 mb-2.5">
-                  <span className="text-2xl">
-                    {vehicle.name?.includes('ダンプ') || vehicle.type?.includes('ダンプ') ? '🚚' : '🚗'}
-                  </span>
-                  <div className="flex-1">
-                    <div className="text-[15px] font-semibold">{vehicle.name}</div>
-                    <div className="text-xs text-slate-400">{vehicle.plate_number}</div>
+          filteredVehicles.map((vehicle, i) => {
+            const inspDays = getDaysUntil(vehicle.inspection_date)
+            const insDays = getDaysUntil(vehicle.insurance_date)
+            const inspAlert = getAlertLevel(inspDays)
+            const insAlert = getAlertLevel(insDays)
+
+            return (
+              <motion.div
+                key={vehicle.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <Card className={`mb-3 ${(inspAlert || insAlert) ? 'border-l-2 border-amber-400' : ''}`}>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="text-2xl">
+                      {vehicle.name?.includes('ダンプ') || vehicle.type?.includes('ダンプ') ? '🚚' :
+                       vehicle.type?.includes('重機') ? '🚜' : '🚗'}
+                    </span>
+                    <div className="flex-1">
+                      <div className="text-[15px] font-semibold">{vehicle.name}</div>
+                      <div className="text-xs text-slate-400">{vehicle.plate_number}</div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${getStatusStyle(vehicle.status)}`}>
+                      {getStatusLabel(vehicle.status)}
+                    </span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${getStatusStyle(vehicle.status || 'available')}`}>
-                    {getStatusLabel(vehicle.status || 'available')}
-                  </span>
-                </div>
-                <div className="flex gap-4 text-xs text-slate-400">
-                  {vehicle.inspection_date && (
-                    <span>🔧 車検: {vehicle.inspection_date}</span>
-                  )}
-                  {vehicle.insurance_date && (
-                    <span>📋 保険: {vehicle.insurance_date}</span>
-                  )}
-                </div>
-              </Card>
-            </motion.div>
-          ))
+                  <div className="flex gap-4 text-xs">
+                    {vehicle.inspection_date && (
+                      <span className={`flex items-center gap-1 ${
+                        inspAlert === 'expired' ? 'text-red-400' :
+                        inspAlert === 'danger' ? 'text-red-400' :
+                        inspAlert === 'warning' ? 'text-amber-400' : 'text-slate-400'
+                      }`}>
+                        <Calendar size={12} />
+                        車検: {vehicle.inspection_date}
+                        {inspDays !== null && inspDays <= 60 && (
+                          <span className="text-[10px]">（{inspDays <= 0 ? '期限切れ' : `残${inspDays}日`}）</span>
+                        )}
+                      </span>
+                    )}
+                    {vehicle.insurance_date && (
+                      <span className={`flex items-center gap-1 ${
+                        insAlert === 'expired' ? 'text-red-400' :
+                        insAlert === 'danger' ? 'text-red-400' :
+                        insAlert === 'warning' ? 'text-amber-400' : 'text-slate-400'
+                      }`}>
+                        <Shield size={12} />
+                        保険: {vehicle.insurance_date}
+                        {insDays !== null && insDays <= 60 && (
+                          <span className="text-[10px]">（{insDays <= 0 ? '期限切れ' : `残${insDays}日`}）</span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </Card>
+              </motion.div>
+            )
+          })
         )}
       </div>
 
+      {/* 車両追加モーダル */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end">
           <motion.div
@@ -210,94 +323,82 @@ export default function CarPage() {
             className="w-full bg-slate-800 rounded-t-2xl flex flex-col"
             style={{ maxHeight: 'calc(100vh - 60px)' }}
           >
-            <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0">
+            <div className="flex justify-between items-center p-5 pb-3 border-b border-slate-700">
               <h3 className="text-lg font-bold">
                 {scanning ? '🔍 車検証を読み取り中...' : '🚗 車両を追加'}
               </h3>
-              <div className="flex items-center gap-2">
-                {!scanning && (
-                  <button
-                    onClick={handleSubmit}
-                    className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-500 rounded-lg text-sm font-bold text-white"
-                  >
-                    登録
-                  </button>
-                )}
-                <button onClick={() => { setShowModal(false); setScanning(false) }} className="text-2xl text-slate-400">×</button>
-              </div>
+              <button onClick={() => { setShowModal(false); setScanning(false); setErrors({}) }} className="text-2xl text-slate-400">×</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
               {scanning ? (
                 <div className="text-center py-12">
                   <div className="text-5xl mb-4 animate-pulse">📄</div>
                   <div className="text-slate-300">AI が車検証を解析しています...</div>
                 </div>
               ) : (
-                <div className="space-y-4 pb-6">
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">車名 *</label>
-                    <input
-                      type="text"
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <FormField label="車名" required error={errors.name}>
+                    <Input
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
                       placeholder="例: トヨタ ハイエース"
+                      error={errors.name}
                     />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">ナンバー *</label>
-                    <input
-                      type="text"
+                  </FormField>
+
+                  <FormField label="ナンバー" required error={errors.plate_number}>
+                    <Input
                       value={form.plate_number}
                       onChange={(e) => setForm({ ...form, plate_number: e.target.value })}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
                       placeholder="例: 品川 300 あ 1234"
+                      error={errors.plate_number}
                     />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">車種</label>
-                    <select
+                  </FormField>
+
+                  <FormField label="車種">
+                    <Select
                       value={form.type}
                       onChange={(e) => setForm({ ...form, type: e.target.value })}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                      placeholder="選択してください"
                     >
-                      <option value="">選択してください</option>
-                      <option value="乗用車">乗用車</option>
-                      <option value="バン">バン</option>
-                      <option value="トラック">トラック</option>
-                      <option value="ダンプ">ダンプ</option>
-                      <option value="重機">重機</option>
-                    </select>
-                  </div>
+                      {VEHICLE_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </Select>
+                  </FormField>
+
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">車検期限</label>
-                      <input
-                        type="date"
+                    <FormField label="車検期限">
+                      <DateInput
                         value={form.inspection_date}
                         onChange={(e) => setForm({ ...form, inspection_date: e.target.value })}
-                        className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">保険期限</label>
-                      <input
-                        type="date"
+                    </FormField>
+                    <FormField label="保険期限">
+                      <DateInput
                         value={form.insurance_date}
                         onChange={(e) => setForm({ ...form, insurance_date: e.target.value })}
-                        className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
                       />
-                    </div>
+                    </FormField>
                   </div>
-                </div>
+
+                  <SubmitButton loading={submitting} variant="primary">
+                    登録する
+                  </SubmitButton>
+                </form>
               )}
             </div>
           </motion.div>
         </div>
       )}
 
-      <Toast message={toastMsg} isVisible={toast} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.show}
+        onClose={hideToast}
+      />
     </div>
   )
 }

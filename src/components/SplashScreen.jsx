@@ -60,7 +60,7 @@ export default function SplashScreen({ isVisible, onComplete }) {
             }}
           >
             <img
-              src="/logo/sunyuTECH_logo.png"
+              src="/logo/sunyuTEC_logo.png"
               alt="SunyuTEC"
               className="w-24 h-24 mb-6"
               style={{
@@ -69,18 +69,16 @@ export default function SplashScreen({ isVisible, onComplete }) {
               }}
             />
             <motion.h1
-              className="text-white"
               style={{
-                fontSize: '3.5rem',
-                fontWeight: 300,
-                letterSpacing: '0.3em',
-                textShadow: `
-                  0 0 30px rgba(255,255,255,0.3),
-                  0 0 60px rgba(255,255,255,0.2)
-                `,
+                fontFamily: "'Orbitron', sans-serif",
+                fontWeight: 700,
+                fontSize: '3rem',
+                letterSpacing: '0.2em',
+                textShadow: '0 0 30px rgba(255,255,255,0.3), 0 0 60px rgba(255,255,255,0.2)',
               }}
             >
-              S-BASE
+              <span style={{ color: '#1a365d' }}>S-</span>
+              <span style={{ color: '#FF6B00' }}>BASE</span>
             </motion.h1>
             <motion.p
               className="text-white/60 text-sm mt-2"

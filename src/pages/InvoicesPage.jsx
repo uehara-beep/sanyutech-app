@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, FileText, Download, Send, Trash2 } from 'lucide-react'
-import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE, getAuthHeaders } from '../config/api'
+import { Header, Card, SectionTitle } from '../components/common'
+import Toast from '../components/ui/Toast'
+import { ListSkeleton } from '../components/ui/Skeleton'
+import { api } from '../utils/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function InvoicesPage() {
@@ -17,7 +19,7 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [filter, setFilter] = useState('all')
-  const [toast, setToast] = useState({ show: false, message: '' })
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
 
   const [form, setForm] = useState({
     project_id: '',
@@ -34,28 +36,29 @@ export default function InvoicesPage() {
   }, [])
 
   const fetchData = async () => {
+    setLoading(true)
     try {
-      const headers = getAuthHeaders()
       const [invoicesRes, projectsRes, clientsRes] = await Promise.all([
-        fetch(`${API_BASE}/invoices`, { headers }),
-        fetch(`${API_BASE}/projects`, { headers }),
-        fetch(`${API_BASE}/clients`, { headers }).catch(() => null),
+        api.get('/invoices'),
+        api.get('/projects'),
+        api.get('/clients').catch(() => ({ data: [] })),
       ])
 
-      if (invoicesRes.ok) setInvoices(await invoicesRes.json())
-      if (projectsRes.ok) setProjects(await projectsRes.json())
-      if (clientsRes?.ok) setClients(await clientsRes.json())
+      if (invoicesRes.success !== false) setInvoices(invoicesRes.data || invoicesRes || [])
+      if (projectsRes.success !== false) setProjects(projectsRes.data || projectsRes || [])
+      if (clientsRes.success !== false) setClients(clientsRes.data || clientsRes || [])
     } catch (error) {
-      console.error('Fetch error:', error)
+      showToast('データの取得に失敗しました', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const showToast = (message) => {
-    setToast({ show: true, message })
-    setTimeout(() => setToast({ show: false, message: '' }), 2000)
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type })
   }
+
+  const hideToast = () => setToast(prev => ({ ...prev, show: false }))
 
   const handleAddItem = () => {
     setForm(prev => ({
@@ -89,31 +92,27 @@ export default function InvoicesPage() {
 
   const handleSubmit = async () => {
     if (!form.customer_name && !form.customer_id) {
-      showToast('請求先を入力してください')
+      showToast('請求先を入力してください', 'error')
       return
     }
 
     try {
       const { subtotal, tax, total } = calculateTotal()
-      const res = await fetch(`${API_BASE}/invoices`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          project_id: form.project_id ? parseInt(form.project_id) : null,
-          customer_id: form.customer_id ? parseInt(form.customer_id) : null,
-          amount: subtotal,
-          tax_amount: tax,
-          total_amount: total,
-          items: form.items.filter(item => item.name).map(item => ({
-            ...item,
-            amount: item.quantity * item.unit_price
-          })),
-        }),
+      const result = await api.post('/invoices', {
+        ...form,
+        project_id: form.project_id ? parseInt(form.project_id) : null,
+        customer_id: form.customer_id ? parseInt(form.customer_id) : null,
+        amount: subtotal,
+        tax_amount: tax,
+        total_amount: total,
+        items: form.items.filter(item => item.name).map(item => ({
+          ...item,
+          amount: item.quantity * item.unit_price
+        })),
       })
 
-      if (res.ok) {
-        showToast('請求書を作成しました')
+      if (result.success || result.id) {
+        showToast('保存しました', 'success')
         setShowModal(false)
         setForm({
           project_id: '',
@@ -126,48 +125,37 @@ export default function InvoicesPage() {
         })
         fetchData()
       } else {
-        showToast('作成に失敗しました')
+        showToast(`エラー: ${result.error || '作成に失敗しました'}`, 'error')
       }
     } catch (error) {
-      showToast('通信エラー')
+      showToast('エラー: 通信に失敗しました', 'error')
     }
   }
 
   const handleDownloadPDF = async (invoiceId) => {
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}/pdf`, {
-        headers: getAuthHeaders(),
-      })
-
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `invoice-${invoiceId}.xlsx`
-        a.click()
-        window.URL.revokeObjectURL(url)
-        showToast('請求書をダウンロードしました')
+      const result = await api.download(`/invoices/${invoiceId}/pdf`, `invoice-${invoiceId}.pdf`)
+      if (result.success) {
+        showToast('請求書をダウンロードしました', 'success')
+      } else {
+        showToast('エラー: ダウンロードに失敗しました', 'error')
       }
     } catch (error) {
-      showToast('ダウンロードに失敗しました')
+      showToast('エラー: ダウンロードに失敗しました', 'error')
     }
   }
 
   const handleSend = async (invoiceId) => {
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, {
-        method: 'PUT',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'sent' }),
-      })
-
-      if (res.ok) {
-        showToast('送付済みに変更しました')
+      const result = await api.put(`/invoices/${invoiceId}`, { status: 'sent' })
+      if (result.success || result.id) {
+        showToast('送付済みに変更しました', 'success')
         fetchData()
+      } else {
+        showToast('エラー: 更新に失敗しました', 'error')
       }
     } catch (error) {
-      showToast('更新に失敗しました')
+      showToast('エラー: 更新に失敗しました', 'error')
     }
   }
 
@@ -175,17 +163,15 @@ export default function InvoicesPage() {
     if (!confirm('この請求書を削除しますか？')) return
 
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      })
-
-      if (res.ok) {
-        showToast('削除しました')
+      const result = await api.delete(`/invoices/${invoiceId}`)
+      if (result.success || result.message) {
+        showToast('削除しました', 'success')
         fetchData()
+      } else {
+        showToast('エラー: 削除に失敗しました', 'error')
       }
     } catch (error) {
-      showToast('削除に失敗しました')
+      showToast('エラー: 削除に失敗しました', 'error')
     }
   }
 
@@ -545,7 +531,12 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      <Toast message={toast.message} isVisible={toast.show} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.show}
+        onClose={hideToast}
+      />
     </div>
   )
 }

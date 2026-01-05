@@ -143,13 +143,14 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <img
-            src="/logo/sunyuTECH_logo.png"
+            src="/logo/sunyuTEC_logo.png"
             alt="SunyuTEC"
             className="w-20 h-20 mx-auto mb-4"
             style={{ borderRadius: '12px' }}
           />
-          <h1 className="text-2xl font-bold text-white">
-            S-BASE
+          <h1 style={{ fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>
+            <span className="text-2xl" style={{ color: '#1a365d' }}>S-</span>
+            <span className="text-2xl" style={{ color: '#FF6B00' }}>BASE</span>
           </h1>
           <p className="text-sm mt-1 text-gray-300">
             サンユウテック現場管理システム

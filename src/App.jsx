@@ -74,6 +74,11 @@ import InvoicesPage from './pages/InvoicesPage'
 import TransactionsPage from './pages/TransactionsPage'
 import PaymentsPage from './pages/PaymentsPage'
 
+// Phase 2: 効率化機能
+import LeavesPage from './pages/LeavesPage'
+import ExportsPage from './pages/ExportsPage'
+import PerformancePage from './pages/PerformancePage'
+
 // 認証が必要なルートを保護するコンポーネント
 function ProtectedRoute({ children }) {
   const { isAuthenticated, _hasHydrated } = useAuthStore()
@@ -226,6 +231,11 @@ export default function App() {
         <Route path="/invoices-issue" element={<InvoicesPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/payments" element={<PaymentsPage />} />
+
+        {/* Phase 2: 効率化機能 */}
+        <Route path="/leaves" element={<LeavesPage />} />
+        <Route path="/exports" element={<ExportsPage />} />
+        <Route path="/performance" element={<PerformancePage />} />
       </Routes>
 
       {/* ログインページ以外でナビゲーションを表示 */}

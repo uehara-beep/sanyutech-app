@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CreditCard, CheckCircle, Clock, AlertCircle, Download } from 'lucide-react'
-import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE, getAuthHeaders } from '../config/api'
+import { Header, Card, SectionTitle } from '../components/common'
+import Toast from '../components/ui/Toast'
+import { ListSkeleton, SummaryCardSkeleton } from '../components/ui/Skeleton'
+import { api } from '../utils/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function PaymentsPage() {
@@ -15,7 +17,7 @@ export default function PaymentsPage() {
   const [summary, setSummary] = useState({ total_amount: 0, paid_amount: 0, unpaid_amount: 0 })
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
-  const [toast, setToast] = useState({ show: false, message: '' })
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
   const [showPayModal, setShowPayModal] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState(null)
   const [payAmount, setPayAmount] = useState('')
@@ -25,26 +27,27 @@ export default function PaymentsPage() {
   }, [])
 
   const fetchData = async () => {
+    setLoading(true)
     try {
-      const headers = getAuthHeaders()
       const [paymentsRes, summaryRes] = await Promise.all([
-        fetch(`${API_BASE}/payments`, { headers }),
-        fetch(`${API_BASE}/payments/summary`, { headers }),
+        api.get('/payments'),
+        api.get('/payments/summary'),
       ])
 
-      if (paymentsRes.ok) setPayments(await paymentsRes.json())
-      if (summaryRes.ok) setSummary(await summaryRes.json())
+      if (paymentsRes.success !== false) setPayments(paymentsRes.data || paymentsRes || [])
+      if (summaryRes.success !== false) setSummary(summaryRes.data || summaryRes || { total_amount: 0, paid_amount: 0, unpaid_amount: 0 })
     } catch (error) {
-      console.error('Fetch error:', error)
+      showToast('データの取得に失敗しました', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const showToast = (message) => {
-    setToast({ show: true, message })
-    setTimeout(() => setToast({ show: false, message: '' }), 2000)
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type })
   }
+
+  const hideToast = () => setToast(prev => ({ ...prev, show: false }))
 
   const handleOpenPayModal = (payment) => {
     setSelectedPayment(payment)
@@ -56,26 +59,22 @@ export default function PaymentsPage() {
     if (!selectedPayment || !payAmount) return
 
     try {
-      const res = await fetch(`${API_BASE}/payments/${selectedPayment.id}/pay`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: parseInt(payAmount),
-          payment_date: new Date().toISOString().split('T')[0],
-          payment_method: 'bank_transfer',
-        }),
+      const result = await api.post(`/payments/${selectedPayment.id}/pay`, {
+        amount: parseInt(payAmount),
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_method: 'bank_transfer',
       })
 
-      if (res.ok) {
-        showToast('支払を記録しました')
+      if (result.success || result.id || result.message) {
+        showToast('支払を記録しました', 'success')
         setShowPayModal(false)
         setSelectedPayment(null)
         fetchData()
       } else {
-        showToast('支払記録に失敗しました')
+        showToast(`エラー: ${result.error || '支払記録に失敗しました'}`, 'error')
       }
     } catch (error) {
-      showToast('通信エラー')
+      showToast('エラー: 通信に失敗しました', 'error')
     }
   }
 
@@ -320,7 +319,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      <Toast message={toast.message} isVisible={toast.show} />
+      <Toast message={toast.message} type={toast.type} isVisible={toast.show} onClose={hideToast} />
     </div>
   )
 }

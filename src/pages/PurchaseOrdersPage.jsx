@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, FileText, Download, CheckCircle, Trash2 } from 'lucide-react'
-import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE, getAuthHeaders } from '../config/api'
+import { Header, Card, SectionTitle } from '../components/common'
+import Toast from '../components/ui/Toast'
+import { ListSkeleton } from '../components/ui/Skeleton'
+import FormField, { Input, Select, Textarea, DateInput, SubmitButton } from '../components/form/FormField'
+import { api } from '../utils/api'
+import { required, validateForm } from '../utils/validators'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function PurchaseOrdersPage() {
@@ -15,9 +19,11 @@ export default function PurchaseOrdersPage() {
   const [projects, setProjects] = useState([])
   const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [filter, setFilter] = useState('all')
-  const [toast, setToast] = useState({ show: false, message: '' })
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
+  const [errors, setErrors] = useState({})
 
   const [form, setForm] = useState({
     project_id: '',
@@ -34,28 +40,29 @@ export default function PurchaseOrdersPage() {
   }, [])
 
   const fetchData = async () => {
+    setLoading(true)
     try {
-      const headers = getAuthHeaders()
       const [ordersRes, projectsRes, vendorsRes] = await Promise.all([
-        fetch(`${API_BASE}/purchase-orders`, { headers }),
-        fetch(`${API_BASE}/projects`, { headers }),
-        fetch(`${API_BASE}/subcontractors`, { headers }).catch(() => null),
+        api.get('/purchase-orders'),
+        api.get('/projects'),
+        api.get('/subcontractors').catch(() => ({ data: [] })),
       ])
 
-      if (ordersRes.ok) setOrders(await ordersRes.json())
-      if (projectsRes.ok) setProjects(await projectsRes.json())
-      if (vendorsRes?.ok) setVendors(await vendorsRes.json())
+      if (ordersRes.success !== false) setOrders(ordersRes.data || ordersRes || [])
+      if (projectsRes.success !== false) setProjects(projectsRes.data || projectsRes || [])
+      if (vendorsRes.success !== false) setVendors(vendorsRes.data || vendorsRes || [])
     } catch (error) {
-      console.error('Fetch error:', error)
+      showToast('データの取得に失敗しました', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const showToast = (message) => {
-    setToast({ show: true, message })
-    setTimeout(() => setToast({ show: false, message: '' }), 2000)
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type })
   }
+
+  const hideToast = () => setToast(prev => ({ ...prev, show: false }))
 
   const handleAddItem = () => {
     setForm(prev => ({
@@ -86,38 +93,49 @@ export default function PurchaseOrdersPage() {
     return { subtotal, tax, total: subtotal + tax }
   }
 
-  const handleSubmit = async () => {
-    if (!form.vendor_name && !form.vendor_id) {
-      showToast('発注先を入力してください')
-      return
+  const validateOrderForm = () => {
+    const schema = {
+      vendor_name: [(v) => {
+        if (!v && !form.vendor_id) {
+          return { valid: false, error: '発注先は必須です' }
+        }
+        return { valid: true }
+      }],
     }
+    const { isValid, errors: validationErrors } = validateForm(form, schema)
 
     if (form.items.every(item => !item.name)) {
-      showToast('明細を入力してください')
-      return
+      validationErrors.items = '明細を入力してください'
+      return { isValid: false, errors: validationErrors }
     }
 
+    setErrors(validationErrors)
+    return { isValid, errors: validationErrors }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const { isValid } = validateOrderForm()
+    if (!isValid) return
+
+    setSubmitting(true)
     try {
       const { subtotal, tax, total } = calculateTotal()
-      const res = await fetch(`${API_BASE}/purchase-orders`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          project_id: form.project_id ? parseInt(form.project_id) : null,
-          vendor_id: form.vendor_id ? parseInt(form.vendor_id) : null,
-          subtotal,
-          tax_amount: tax,
-          total_amount: total,
-          items: form.items.filter(item => item.name).map(item => ({
-            ...item,
-            amount: item.quantity * item.unit_price
-          })),
-        }),
+      const result = await api.post('/purchase-orders', {
+        ...form,
+        project_id: form.project_id ? parseInt(form.project_id) : null,
+        vendor_id: form.vendor_id ? parseInt(form.vendor_id) : null,
+        subtotal,
+        tax_amount: tax,
+        total_amount: total,
+        items: form.items.filter(item => item.name).map(item => ({
+          ...item,
+          amount: item.quantity * item.unit_price
+        })),
       })
 
-      if (res.ok) {
-        showToast('発注書を作成しました')
+      if (result.success || result.id) {
+        showToast('保存しました', 'success')
         setShowModal(false)
         setForm({
           project_id: '',
@@ -128,54 +146,47 @@ export default function PurchaseOrdersPage() {
           note: '',
           items: [{ name: '', spec: '', quantity: 1, unit: '式', unit_price: 0 }],
         })
+        setErrors({})
         fetchData()
       } else {
-        showToast('作成に失敗しました')
+        showToast(`エラー: ${result.error || '作成に失敗しました'}`, 'error')
       }
     } catch (error) {
-      showToast('通信エラー')
+      showToast('エラー: 通信に失敗しました', 'error')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleDownloadPDF = async (orderId) => {
     try {
-      const res = await fetch(`${API_BASE}/purchase-orders/${orderId}/pdf`, {
-        headers: getAuthHeaders(),
-      })
-
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `purchase-order-${orderId}.xlsx`
-        a.click()
-        window.URL.revokeObjectURL(url)
-        showToast('PDFをダウンロードしました')
+      const result = await api.download(`/purchase-orders/${orderId}/pdf`, `purchase-order-${orderId}.pdf`)
+      if (result.success) {
+        showToast('PDFをダウンロードしました', 'success')
+      } else {
+        showToast('エラー: ダウンロードに失敗しました', 'error')
       }
     } catch (error) {
-      showToast('ダウンロードに失敗しました')
+      showToast('エラー: ダウンロードに失敗しました', 'error')
     }
   }
 
   const handleReceiveAcceptance = async (orderId) => {
     try {
-      const res = await fetch(`${API_BASE}/purchase-orders/${orderId}`, {
-        method: 'PUT',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          acceptance_received: true,
-          acceptance_date: new Date().toISOString().split('T')[0],
-          status: 'confirmed',
-        }),
+      const result = await api.put(`/purchase-orders/${orderId}`, {
+        acceptance_received: true,
+        acceptance_date: new Date().toISOString().split('T')[0],
+        status: 'confirmed',
       })
 
-      if (res.ok) {
-        showToast('注文請書を受領しました')
+      if (result.success || result.id) {
+        showToast('注文請書を受領しました', 'success')
         fetchData()
+      } else {
+        showToast('エラー: 更新に失敗しました', 'error')
       }
     } catch (error) {
-      showToast('更新に失敗しました')
+      showToast('エラー: 更新に失敗しました', 'error')
     }
   }
 
@@ -183,17 +194,15 @@ export default function PurchaseOrdersPage() {
     if (!confirm('この発注書を削除しますか？')) return
 
     try {
-      const res = await fetch(`${API_BASE}/purchase-orders/${orderId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      })
-
-      if (res.ok) {
-        showToast('削除しました')
+      const result = await api.delete(`/purchase-orders/${orderId}`)
+      if (result.success || result.message) {
+        showToast('削除しました', 'success')
         fetchData()
+      } else {
+        showToast('エラー: 削除に失敗しました', 'error')
       }
     } catch (error) {
-      showToast('削除に失敗しました')
+      showToast('エラー: 削除に失敗しました', 'error')
     }
   }
 
@@ -260,10 +269,10 @@ export default function PurchaseOrdersPage() {
         <SectionTitle>📝 発注書一覧（{filteredOrders.length}件）</SectionTitle>
 
         {loading ? (
-          <div className="text-center py-8 text-slate-400">読み込み中...</div>
+          <ListSkeleton count={5} showHeader={false} />
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
-            <div className="text-5xl mb-4">📝</div>
+            <FileText size={48} className="mx-auto mb-4 opacity-50" />
             <div>発注書がありません</div>
           </div>
         ) : (
@@ -335,92 +344,75 @@ export default function PurchaseOrdersPage() {
           >
             <div className="flex justify-between items-center p-5 pb-3 border-b border-slate-700">
               <h3 className="text-lg font-bold">📝 新規発注書</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSubmit}
-                  className="px-4 py-1.5 bg-blue-600 rounded-lg text-sm font-bold"
-                >
-                  作成
-                </button>
-                <button onClick={() => setShowModal(false)} className="text-2xl text-slate-400">×</button>
-              </div>
+              <button onClick={() => { setShowModal(false); setErrors({}) }} className="text-2xl text-slate-400">×</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4">
               <div className="space-y-4">
                 {/* 発注先 */}
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">発注先 *</label>
+                <FormField label="発注先" required error={errors.vendor_name}>
                   {vendors.length > 0 ? (
-                    <select
+                    <Select
                       value={form.vendor_id}
                       onChange={(e) => {
                         const vendor = vendors.find(v => v.id === parseInt(e.target.value))
                         setForm({ ...form, vendor_id: e.target.value, vendor_name: vendor?.name || '' })
                       }}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                      error={errors.vendor_name}
+                      placeholder="選択してください"
                     >
-                      <option value="">選択してください</option>
                       {vendors.map((v) => (
                         <option key={v.id} value={v.id}>{v.name}</option>
                       ))}
-                    </select>
+                    </Select>
                   ) : (
-                    <input
-                      type="text"
+                    <Input
                       value={form.vendor_name}
                       onChange={(e) => setForm({ ...form, vendor_name: e.target.value })}
-                      className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
                       placeholder="業者名を入力"
+                      error={errors.vendor_name}
                     />
                   )}
-                </div>
+                </FormField>
 
                 {/* 工事 */}
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">工事（任意）</label>
-                  <select
+                <FormField label="工事">
+                  <Select
                     value={form.project_id}
                     onChange={(e) => setForm({ ...form, project_id: e.target.value })}
-                    className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
+                    placeholder="選択してください"
                   >
-                    <option value="">選択してください</option>
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
-                  </select>
-                </div>
+                  </Select>
+                </FormField>
 
                 {/* 納期 */}
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">納期</label>
-                  <input
-                    type="date"
+                <FormField label="納期">
+                  <DateInput
                     value={form.delivery_date}
                     onChange={(e) => setForm({ ...form, delivery_date: e.target.value })}
-                    className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
                   />
-                </div>
+                </FormField>
 
                 {/* 支払条件 */}
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">支払条件</label>
-                  <select
+                <FormField label="支払条件">
+                  <Select
                     value={form.payment_terms}
                     onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
-                    className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm"
                   >
                     <option value="末締め翌月末払い">末締め翌月末払い</option>
                     <option value="20日締め翌月末払い">20日締め翌月末払い</option>
                     <option value="都度払い">都度払い</option>
-                  </select>
-                </div>
+                  </Select>
+                </FormField>
 
                 {/* 明細 */}
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs text-slate-400">明細</label>
+                <FormField label="明細" error={errors.items}>
+                  <div className="flex justify-end mb-2">
                     <button
+                      type="button"
                       onClick={handleAddItem}
                       className="text-xs text-blue-400"
                     >
@@ -434,6 +426,7 @@ export default function PurchaseOrdersPage() {
                         <span className="text-xs text-slate-400">明細 {index + 1}</span>
                         {form.items.length > 1 && (
                           <button
+                            type="button"
                             onClick={() => handleRemoveItem(index)}
                             className="text-red-400 text-xs"
                           >
@@ -441,41 +434,35 @@ export default function PurchaseOrdersPage() {
                           </button>
                         )}
                       </div>
-                      <input
-                        type="text"
+                      <Input
                         value={item.name}
                         onChange={(e) => handleItemChange(index, 'name', e.target.value)}
                         placeholder="品名"
-                        className="w-full bg-slate-600 rounded-lg px-3 py-2 text-sm mb-2"
+                        className="mb-2"
                       />
-                      <input
-                        type="text"
+                      <Input
                         value={item.spec}
                         onChange={(e) => handleItemChange(index, 'spec', e.target.value)}
                         placeholder="規格・仕様"
-                        className="w-full bg-slate-600 rounded-lg px-3 py-2 text-sm mb-2"
+                        className="mb-2"
                       />
                       <div className="grid grid-cols-3 gap-2">
-                        <input
+                        <Input
                           type="number"
                           value={item.quantity}
                           onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                           placeholder="数量"
-                          className="bg-slate-600 rounded-lg px-3 py-2 text-sm"
                         />
-                        <input
-                          type="text"
+                        <Input
                           value={item.unit}
                           onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
                           placeholder="単位"
-                          className="bg-slate-600 rounded-lg px-3 py-2 text-sm"
                         />
-                        <input
+                        <Input
                           type="number"
                           value={item.unit_price}
                           onChange={(e) => handleItemChange(index, 'unit_price', parseInt(e.target.value) || 0)}
                           placeholder="単価"
-                          className="bg-slate-600 rounded-lg px-3 py-2 text-sm"
                         />
                       </div>
                       <div className="text-right text-sm text-blue-400 mt-2">
@@ -483,7 +470,7 @@ export default function PurchaseOrdersPage() {
                       </div>
                     </div>
                   ))}
-                </div>
+                </FormField>
 
                 {/* 合計 */}
                 <div className="bg-blue-900/30 rounded-lg p-4">
@@ -502,23 +489,30 @@ export default function PurchaseOrdersPage() {
                 </div>
 
                 {/* 備考 */}
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">備考</label>
-                  <textarea
+                <FormField label="備考">
+                  <Textarea
                     value={form.note}
                     onChange={(e) => setForm({ ...form, note: e.target.value })}
-                    className="w-full bg-slate-700 rounded-lg px-4 py-3 text-sm resize-none"
-                    rows={3}
                     placeholder="備考を入力"
+                    rows={3}
                   />
-                </div>
+                </FormField>
+
+                <SubmitButton loading={submitting} variant="primary">
+                  作成する
+                </SubmitButton>
               </div>
-            </div>
+            </form>
           </motion.div>
         </div>
       )}
 
-      <Toast message={toast.message} isVisible={toast.show} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.show}
+        onClose={hideToast}
+      />
     </div>
   )
 }
