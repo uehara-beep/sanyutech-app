@@ -14,14 +14,12 @@ import SbasePage, { ProjectDetailPage } from './pages/SbasePage'
 import ScanPage, { ScanResultPage } from './pages/ScanPage'
 import WeatherPage from './pages/WeatherPage'
 import { FeedbackPage, HelpPage } from './pages/FeedbackPage'
-import {
-  ApprovePage,
-  NotifyPage,
-  EmergencyPage,
-  ChecklistPage,
-  CarPage,
-  EquipmentPage
-} from './pages/OtherPages'
+import ApprovePage from './pages/ApprovePage'
+import NotifyPage from './pages/NotifyPage'
+import EmergencyPage from './pages/EmergencyPage'
+import ChecklistPage from './pages/ChecklistPage'
+import CarPage from './pages/CarPage'
+import EquipmentPage from './pages/EquipmentPage'
 import PriceMasterPage from './pages/PriceMasterPage'
 
 // 新しいページ
