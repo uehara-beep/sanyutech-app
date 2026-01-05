@@ -12,12 +12,17 @@ export const API_BASE = ENV.VITE_API_BASE_URL || '/api'
 const getAuthToken = () => {
   try {
     const stored = localStorage.getItem('sanyutech-auth')
+    console.log('[getAuthToken] stored raw:', stored ? 'exists' : 'null')
     if (stored) {
       const parsed = JSON.parse(stored)
-      return parsed.state?.token || null
+      console.log('[getAuthToken] parsed keys:', Object.keys(parsed))
+      console.log('[getAuthToken] state keys:', parsed.state ? Object.keys(parsed.state) : 'no state')
+      const token = parsed.state?.token || null
+      console.log('[getAuthToken] token:', token ? `${token.substring(0, 20)}...` : 'null')
+      return token
     }
-  } catch {
-    // パースエラーは無視
+  } catch (e) {
+    console.error('[getAuthToken] error:', e)
   }
   return null
 }
