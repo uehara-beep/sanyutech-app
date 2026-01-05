@@ -612,6 +612,12 @@ export const useAuthStore = create(
       token: null,
       loading: false,
       error: null,
+      _hasHydrated: false,
+
+      // ハイドレーション完了をセット
+      setHasHydrated: (state) => {
+        set({ _hasHydrated: state })
+      },
 
       // ログイン
       login: async (username, password) => {
@@ -728,6 +734,10 @@ export const useAuthStore = create(
     }),
     {
       name: 'sanyutech-auth',
+      onRehydrateStorage: () => (state) => {
+        // ハイドレーション完了時にフラグをセット
+        state?.setHasHydrated(true)
+      },
     }
   )
 )

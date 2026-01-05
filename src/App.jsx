@@ -72,8 +72,17 @@ import ProjectDetailPage2 from './pages/ProjectDetailPage'
 
 // 認証が必要なルートを保護するコンポーネント
 function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, _hasHydrated } = useAuthStore()
   const location = useLocation()
+
+  // ハイドレーション完了まで待機（ローディング表示）
+  if (!_hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />
@@ -84,7 +93,7 @@ function ProtectedRoute({ children }) {
 
 export default function App() {
   const { initTheme, backgroundId } = useThemeStore()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, _hasHydrated } = useAuthStore()
   const [showSplash, setShowSplash] = useState(true)
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const location = useLocation()
@@ -121,7 +130,11 @@ export default function App() {
       <Routes>
         {/* ログイン */}
         <Route path="/login" element={
-          isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
+          !_hasHydrated ? (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+            </div>
+          ) : isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
         } />
 
         {/* メイン（認証必須） */}
