@@ -351,19 +351,15 @@ export default function HomePage() {
           className="hidden md:flex fixed top-0 left-0 right-0 z-50 items-center justify-between px-6"
           style={{ background: '#f3f4f6', height: '110px', borderBottom: '1px solid #e5e7eb' }}
         >
-          {/* 左側：ロゴ + S-BASE + サブタイトル */}
+          {/* 左側：ロゴ + サブタイトル */}
           <div className="flex items-center gap-4">
             <img
-              src="/logo/SunyuTEC_logo_color_transparent.png"
+              src="/logo/sunyuTECH_logo.png"
               alt="SunyuTEC"
-              style={{ height: '100px', width: 'auto' }}
+              style={{ height: '80px', width: 'auto' }}
             />
             <div className="flex flex-col">
-              <div style={{ fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>
-                <span className="text-2xl" style={{ color: '#1a365d' }}>S-</span>
-                <span className="text-2xl" style={{ color: '#FF6B00' }}>BASE</span>
-              </div>
-              <span className="text-xs text-gray-500">サンユウテック現場管理システム</span>
+              <span className="text-xs text-gray-500">現場管理システム</span>
             </div>
           </div>
 
@@ -388,17 +384,10 @@ export default function HomePage() {
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src="/logo/SunyuTEC_logo_color_transparent.png"
+                src="/logo/sunyuTECH_logo.png"
                 alt="SunyuTEC"
-                className="h-12 w-auto"
+                className="h-10 w-auto"
               />
-              <div className="flex flex-col">
-                <div style={{ fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>
-                  <span className="text-lg" style={{ color: '#1a365d' }}>S-</span>
-                  <span className="text-lg" style={{ color: '#FF6B00' }}>BASE</span>
-                </div>
-                <span className="text-xs text-gray-500">サンユウテック現場管理システム</span>
-              </div>
             </div>
             <div className="flex items-center gap-3">
               <motion.button
