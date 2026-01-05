@@ -12,7 +12,7 @@ import {
 const kpiIconMap = {
   FolderKanban, TrendingUp, AlertCircle, Percent, Receipt, CheckCircle, Clock, Users
 }
-import { API_BASE } from '../config/api'
+import { API_BASE, authFetch } from '../config/api'
 
 // モバイル用カテゴリ定義
 const categories = [
@@ -270,61 +270,45 @@ export default function HomePage() {
     const fetchDashboard = async () => {
       try {
         // 案件数取得
-        const projectsRes = await fetch(`${API_BASE}/projects/`)
-        if (projectsRes.ok) {
-          const projects = await projectsRes.json()
-          const active = projects.filter(p => p.status === '進行中' || p.status === '受注').length
-          const completed = projects.filter(p => p.status === '完工').length
-          setDashboardData(prev => ({
-            ...prev,
-            activeProjects: active,
-            completedProjects: completed,
-            recentProjects: projects.slice(0, 5),
-          }))
-        }
+        const projects = await authFetch(`${API_BASE}/projects/`)
+        const active = projects.filter(p => p.status === '進行中' || p.status === '受注').length
+        const completed = projects.filter(p => p.status === '完工').length
+        setDashboardData(prev => ({
+          ...prev,
+          activeProjects: active,
+          completedProjects: completed,
+          recentProjects: projects.slice(0, 5),
+        }))
 
         // 売上・請求データ取得
-        const billingRes = await fetch(`${API_BASE}/billing/`)
-        if (billingRes.ok) {
-          const billings = await billingRes.json()
-          const thisMonth = new Date().getMonth()
-          const monthlySales = billings
-            .filter(b => new Date(b.billing_date).getMonth() === thisMonth)
-            .reduce((sum, b) => sum + (b.amount || 0), 0)
-          const unpaid = billings
-            .filter(b => !b.is_paid)
-            .reduce((sum, b) => sum + (b.amount || 0), 0)
-          setDashboardData(prev => ({
-            ...prev,
-            monthlySales,
-            unpaidAmount: unpaid,
-          }))
-        }
+        const billings = await authFetch(`${API_BASE}/billing/`)
+        const thisMonth = new Date().getMonth()
+        const monthlySales = billings
+          .filter(b => new Date(b.billing_date).getMonth() === thisMonth)
+          .reduce((sum, b) => sum + (b.amount || 0), 0)
+        const unpaid = billings
+          .filter(b => !b.is_paid)
+          .reduce((sum, b) => sum + (b.amount || 0), 0)
+        setDashboardData(prev => ({
+          ...prev,
+          monthlySales,
+          unpaidAmount: unpaid,
+        }))
 
         // 経費データ取得
-        const expenseRes = await fetch(`${API_BASE}/expenses/`)
-        if (expenseRes.ok) {
-          const expenses = await expenseRes.json()
-          const thisMonth = new Date().getMonth()
-          const monthlyExpense = expenses
-            .filter(e => new Date(e.expense_date).getMonth() === thisMonth)
-            .reduce((sum, e) => sum + (e.amount || 0), 0)
-          setDashboardData(prev => ({ ...prev, monthlyExpense }))
-        }
+        const expenses = await authFetch(`${API_BASE}/expenses/`)
+        const monthlyExpense = expenses
+          .filter(e => new Date(e.expense_date).getMonth() === thisMonth)
+          .reduce((sum, e) => sum + (e.amount || 0), 0)
+        setDashboardData(prev => ({ ...prev, monthlyExpense }))
 
         // 承認待ち件数取得
-        const approvalRes = await fetch(`${API_BASE}/approvals/count`)
-        if (approvalRes.ok) {
-          const data = await approvalRes.json()
-          setDashboardData(prev => ({ ...prev, pendingApprovals: data.count || 0 }))
-        }
+        const approvalData = await authFetch(`${API_BASE}/approvals/count`)
+        setDashboardData(prev => ({ ...prev, pendingApprovals: approvalData.count || 0 }))
 
         // 作業員数取得
-        const workersRes = await fetch(`${API_BASE}/workers/?field_only=true`)
-        if (workersRes.ok) {
-          const workers = await workersRes.json()
-          setDashboardData(prev => ({ ...prev, workerCount: workers.filter(w => w.is_field_worker).length }))
-        }
+        const workers = await authFetch(`${API_BASE}/workers/?field_only=true`)
+        setDashboardData(prev => ({ ...prev, workerCount: workers.filter(w => w.is_field_worker).length }))
       } catch (e) {
         console.error('Dashboard fetch error:', e)
       }

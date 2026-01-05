@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Home, MessageCircle, Camera, CheckCircle, Settings } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { useAppStore, useThemeStore, backgroundStyles } from '../store'
+import { useAppStore, useThemeStore, useAuthStore, backgroundStyles } from '../store'
 import { API_BASE } from '../config/api'
 
 const navItems = [
@@ -22,6 +22,7 @@ export default function BottomNav() {
   const location = useLocation()
   const { pendingApprovals } = useAppStore()
   const { getCurrentTheme, backgroundId } = useThemeStore()
+  const { token } = useAuthStore()
   const theme = getCurrentTheme()
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
   const isOcean = currentBg?.hasOceanEffect
@@ -30,11 +31,20 @@ export default function BottomNav() {
 
   const badges = { pendingApprovals }
 
-  // LINE WORKS未読数を取得（設定されている場合）
+  // LINE WORKS未読数を取得（認証済みの場合のみ）
   useEffect(() => {
+    if (!token) {
+      setLineWorksUnread(0)
+      return
+    }
+
     const fetchLineWorksUnread = async () => {
       try {
-        const res = await fetch(`${API_BASE}/lineworks/unread-count`)
+        const res = await fetch(`${API_BASE}/lineworks/unread-count`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
         if (res.ok) {
           const data = await res.json()
           setLineWorksUnread(data.count || 0)
@@ -47,7 +57,7 @@ export default function BottomNav() {
     // 30秒ごとに更新
     const interval = setInterval(fetchLineWorksUnread, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [token])
 
   // LINE WORKSを開く
   const openLineWorks = () => {

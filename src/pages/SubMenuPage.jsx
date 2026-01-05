@@ -17,7 +17,7 @@ import {
   // 設定
   Settings, UserCog
 } from 'lucide-react'
-import { API_BASE } from '../config/api'
+import { API_BASE, authFetch } from '../config/api'
 import { useThemeStore, backgroundStyles, useAuthStore } from '../store'
 
 // 浅瀬の海背景（オーシャンテーマ用）
@@ -340,27 +340,17 @@ export default function SubMenuPage() {
   useEffect(() => {
     const fetchApprovals = async () => {
       try {
-        const res = await fetch(`${API_BASE}/approvals/count`)
-        if (res.ok) {
-          const data = await res.json()
-          setPendingApprovals(data.count || 0)
-        }
+        const data = await authFetch(`${API_BASE}/approvals/count`)
+        setPendingApprovals(data.count || 0)
       } catch (e) {
         console.error('Failed to fetch approvals:', e)
       }
     }
 
     const fetchDailyReportConfirmations = async () => {
-      if (!token) return
-
       try {
-        const res = await fetch(`${API_BASE}/daily-reports/pending-confirmations`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setPendingDailyReportConfirmations(data.length || 0)
-        }
+        const data = await authFetch(`${API_BASE}/daily-reports/pending-confirmations`)
+        setPendingDailyReportConfirmations(data.length || 0)
       } catch (e) {
         console.error('Failed to fetch daily report confirmations:', e)
       }
@@ -368,7 +358,7 @@ export default function SubMenuPage() {
 
     fetchApprovals()
     fetchDailyReportConfirmations()
-  }, [token])
+  }, [])
 
   if (!categoryData) {
     return (

@@ -8,9 +8,19 @@ const ENV = import.meta.env
 // 本番環境: 環境変数 VITE_API_BASE_URL を使用
 export const API_BASE = ENV.VITE_API_BASE_URL || '/api'
 
-// デバッグ用（本番確認後に削除）
-console.log('[API Config] VITE_API_BASE_URL:', ENV.VITE_API_BASE_URL)
-console.log('[API Config] API_BASE:', API_BASE)
+// 認証トークンを取得（zustand persistから）
+const getAuthToken = () => {
+  try {
+    const stored = localStorage.getItem('sanyutech-auth')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      return parsed.state?.token || null
+    }
+  } catch {
+    // パースエラーは無視
+  }
+  return null
+}
 
 // 個別のエンドポイント
 export const API_ENDPOINTS = {
@@ -99,7 +109,7 @@ export const DEFAULT_FETCH_OPTIONS = {
   credentials: 'include',
 }
 
-// API呼び出しユーティリティ
+// API呼び出しユーティリティ（認証なし）
 export async function apiFetch(endpoint, options = {}) {
   const mergedOptions = {
     ...DEFAULT_FETCH_OPTIONS,
@@ -126,12 +136,53 @@ export async function apiFetch(endpoint, options = {}) {
   return response.json()
 }
 
-// GET リクエスト
+// 認証付きAPI呼び出しユーティリティ
+export async function authFetch(endpoint, options = {}) {
+  const token = getAuthToken()
+  const headers = {
+    ...DEFAULT_FETCH_OPTIONS.headers,
+    ...options.headers,
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const mergedOptions = {
+    ...DEFAULT_FETCH_OPTIONS,
+    ...options,
+    headers,
+  }
+
+  const response = await fetch(endpoint, mergedOptions)
+
+  // 401の場合はログアウト処理（トークン期限切れ）
+  if (response.status === 401) {
+    localStorage.removeItem('sanyutech-auth')
+    window.location.href = '/login'
+    throw new Error('認証が切れました。再ログインしてください。')
+  }
+
+  if (!response.ok) {
+    const error = new Error(`API Error: ${response.status}`)
+    error.status = response.status
+    try {
+      error.data = await response.json()
+    } catch {
+      error.data = null
+    }
+    throw error
+  }
+
+  return response.json()
+}
+
+// GET リクエスト（認証なし）
 export function apiGet(endpoint) {
   return apiFetch(endpoint, { method: 'GET' })
 }
 
-// POST リクエスト
+// POST リクエスト（認証なし）
 export function apiPost(endpoint, data) {
   return apiFetch(endpoint, {
     method: 'POST',
@@ -139,7 +190,7 @@ export function apiPost(endpoint, data) {
   })
 }
 
-// PUT リクエスト
+// PUT リクエスト（認証なし）
 export function apiPut(endpoint, data) {
   return apiFetch(endpoint, {
     method: 'PUT',
@@ -147,18 +198,75 @@ export function apiPut(endpoint, data) {
   })
 }
 
-// DELETE リクエスト
+// DELETE リクエスト（認証なし）
 export function apiDelete(endpoint) {
   return apiFetch(endpoint, { method: 'DELETE' })
 }
 
-// FormData POST（ファイルアップロード用）
+// 認証付きGET
+export function authGet(endpoint) {
+  return authFetch(endpoint, { method: 'GET' })
+}
+
+// 認証付きPOST
+export function authPost(endpoint, data) {
+  return authFetch(endpoint, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+// 認証付きPUT
+export function authPut(endpoint, data) {
+  return authFetch(endpoint, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+// 認証付きDELETE
+export function authDelete(endpoint) {
+  return authFetch(endpoint, { method: 'DELETE' })
+}
+
+// FormData POST（ファイルアップロード用・認証なし）
 export async function apiPostFormData(endpoint, formData) {
   const response = await fetch(endpoint, {
     method: 'POST',
     body: formData,
     credentials: 'include',
   })
+
+  if (!response.ok) {
+    const error = new Error(`API Error: ${response.status}`)
+    error.status = response.status
+    throw error
+  }
+
+  return response.json()
+}
+
+// 認証付きFormData POST（ファイルアップロード用）
+export async function authPostFormData(endpoint, formData) {
+  const token = getAuthToken()
+  const headers = {}
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+    headers,
+  })
+
+  if (response.status === 401) {
+    localStorage.removeItem('sanyutech-auth')
+    window.location.href = '/login'
+    throw new Error('認証が切れました。再ログインしてください。')
+  }
 
   if (!response.ok) {
     const error = new Error(`API Error: ${response.status}`)
@@ -178,4 +286,10 @@ export default {
   apiPut,
   apiDelete,
   apiPostFormData,
+  authFetch,
+  authGet,
+  authPost,
+  authPut,
+  authDelete,
+  authPostFormData,
 }
