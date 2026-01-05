@@ -6,7 +6,7 @@ import { Plus, FileText, Download, Trash2, Edit3, ChevronRight, Upload, FileSpre
 import { useRef } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { API_BASE } from '../config/api'
+import { API_BASE, authFetch, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 // 金額フォーマット
@@ -289,26 +289,16 @@ export default function SbasePage() {
     formData.append('file', file)
 
     try {
-      const res = await fetch(`${API_BASE}/projects/import-estimate`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (res.ok) {
-        const result = await res.json()
-        showToast(`「${result.project_name}」を取込みました（工種: ${result.work_types_count}件）`)
-        fetchData()
-        // 詳細ページへ移動
-        if (result.project_id) {
-          navigate(`/sbase/${result.project_id}`)
-        }
-      } else {
-        const error = await res.json()
-        alert(`取込に失敗しました: ${error.detail || 'エラー'}`)
+      const result = await authPostFormData(`${API_BASE}/projects/import-estimate`, formData)
+      showToast(`「${result.project_name}」を取込みました（工種: ${result.work_types_count}件）`)
+      fetchData()
+      // 詳細ページへ移動
+      if (result.project_id) {
+        navigate(`/sbase/${result.project_id}`)
       }
     } catch (error) {
       console.error('Failed to import:', error)
-      alert('Excelファイルの取込に失敗しました')
+      alert(`取込に失敗しました: ${error.message || 'エラー'}`)
     } finally {
       // ファイル入力をリセット
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -3186,26 +3176,16 @@ function ProjectModal({ isOpen, data, onClose, onSave }) {
     formData.append('file', file)
 
     try {
-      const res = await fetch(`${API_BASE}/projects/import-estimate`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (res.ok) {
-        const result = await res.json()
-        alert(`「${result.project_name}」を取込みました（工種: ${result.work_types_count}件）`)
-        onClose()
-        // 詳細ページへ移動
-        if (result.project_id) {
-          navigate(`/sbase/${result.project_id}`)
-        }
-      } else {
-        const error = await res.json()
-        alert(`取込に失敗しました: ${error.detail || 'エラー'}`)
+      const result = await authPostFormData(`${API_BASE}/projects/import-estimate`, formData)
+      alert(`「${result.project_name}」を取込みました（工種: ${result.work_types_count}件）`)
+      onClose()
+      // 詳細ページへ移動
+      if (result.project_id) {
+        navigate(`/sbase/${result.project_id}`)
       }
     } catch (error) {
       console.error('Failed to import:', error)
-      alert('Excelファイルの取込に失敗しました')
+      alert(`取込に失敗しました: ${error.message || 'エラー'}`)
     } finally {
       setUploading(false)
       if (modalFileInputRef.current) modalFileInputRef.current.value = ''
