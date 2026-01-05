@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowRight, FileText, List, Eye } from 'lucide-react'
 import { Header, Card, Toast } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 export default function QuoteImportPage() {
@@ -56,14 +56,9 @@ export default function QuoteImportPage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`${API_BASE}/quotes/import-excel`, {
-        method: 'POST',
-        body: formData
-      })
+      const data = await authPostFormData(`${API_BASE}/quotes/import-excel`, formData)
 
-      const data = await res.json()
-
-      if (res.ok && data.success) {
+      if (data.success) {
         setResult({
           success: true,
           id: data.id,
@@ -87,7 +82,7 @@ export default function QuoteImportPage() {
       console.error('Import error:', error)
       setResult({
         success: false,
-        message: 'ネットワークエラーが発生しました'
+        message: error.message || 'ネットワークエラーが発生しました'
       })
       showToast('エラーが発生しました')
     } finally {
