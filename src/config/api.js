@@ -246,6 +246,38 @@ export async function apiPostFormData(endpoint, formData) {
   return response.json()
 }
 
+// 認証付きBlobダウンロード（PDF等）
+export async function authFetchBlob(endpoint, options = {}) {
+  const token = getAuthToken()
+  const headers = {
+    ...options.headers,
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(endpoint, {
+    ...options,
+    headers,
+    credentials: 'include',
+  })
+
+  if (response.status === 401) {
+    localStorage.removeItem('sanyutech-auth')
+    window.location.href = '/login'
+    throw new Error('認証が切れました。再ログインしてください。')
+  }
+
+  if (!response.ok) {
+    const error = new Error(`API Error: ${response.status}`)
+    error.status = response.status
+    throw error
+  }
+
+  return response.blob()
+}
+
 // 認証付きFormData POST（ファイルアップロード用）
 export async function authPostFormData(endpoint, formData) {
   const token = getAuthToken()

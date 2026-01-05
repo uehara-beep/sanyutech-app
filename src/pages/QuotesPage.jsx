@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Edit3, FileText, CheckCircle, Send, ChevronRight, X, Download, PlayCircle, XCircle, Flag } from 'lucide-react'
 import { PageHeader, Card, SectionTitle, Button, Modal, Input, Toast, Empty } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, authGet, authFetch, authDelete, authFetchBlob } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 // テーマ対応スタイル生成
@@ -109,11 +109,8 @@ export default function QuotesPage() {
   // 見積一覧取得（全件）
   const fetchQuotes = async () => {
     try {
-      const res = await fetch(`${API_BASE}/quotes`)
-      if (res.ok) {
-        const data = await res.json()
-        setQuotes(data)
-      }
+      const data = await authGet(`${API_BASE}/quotes`)
+      setQuotes(data)
     } catch (error) {
       console.error('Failed to fetch quotes:', error)
     } finally {
@@ -140,18 +137,15 @@ export default function QuotesPage() {
       const method = data.id ? 'PUT' : 'POST'
       const url = data.id ? `${API_BASE}/quotes/${data.id}` : `${API_BASE}/quotes`
 
-      const res = await fetch(url, {
+      await authFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       })
 
-      if (res.ok) {
-        showToast(data.id ? '見積書を更新しました' : '見積書を作成しました')
-        setShowModal(false)
-        setEditData(null)
-        await fetchQuotes()
-      }
+      showToast(data.id ? '見積書を更新しました' : '見積書を作成しました')
+      setShowModal(false)
+      setEditData(null)
+      await fetchQuotes()
     } catch (error) {
       console.error('Failed to save quote:', error)
       showToast('保存に失敗しました', 'error')
@@ -163,11 +157,9 @@ export default function QuotesPage() {
     if (!confirm('この見積書を削除しますか？')) return
 
     try {
-      const res = await fetch(`${API_BASE}/quotes/${quoteId}`, { method: 'DELETE' })
-      if (res.ok) {
-        showToast('見積書を削除しました')
-        await fetchQuotes()
-      }
+      await authDelete(`${API_BASE}/quotes/${quoteId}`)
+      showToast('見積書を削除しました')
+      await fetchQuotes()
     } catch (error) {
       console.error('Failed to delete quote:', error)
     }
@@ -178,22 +170,15 @@ export default function QuotesPage() {
     if (!confirm(`「${projectName}」を${message}にしますか？`)) return
 
     try {
-      const res = await fetch(`${API_BASE}/quotes/${quoteId}/status`, {
+      await authFetch(`${API_BASE}/quotes/${quoteId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       })
-
-      if (res.ok) {
-        showToast(`${message}にしました`)
-        await fetchQuotes()
-      } else {
-        const error = await res.json()
-        showToast(error.detail || 'ステータス変更に失敗しました', 'error')
-      }
+      showToast(`${message}にしました`)
+      await fetchQuotes()
     } catch (error) {
       console.error('Failed to change status:', error)
-      showToast('エラーが発生しました', 'error')
+      showToast(error.data?.detail || 'エラーが発生しました', 'error')
     }
   }
 
@@ -202,21 +187,14 @@ export default function QuotesPage() {
     if (!confirm(`「${projectName}」を受注しますか？`)) return
 
     try {
-      const res = await fetch(`${API_BASE}/quotes/${quoteId}/accept`, {
+      const result = await authFetch(`${API_BASE}/quotes/${quoteId}/accept`, {
         method: 'PUT'
       })
-
-      if (res.ok) {
-        const result = await res.json()
-        showToast(result.message || '受注しました')
-        await fetchQuotes()
-      } else {
-        const error = await res.json()
-        showToast(error.detail || '受注処理に失敗しました', 'error')
-      }
+      showToast(result.message || '受注しました')
+      await fetchQuotes()
     } catch (error) {
       console.error('Failed to accept order:', error)
-      showToast('エラーが発生しました', 'error')
+      showToast(error.data?.detail || 'エラーが発生しました', 'error')
     }
   }
 
@@ -239,22 +217,16 @@ export default function QuotesPage() {
   const handleDownloadPDF = async (quoteId, projectName) => {
     try {
       showToast('PDF生成中...')
-      const res = await fetch(`${API_BASE}/quotes/${quoteId}/pdf`)
-
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `見積書_${projectName || '見積書'}_${new Date().toISOString().split('T')[0]}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-        showToast('PDFをダウンロードしました')
-      } else {
-        showToast('PDF生成に失敗しました', 'error')
-      }
+      const blob = await authFetchBlob(`${API_BASE}/quotes/${quoteId}/pdf`)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `見積書_${projectName || '見積書'}_${new Date().toISOString().split('T')[0]}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      showToast('PDFをダウンロードしました')
     } catch (error) {
       console.error('Failed to download PDF:', error)
       showToast('エラーが発生しました', 'error')
