@@ -12,17 +12,12 @@ export const API_BASE = ENV.VITE_API_BASE_URL || '/api'
 const getAuthToken = () => {
   try {
     const stored = localStorage.getItem('sanyutech-auth')
-    console.log('[getAuthToken] stored raw:', stored ? 'exists' : 'null')
     if (stored) {
       const parsed = JSON.parse(stored)
-      console.log('[getAuthToken] parsed keys:', Object.keys(parsed))
-      console.log('[getAuthToken] state keys:', parsed.state ? Object.keys(parsed.state) : 'no state')
-      const token = parsed.state?.token || null
-      console.log('[getAuthToken] token:', token ? `${token.substring(0, 20)}...` : 'null')
-      return token
+      return parsed.state?.token || null
     }
-  } catch (e) {
-    console.error('[getAuthToken] error:', e)
+  } catch {
+    // パースエラーは無視
   }
   return null
 }
@@ -254,16 +249,11 @@ export async function apiPostFormData(endpoint, formData) {
 // 認証付きFormData POST（ファイルアップロード用）
 export async function authPostFormData(endpoint, formData) {
   const token = getAuthToken()
-  console.log('[authPostFormData] token:', token ? 'exists' : 'null')
-  console.log('[authPostFormData] endpoint:', endpoint)
-
   const headers = {}
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
-
-  console.log('[authPostFormData] headers:', headers)
 
   const response = await fetch(endpoint, {
     method: 'POST',
