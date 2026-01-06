@@ -79,6 +79,9 @@ import LeavesPage from './pages/LeavesPage'
 import ExportsPage from './pages/ExportsPage'
 import PerformancePage from './pages/PerformancePage'
 
+// PD材料管理
+import PDMaterialsPage, { PDInventoryPage, PDUsagePage, PDPlansPage } from './pages/PDMaterialsPage'
+
 // 認証が必要なルートを保護するコンポーネント
 function ProtectedRoute({ children }) {
   const { isAuthenticated, _hasHydrated } = useAuthStore()
@@ -241,6 +244,12 @@ export default function App() {
         <Route path="/leaves" element={<LeavesPage />} />
         <Route path="/exports" element={<ExportsPage />} />
         <Route path="/performance" element={<PerformancePage />} />
+
+        {/* PD材料管理 */}
+        <Route path="/pd-materials" element={<PDMaterialsPage />} />
+        <Route path="/pd-materials/inventory" element={<PDInventoryPage />} />
+        <Route path="/pd-materials/usage" element={<PDUsagePage />} />
+        <Route path="/pd-materials/plans" element={<PDPlansPage />} />
       </Routes>
 
       {/* ログインページ以外でナビゲーションを表示 */}

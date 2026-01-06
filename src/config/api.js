@@ -22,6 +22,18 @@ const getAuthToken = () => {
   return null
 }
 
+// 認証ヘッダーを取得（fetch用）
+export const getAuthHeaders = () => {
+  const token = getAuthToken()
+  const headers = {
+    'Content-Type': 'application/json',
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  return headers
+}
+
 // 個別のエンドポイント
 export const API_ENDPOINTS = {
   // 認証関連

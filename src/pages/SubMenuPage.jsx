@@ -7,7 +7,7 @@ import {
   FilePlus, FolderOpen, FileSpreadsheet, Users, Trophy, Briefcase, CreditCard, CalendarDays,
   // 工事
   Calendar, HardHat, FileEdit, AlertTriangle, Camera, FileText, MapPin,
-  Cloud, List as ListIcon, Package, Car, User, ClipboardEdit,
+  Cloud, List as ListIcon, Package, Car, User, ClipboardEdit, Droplets,
   // 事務
   Receipt, List, Bot, DollarSign, CheckCircle, Building,
   // 経営
@@ -130,6 +130,12 @@ const categories = {
         title: '安全管理',
         items: [
           { name: 'KY管理', description: '危険予知活動', path: '/ky', icon: AlertTriangle },
+        ]
+      },
+      {
+        title: 'PD材料管理',
+        items: [
+          { name: 'PDジェットスラブ', description: '在庫・発注・使用報告', path: '/pd-materials', icon: Droplets },
         ]
       },
       {
