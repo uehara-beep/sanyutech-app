@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Edit3, Download, FileText, Wallet, Calculator, FolderOpen, Info, CheckCircle, PlayCircle, Flag, XCircle, X, Trash2, Receipt, Plus } from 'lucide-react'
 import { Card, Toast } from '../components/common'
-import { API_BASE, authPostFormData } from '../config/api'
+import { API_BASE, authPostFormData, getAuthHeaders } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 // ステータス定義
@@ -109,7 +109,9 @@ export default function ProjectDetailPage() {
 
   const fetchProject = async () => {
     try {
-      const res = await fetch(`${API_BASE}/quotes/${id}`)
+      const res = await fetch(`${API_BASE}/quotes/${id}`, {
+        headers: getAuthHeaders()
+      })
       if (res.ok) {
         const data = await res.json()
         setProject(data)
@@ -129,7 +131,9 @@ export default function ProjectDetailPage() {
 
   const fetchCosts = async () => {
     try {
-      const res = await fetch(`${API_BASE}/quotes/${id}/costs`)
+      const res = await fetch(`${API_BASE}/quotes/${id}/costs`, {
+        headers: getAuthHeaders()
+      })
       if (res.ok) {
         setCostItems(await res.json())
       }
@@ -222,16 +226,45 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBg.bg }}>
-        <div className="text-center" style={{ color: currentBg.textLight }}>読み込み中...</div>
+      <div className="min-h-screen" style={{ background: currentBg.bg }}>
+        <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBg.headerBg, borderBottom: `1px solid ${currentBg.border}` }}>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <button onClick={() => navigate(-1)} className="p-2 rounded-full" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(128,128,128,0.2)' }}>
+              <ArrowLeft className="w-5 h-5" style={{ color: currentBg.text }} />
+            </button>
+            <span style={{ color: currentBg.text }}>読み込み中...</span>
+          </div>
+        </header>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-4 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+        </div>
       </div>
     )
   }
 
   if (!project) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBg.bg }}>
-        <div className="text-center" style={{ color: currentBg.textLight }}>案件が見つかりません</div>
+      <div className="min-h-screen" style={{ background: currentBg.bg }}>
+        <header className="sticky top-0 z-50 backdrop-blur-xl" style={{ background: currentBg.headerBg, borderBottom: `1px solid ${currentBg.border}` }}>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <button onClick={() => navigate(-1)} className="p-2 rounded-full" style={{ background: isOcean ? 'rgba(255,255,255,0.15)' : 'rgba(128,128,128,0.2)' }}>
+              <ArrowLeft className="w-5 h-5" style={{ color: currentBg.text }} />
+            </button>
+            <span style={{ color: currentBg.text }}>案件詳細</span>
+          </div>
+        </header>
+        <div className="flex flex-col items-center justify-center h-64 text-center px-4">
+          <div className="text-6xl mb-4">📋</div>
+          <div className="text-lg font-medium mb-2" style={{ color: currentBg.text }}>案件が見つかりません</div>
+          <div className="text-sm mb-4" style={{ color: currentBg.textLight }}>この案件は削除されたか、アクセス権限がありません</div>
+          <button
+            onClick={() => navigate('/quotes')}
+            className="px-4 py-2 rounded-lg text-white"
+            style={{ background: theme.primary }}
+          >
+            案件一覧に戻る
+          </button>
+        </div>
       </div>
     )
   }

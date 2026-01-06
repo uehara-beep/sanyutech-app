@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header, Card, SectionTitle } from '../components/common'
-import { API_BASE } from '../config/api'
+import { API_BASE, getAuthHeaders } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
+import { ArrowLeft } from 'lucide-react'
 
 export default function SitePage() {
   const navigate = useNavigate()
@@ -24,12 +25,13 @@ export default function SitePage() {
   const fetchData = async () => {
     try {
       const today = new Date().toISOString().split('T')[0]
+      const headers = getAuthHeaders()
 
       const [projectRes, assignmentsRes, kyRes, costsRes] = await Promise.all([
-        fetch(`${API_BASE}/projects/${id}`),
-        fetch(`${API_BASE}/assignments/?date=${today}`),
-        fetch(`${API_BASE}/ky-reports/`),
-        fetch(`${API_BASE}/costs/project/${id}`),
+        fetch(`${API_BASE}/projects/${id}`, { headers }),
+        fetch(`${API_BASE}/assignments/?date=${today}`, { headers }),
+        fetch(`${API_BASE}/ky-reports/`, { headers }),
+        fetch(`${API_BASE}/costs/project/${id}`, { headers }),
       ])
 
       if (projectRes.ok) {
@@ -67,10 +69,17 @@ export default function SitePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBg.bg }}>
-        <div className="text-center text-slate-400">
-          <div className="text-4xl mb-2">⏳</div>
-          <div>読み込み中...</div>
+      <div className="min-h-screen" style={{ background: currentBg.bg }}>
+        <div className="sticky top-0 z-50 backdrop-blur-xl px-4 py-3" style={{ background: 'rgba(0,0,0,0.3)' }}>
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(-1)} className="p-2 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </button>
+            <span className="text-white">読み込み中...</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
         </div>
       </div>
     )
@@ -78,10 +87,22 @@ export default function SitePage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: currentBg.bg }}>
-        <div className="text-center text-slate-400">
-          <div className="text-4xl mb-2">❌</div>
-          <div>現場が見つかりません</div>
+      <div className="min-h-screen" style={{ background: currentBg.bg }}>
+        <div className="sticky top-0 z-50 backdrop-blur-xl px-4 py-3" style={{ background: 'rgba(0,0,0,0.3)' }}>
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(-1)} className="p-2 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </button>
+            <span className="text-white">現場情報</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center h-64 text-center px-4">
+          <div className="text-6xl mb-4">🏗️</div>
+          <div className="text-lg font-medium text-white mb-2">現場が見つかりません</div>
+          <div className="text-sm text-white/60 mb-4">この現場は削除されたか、アクセス権限がありません</div>
+          <button onClick={() => navigate('/sbase')} className="px-4 py-2 rounded-lg bg-emerald-500 text-white">
+            現場一覧に戻る
+          </button>
         </div>
       </div>
     )
