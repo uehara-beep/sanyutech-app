@@ -121,7 +121,7 @@ export default function QuotesListPage() {
 
   // カードクリック → 見積詳細へ
   const handleCardClick = (quoteId) => {
-    navigate(`/sales/quote-create/${quoteId}`)
+    navigate(`/sales/quotes/${quoteId}`)
   }
 
   // 新規作成

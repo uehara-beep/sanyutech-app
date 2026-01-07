@@ -58,6 +58,7 @@ import QuotesPage from './pages/QuotesPage'
 import QuoteCreatePage from './pages/QuoteCreatePage'
 import QuoteCreatePageV3 from './pages/sales/QuoteCreatePage'  // 設計書3.1準拠
 import QuotesListPageV3 from './pages/sales/QuotesListPage'  // 設計書準拠見積一覧
+import QuoteDetailPageV3 from './pages/sales/QuoteDetailPage'  // 設計書準拠見積詳細
 import QuoteImportPage from './pages/QuoteImportPage'
 import ClientRankingPage from './pages/ClientRankingPage'
 import WorkersPage from './pages/WorkersPage'
@@ -170,6 +171,7 @@ export default function App() {
         <Route path="/quotes/:id/edit" element={<QuoteCreatePage />} />
         {/* 設計書3.1準拠の見積画面 */}
         <Route path="/sales/quotes" element={<QuotesListPageV3 />} />
+        <Route path="/sales/quotes/:id" element={<QuoteDetailPageV3 />} />
         <Route path="/sales/quote-create" element={<QuoteCreatePageV3 />} />
         <Route path="/sales/quote-create/:id" element={<QuoteCreatePageV3 />} />
         <Route path="/quotes/import" element={<QuoteImportPage />} />
