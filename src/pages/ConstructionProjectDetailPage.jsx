@@ -230,10 +230,9 @@ export default function ConstructionProjectDetailPage() {
   const progressRate = project.contract_amount > 0
     ? (project.progress_total / project.contract_amount * 100)
     : 0
-  // 実績粗利率計算
-  const actualProfitRate = project.progress_total > 0
-    ? (project.actual_profit / project.progress_total * 100)
-    : 0
+  // 実績粗利はAPIから取得（フロントで計算しない）
+  const actualProfitAmount = project.actual_profit_amount ?? 0
+  const actualProfitRate = project.actual_profit_rate ?? 0
 
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
@@ -287,9 +286,9 @@ export default function ConstructionProjectDetailPage() {
           <div className="grid grid-cols-2 gap-2 text-center">
             <div className="rounded-lg p-2" style={{ background: inputBg }}>
               <div className="text-[10px]" style={{ color: currentBg.textLight }}>実績粗利</div>
-              <div className={`text-sm font-bold ${project.actual_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {formatCurrency(project.actual_profit)}
-                <span className="text-[10px] ml-1">({formatRate(actualProfitRate)})</span>
+              <div className={`text-sm font-bold ${actualProfitAmount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatCurrency(actualProfitAmount)}
+                <span className="text-[10px] ml-1">({actualProfitRate.toFixed(1)}%)</span>
               </div>
             </div>
             <div className="rounded-lg p-2" style={{ background: inputBg }}>

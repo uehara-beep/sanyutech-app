@@ -140,8 +140,8 @@ export default function ConstructionProjectsPage() {
                     </div>
                     <div className="rounded-lg p-2" style={{ background: inputBg }}>
                       <div className="text-[10px] mb-1" style={{ color: currentBg.textLight }}>実績粗利</div>
-                      <div className={`text-xs font-bold ${project.actual_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {formatCurrency(project.actual_profit)}
+                      <div className={`text-xs font-bold ${(project.actual_profit_amount ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {formatCurrency(project.actual_profit_amount ?? 0)}
                       </div>
                     </div>
                   </div>
