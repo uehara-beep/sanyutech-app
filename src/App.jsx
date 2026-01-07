@@ -87,6 +87,10 @@ import PerformancePage from './pages/PerformancePage'
 // PD材料管理
 import PDMaterialsPage, { PDInventoryPage, PDUsagePage, PDPlansPage } from './pages/PDMaterialsPage'
 
+// 工事管理MVP
+import ConstructionProjectsPage from './pages/ConstructionProjectsPage'
+import ConstructionProjectDetailPage from './pages/ConstructionProjectDetailPage'
+
 // 認証が必要なルートを保護するコンポーネント
 function ProtectedRoute({ children }) {
   const { isAuthenticated, _hasHydrated } = useAuthStore()
@@ -263,6 +267,10 @@ export default function App() {
         <Route path="/pd-materials/inventory" element={<PDInventoryPage />} />
         <Route path="/pd-materials/usage" element={<PDUsagePage />} />
         <Route path="/pd-materials/plans" element={<PDPlansPage />} />
+
+        {/* 工事管理MVP */}
+        <Route path="/construction/projects" element={<ConstructionProjectsPage />} />
+        <Route path="/construction/projects/:id" element={<ConstructionProjectDetailPage />} />
       </Routes>
 
       {/* ログインページ以外でナビゲーションを表示 */}
