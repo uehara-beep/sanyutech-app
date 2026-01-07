@@ -10,7 +10,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Save, FileText, AlertCircle, Upload, X, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Save, FileText, AlertCircle, Upload, X, CheckCircle, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { API_BASE, authGet, authPost, authPut } from '../../config/api'
 import { useThemeStore, backgroundStyles } from '../../store'
@@ -61,6 +61,21 @@ const COLUMN_MAPPING = {
   '合計': 'amount',
 }
 
+// フィールド定義（列マッピングUI用）
+const FIELD_DEFINITIONS = [
+  { key: 'category', label: '分類', required: false },
+  { key: 'name', label: '項目名', required: true },
+  { key: 'specification', label: '仕様', required: false },
+  { key: 'quantity', label: '数量', required: true },
+  { key: 'unit', label: '単位', required: false },
+  { key: 'unit_price', label: '単価', required: true },
+  { key: 'cost_price', label: '原価', required: false },
+  { key: 'amount', label: '金額', required: false },
+]
+
+// テンプレートヘッダー
+const TEMPLATE_HEADERS = ['分類', '項目名', '仕様', '数量', '単位', '単価', '原価', '金額']
+
 export default function QuoteCreatePage() {
   const navigate = useNavigate()
   const { id } = useParams()  // 編集モード時のID
@@ -104,7 +119,16 @@ export default function QuoteCreatePage() {
   const [totals, setTotals] = useState({ subtotal: 0, tax: 0, total: 0 })
 
   // Excel取込用State
-  const [excelPreview, setExcelPreview] = useState({ show: false, items: [], errors: [] })
+  const [excelPreview, setExcelPreview] = useState({
+    show: false,
+    items: [],
+    errors: [],
+    columnMap: {},        // フィールド→列インデックス
+    detectedFields: [],   // 自動検出されたフィールド
+    headers: [],          // Excelのヘッダー行
+    rawData: [],          // 生データ（再解析用）
+    importMode: 'add',    // 'add' or 'replace'
+  })
   const [excelParsing, setExcelParsing] = useState(false)
 
   // 得意先マスタを取得
@@ -270,69 +294,98 @@ export default function QuoteCreatePage() {
     reader.readAsArrayBuffer(file)
   }
 
-  // Excel解析
+  // Excelテンプレートダウンロード
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      TEMPLATE_HEADERS,
+      ['電気工事', '配線工事', 'VVF2.0-2C', '100', 'm', '500', '300', '50000'],
+      ['', '照明器具取付', 'LED100W', '10', '台', '15000', '10000', '150000'],
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '見積明細')
+    // 列幅設定
+    ws['!cols'] = [
+      { wch: 10 }, { wch: 20 }, { wch: 15 }, { wch: 8 }, { wch: 6 }, { wch: 10 }, { wch: 10 }, { wch: 12 }
+    ]
+    XLSX.writeFile(wb, '見積明細テンプレート.xlsx')
+  }
+
+  // Excel解析（ヘッダー検出・列マッピング）
   const parseExcelData = (rows) => {
     if (!rows || rows.length < 2) {
       showToast('データが見つかりません', 'error')
       return
     }
 
-    const parseErrors = []
-    const parsedItems = []
-
-    // ヘッダー行を検出（列名を含む行を探す）
+    // ヘッダー行を検出
     let headerRowIndex = -1
     let columnMap = {}
+    let detectedFields = []
 
     for (let i = 0; i < Math.min(10, rows.length); i++) {
       const row = rows[i]
       if (!row) continue
 
-      // 列名マッピングを試行
       const tempMap = {}
-      let matchCount = 0
+      const tempDetected = []
 
       for (let j = 0; j < row.length; j++) {
         const cellValue = String(row[j] || '').trim()
         for (const [key, field] of Object.entries(COLUMN_MAPPING)) {
-          if (cellValue.includes(key) && !tempMap[field]) {
+          if (cellValue.includes(key) && tempMap[field] === undefined) {
             tempMap[field] = j
-            matchCount++
+            tempDetected.push(field)
             break
           }
         }
       }
 
-      // 2つ以上のマッチがあればヘッダー行とみなす
-      if (matchCount >= 2) {
+      if (tempDetected.length >= 2) {
         headerRowIndex = i
         columnMap = tempMap
+        detectedFields = tempDetected
         break
       }
     }
 
-    // ヘッダーが見つからない場合はデフォルトマッピング（A列から順に）
+    // ヘッダーが見つからない場合
     if (headerRowIndex === -1) {
       headerRowIndex = 0
-      // デフォルト: 名称, 仕様, 数量, 単位, 単価, 金額 の順
       columnMap = { name: 0, specification: 1, quantity: 2, unit: 3, unit_price: 4, amount: 5 }
-      parseErrors.push({ row: 0, message: 'ヘッダー行が検出できませんでした。デフォルト列順で取込みます' })
+      detectedFields = []
     }
 
-    // 必須列チェック
-    if (columnMap.name === undefined) {
-      parseErrors.push({ row: headerRowIndex, message: '「項目名」または「名称」列が見つかりません' })
-    }
+    const headers = rows[headerRowIndex] || []
+    const rawData = rows.slice(headerRowIndex + 1)
 
-    // データ行の解析
-    for (let i = headerRowIndex + 1; i < rows.length; i++) {
-      const row = rows[i]
-      if (!row || row.every(cell => !cell && cell !== 0)) continue // 空行スキップ
+    // アイテム解析
+    const { parsedItems, parseErrors } = parseItemsFromRaw(rawData, columnMap)
+
+    setExcelPreview({
+      show: true,
+      items: parsedItems,
+      errors: parseErrors,
+      columnMap,
+      detectedFields,
+      headers: headers.map((h, i) => ({ index: i, label: String(h || `列${i + 1}`) })),
+      rawData,
+      importMode: 'add',
+    })
+  }
+
+  // 生データからアイテム解析（列マッピング指定）
+  const parseItemsFromRaw = (rawData, columnMap) => {
+    const parseErrors = []
+    const parsedItems = []
+
+    for (let i = 0; i < rawData.length; i++) {
+      const row = rawData[i]
+      if (!row || row.every(cell => !cell && cell !== 0)) continue
 
       const item = createEmptyItem(parsedItems.length)
       let hasData = false
 
-      // 各フィールドを取得
+      // 各フィールドを取得（B-2: 数値型変換、空値は安全に扱う）
       if (columnMap.category !== undefined) {
         item.category = String(row[columnMap.category] || '').trim()
       }
@@ -347,9 +400,10 @@ export default function QuoteCreatePage() {
         const qtyVal = row[columnMap.quantity]
         const qty = parseFloat(qtyVal)
         if (qtyVal !== undefined && qtyVal !== '' && isNaN(qty)) {
-          parseErrors.push({ row: i + 1, message: `数量「${qtyVal}」を数値に変換できません` })
+          parseErrors.push({ row: i + 2, message: `数量「${qtyVal}」を数値に変換できません` })
         }
-        item.quantity = isNaN(qty) ? '' : qty.toString()
+        // B-2: 空値は0として扱う
+        item.quantity = isNaN(qty) ? '0' : qty.toString()
       }
       if (columnMap.unit !== undefined) {
         const unitVal = String(row[columnMap.unit] || '').trim()
@@ -359,14 +413,16 @@ export default function QuoteCreatePage() {
         const priceVal = row[columnMap.unit_price]
         const price = parseFloat(String(priceVal).replace(/[,，]/g, ''))
         if (priceVal !== undefined && priceVal !== '' && isNaN(price)) {
-          parseErrors.push({ row: i + 1, message: `単価「${priceVal}」を数値に変換できません` })
+          parseErrors.push({ row: i + 2, message: `単価「${priceVal}」を数値に変換できません` })
         }
-        item.unit_price = isNaN(price) ? '' : Math.floor(price).toString()
+        // B-2: 空値は0として扱う
+        item.unit_price = isNaN(price) ? '0' : Math.floor(price).toString()
       }
       if (columnMap.cost_price !== undefined) {
         const costVal = row[columnMap.cost_price]
         const cost = parseFloat(String(costVal).replace(/[,，]/g, ''))
-        item.cost_price = isNaN(cost) ? '' : Math.floor(cost).toString()
+        // B-2: 空値は0として扱う
+        item.cost_price = isNaN(cost) ? '0' : Math.floor(cost).toString()
       }
       if (columnMap.amount !== undefined) {
         const amtVal = row[columnMap.amount]
@@ -374,50 +430,123 @@ export default function QuoteCreatePage() {
         item.amount = isNaN(amt) ? 0 : Math.floor(amt)
       }
 
-      // 金額が空で数量・単価があれば自動計算
-      if (!item.amount && item.quantity && item.unit_price) {
+      // B-3: 金額がない場合は quantity * unit_price を生成
+      if (!item.amount || item.amount === 0) {
         const qty = parseFloat(item.quantity) || 0
         const price = parseFloat(item.unit_price) || 0
         item.amount = Math.floor(qty * price)
       }
 
-      // データがある行のみ追加
       if (hasData) {
         parsedItems.push(item)
       }
     }
 
-    if (parsedItems.length === 0) {
-      showToast('取込可能なデータがありません', 'error')
-      return
+    return { parsedItems, parseErrors }
+  }
+
+  // 列マッピング変更時の再解析
+  const handleColumnMapChange = (field, columnIndex) => {
+    const newColumnMap = { ...excelPreview.columnMap }
+    if (columnIndex === '') {
+      delete newColumnMap[field]
+    } else {
+      newColumnMap[field] = parseInt(columnIndex)
     }
 
-    // プレビュー表示
-    setExcelPreview({ show: true, items: parsedItems, errors: parseErrors })
+    const { parsedItems, parseErrors } = parseItemsFromRaw(excelPreview.rawData, newColumnMap)
+
+    setExcelPreview(prev => ({
+      ...prev,
+      columnMap: newColumnMap,
+      items: parsedItems,
+      errors: parseErrors,
+    }))
+  }
+
+  // インポートモード変更
+  const handleImportModeChange = (mode) => {
+    setExcelPreview(prev => ({ ...prev, importMode: mode }))
+  }
+
+  // 必須フィールドが揃っているかチェック
+  const hasRequiredFields = () => {
+    const requiredFields = FIELD_DEFINITIONS.filter(f => f.required).map(f => f.key)
+    return requiredFields.every(field => excelPreview.columnMap[field] !== undefined)
   }
 
   // Excel取込: プレビュー確定
   const handleExcelConfirm = () => {
-    const newItems = excelPreview.items.map((item, idx) => ({
-      ...item,
-      seq: items.length + idx,
-    }))
-
-    // 既存の空行を除いて追加
-    const existingItems = items.filter(item => item.name.trim())
-    if (existingItems.length === 0) {
-      setItems(newItems.map((item, idx) => ({ ...item, seq: idx })))
-    } else {
-      setItems([...existingItems, ...newItems].map((item, idx) => ({ ...item, seq: idx })))
+    // 必須フィールドチェック
+    if (!hasRequiredFields()) {
+      showToast('必須項目（項目名、数量、単価）を割り当ててください', 'error')
+      return
     }
 
-    setExcelPreview({ show: false, items: [], errors: [] })
-    showToast(`${newItems.length}件の明細を取り込みました`, 'success')
+    // 置換モードの場合は確認ダイアログ
+    if (excelPreview.importMode === 'replace') {
+      const existingCount = items.filter(item => item.name.trim()).length
+      if (existingCount > 0) {
+        if (!window.confirm(`既存の明細 ${existingCount}件 を削除して置換します。\nこの操作は元に戻せません。続行しますか？`)) {
+          return
+        }
+      }
+    }
+
+    // B-1: QuoteItem正規化
+    const normalizedItems = excelPreview.items.map((item, idx) => ({
+      seq: idx,
+      category: item.category || '',
+      name: item.name || '',
+      specification: item.specification || '',
+      quantity: parseFloat(item.quantity) || 0,
+      unit: item.unit || '式',
+      unit_price: parseInt(item.unit_price) || 0,
+      cost_price: parseInt(item.cost_price) || 0,
+      amount: item.amount || 0,
+    }))
+
+    if (excelPreview.importMode === 'replace') {
+      // 置換: 既存明細をクリアして新規追加
+      setItems(normalizedItems.map((item, idx) => ({
+        ...item,
+        seq: idx,
+        quantity: item.quantity.toString(),
+        unit_price: item.unit_price.toString(),
+        cost_price: item.cost_price.toString(),
+      })))
+    } else {
+      // 追加: 既存明細の後ろに追加
+      const existingItems = items.filter(item => item.name.trim())
+      const startSeq = existingItems.length
+      const newItems = normalizedItems.map((item, idx) => ({
+        ...item,
+        seq: startSeq + idx,
+        quantity: item.quantity.toString(),
+        unit_price: item.unit_price.toString(),
+        cost_price: item.cost_price.toString(),
+      }))
+
+      if (existingItems.length === 0) {
+        setItems(newItems)
+      } else {
+        setItems([...existingItems, ...newItems])
+      }
+    }
+
+    setExcelPreview({
+      show: false, items: [], errors: [], columnMap: {},
+      detectedFields: [], headers: [], rawData: [], importMode: 'add',
+    })
+    showToast(`${normalizedItems.length}件の明細を${excelPreview.importMode === 'replace' ? '置換' : '追加'}しました`, 'success')
   }
 
   // Excel取込: プレビューキャンセル
   const handleExcelCancel = () => {
-    setExcelPreview({ show: false, items: [], errors: [] })
+    setExcelPreview({
+      show: false, items: [], errors: [], columnMap: {},
+      detectedFields: [], headers: [], rawData: [], importMode: 'add',
+    })
   }
 
   // バリデーション（設計書3.1.5）
@@ -674,6 +803,15 @@ export default function QuoteCreatePage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold">明細</h2>
             <div className="flex items-center gap-2">
+              {/* テンプレートダウンロード */}
+              <button
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-100"
+                style={{ color: textLight }}
+              >
+                <Download className="w-4 h-4" />
+                テンプレート
+              </button>
               {/* Excel取込ボタン */}
               <input
                 ref={fileInputRef}
@@ -892,7 +1030,7 @@ export default function QuoteCreatePage() {
       {excelPreview.show && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div
-            className="w-full max-w-4xl max-h-[90vh] rounded-2xl overflow-hidden flex flex-col"
+            className="w-full max-w-5xl max-h-[90vh] rounded-2xl overflow-hidden flex flex-col"
             style={{ background: cardBg }}
           >
             {/* モーダルヘッダー */}
@@ -904,6 +1042,48 @@ export default function QuoteCreatePage() {
               <button onClick={handleExcelCancel} className="p-2 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* 列マッピングUI */}
+            <div className="px-5 py-3 border-b" style={{ borderColor: cardBorder, background: inputBg }}>
+              <div className="text-sm font-medium mb-2">列マッピング</div>
+              <div className="flex flex-wrap gap-3">
+                {FIELD_DEFINITIONS.map(field => {
+                  const isDetected = excelPreview.detectedFields.includes(field.key)
+                  const currentValue = excelPreview.columnMap[field.key]
+                  return (
+                    <div key={field.key} className="flex items-center gap-1.5">
+                      <span className="text-xs" style={{ color: textLight }}>
+                        {field.label}
+                        {field.required && <span className="text-red-500">*</span>}:
+                      </span>
+                      {isDetected ? (
+                        <span className="text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">
+                          {excelPreview.headers.find(h => h.index === currentValue)?.label || `列${currentValue + 1}`}
+                        </span>
+                      ) : (
+                        <select
+                          value={currentValue ?? ''}
+                          onChange={(e) => handleColumnMapChange(field.key, e.target.value)}
+                          className="text-xs px-2 py-1 rounded border"
+                          style={{ borderColor: cardBorder }}
+                        >
+                          <option value="">未割当</option>
+                          {excelPreview.headers.map(h => (
+                            <option key={h.index} value={h.index}>{h.label}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {!hasRequiredFields() && (
+                <div className="mt-2 text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  必須項目（項目名、数量、単価）を割り当ててください
+                </div>
+              )}
             </div>
 
             {/* エラー表示 */}
@@ -976,21 +1156,50 @@ export default function QuoteCreatePage() {
             </div>
 
             {/* モーダルフッター */}
-            <div className="px-5 py-4 flex gap-3 border-t" style={{ borderColor: cardBorder }}>
-              <button
-                onClick={handleExcelCancel}
-                className="flex-1 py-3 rounded-xl font-medium"
-                style={{ background: inputBg, border: `1px solid ${cardBorder}` }}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleExcelConfirm}
-                className="flex-1 py-3 rounded-xl font-medium bg-emerald-500 text-white hover:bg-emerald-600 flex items-center justify-center gap-2"
-              >
-                <CheckCircle className="w-4 h-4" />
+            <div className="px-5 py-4 border-t" style={{ borderColor: cardBorder }}>
+              {/* 追加/置換選択 */}
+              <div className="flex items-center gap-4 mb-3">
+                <span className="text-sm font-medium">取込方法:</span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="importMode"
+                    value="add"
+                    checked={excelPreview.importMode === 'add'}
+                    onChange={() => handleImportModeChange('add')}
+                    className="w-4 h-4 text-emerald-500"
+                  />
+                  <span className="text-sm">追加（既存明細を残す）</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="importMode"
+                    value="replace"
+                    checked={excelPreview.importMode === 'replace'}
+                    onChange={() => handleImportModeChange('replace')}
+                    className="w-4 h-4 text-red-500"
+                  />
+                  <span className="text-sm text-red-600">置換（既存明細を削除）</span>
+                </label>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExcelCancel}
+                  className="flex-1 py-3 rounded-xl font-medium"
+                  style={{ background: inputBg, border: `1px solid ${cardBorder}` }}
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleExcelConfirm}
+                  disabled={!hasRequiredFields()}
+                  className="flex-1 py-3 rounded-xl font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
                 取り込む
               </button>
+              </div>
             </div>
           </div>
         </div>
