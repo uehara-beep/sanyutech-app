@@ -4,11 +4,14 @@
  * URL: /sales/quote-create
  * アクセス権限: 営業、管理者
  *
- * 手入力のみ対応（Excel取込は対象外）
+ * 機能:
+ * - 手入力による見積作成
+ * - Excel取込（フロント解析→プレビュー→保存）
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Save, FileText, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Save, FileText, AlertCircle, Upload, X, CheckCircle } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { API_BASE, authGet, authPost, authPut } from '../../config/api'
 import { useThemeStore, backgroundStyles } from '../../store'
 
@@ -40,10 +43,29 @@ const getTodayString = () => {
   return new Date().toISOString().split('T')[0]
 }
 
+// 列名とフィールドのマッピング
+const COLUMN_MAPPING = {
+  '分類': 'category',
+  'カテゴリ': 'category',
+  '項目名': 'name',
+  '名称': 'name',
+  '品名': 'name',
+  '仕様': 'specification',
+  '規格': 'specification',
+  'スペック': 'specification',
+  '数量': 'quantity',
+  '単位': 'unit',
+  '単価': 'unit_price',
+  '原価': 'cost_price',
+  '金額': 'amount',
+  '合計': 'amount',
+}
+
 export default function QuoteCreatePage() {
   const navigate = useNavigate()
   const { id } = useParams()  // 編集モード時のID
   const isEditMode = !!id
+  const fileInputRef = useRef(null)
 
   const { backgroundId } = useThemeStore()
   const currentBg = backgroundStyles.find(b => b.id === backgroundId) || backgroundStyles[0]
@@ -80,6 +102,10 @@ export default function QuoteCreatePage() {
 
   // 合計金額
   const [totals, setTotals] = useState({ subtotal: 0, tax: 0, total: 0 })
+
+  // Excel取込用State
+  const [excelPreview, setExcelPreview] = useState({ show: false, items: [], errors: [] })
+  const [excelParsing, setExcelParsing] = useState(false)
 
   // 得意先マスタを取得
   useEffect(() => {
@@ -196,6 +222,202 @@ export default function QuoteCreatePage() {
     if (window.confirm('この明細行を削除しますか？')) {
       setItems(prev => prev.filter((_, i) => i !== index).map((item, i) => ({ ...item, seq: i })))
     }
+  }
+
+  // Excel取込: ファイル選択
+  const handleExcelSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // ファイル形式チェック
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ]
+    if (!validTypes.includes(file.type) && !file.name.match(/\.xlsx?$/i)) {
+      showToast('Excel形式(.xlsx, .xls)を選択してください', 'error')
+      return
+    }
+
+    setExcelParsing(true)
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result)
+        const workbook = XLSX.read(data, { type: 'array' })
+
+        // 最初のシートを読み込み
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+
+        parseExcelData(jsonData)
+      } catch (error) {
+        console.error('Excel解析エラー:', error)
+        showToast('Excelファイルの読み込みに失敗しました', 'error')
+      } finally {
+        setExcelParsing(false)
+        // inputをリセット
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }
+    }
+    reader.onerror = () => {
+      showToast('ファイルの読み込みに失敗しました', 'error')
+      setExcelParsing(false)
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  // Excel解析
+  const parseExcelData = (rows) => {
+    if (!rows || rows.length < 2) {
+      showToast('データが見つかりません', 'error')
+      return
+    }
+
+    const parseErrors = []
+    const parsedItems = []
+
+    // ヘッダー行を検出（列名を含む行を探す）
+    let headerRowIndex = -1
+    let columnMap = {}
+
+    for (let i = 0; i < Math.min(10, rows.length); i++) {
+      const row = rows[i]
+      if (!row) continue
+
+      // 列名マッピングを試行
+      const tempMap = {}
+      let matchCount = 0
+
+      for (let j = 0; j < row.length; j++) {
+        const cellValue = String(row[j] || '').trim()
+        for (const [key, field] of Object.entries(COLUMN_MAPPING)) {
+          if (cellValue.includes(key) && !tempMap[field]) {
+            tempMap[field] = j
+            matchCount++
+            break
+          }
+        }
+      }
+
+      // 2つ以上のマッチがあればヘッダー行とみなす
+      if (matchCount >= 2) {
+        headerRowIndex = i
+        columnMap = tempMap
+        break
+      }
+    }
+
+    // ヘッダーが見つからない場合はデフォルトマッピング（A列から順に）
+    if (headerRowIndex === -1) {
+      headerRowIndex = 0
+      // デフォルト: 名称, 仕様, 数量, 単位, 単価, 金額 の順
+      columnMap = { name: 0, specification: 1, quantity: 2, unit: 3, unit_price: 4, amount: 5 }
+      parseErrors.push({ row: 0, message: 'ヘッダー行が検出できませんでした。デフォルト列順で取込みます' })
+    }
+
+    // 必須列チェック
+    if (columnMap.name === undefined) {
+      parseErrors.push({ row: headerRowIndex, message: '「項目名」または「名称」列が見つかりません' })
+    }
+
+    // データ行の解析
+    for (let i = headerRowIndex + 1; i < rows.length; i++) {
+      const row = rows[i]
+      if (!row || row.every(cell => !cell && cell !== 0)) continue // 空行スキップ
+
+      const item = createEmptyItem(parsedItems.length)
+      let hasData = false
+
+      // 各フィールドを取得
+      if (columnMap.category !== undefined) {
+        item.category = String(row[columnMap.category] || '').trim()
+      }
+      if (columnMap.name !== undefined) {
+        item.name = String(row[columnMap.name] || '').trim()
+        if (item.name) hasData = true
+      }
+      if (columnMap.specification !== undefined) {
+        item.specification = String(row[columnMap.specification] || '').trim()
+      }
+      if (columnMap.quantity !== undefined) {
+        const qtyVal = row[columnMap.quantity]
+        const qty = parseFloat(qtyVal)
+        if (qtyVal !== undefined && qtyVal !== '' && isNaN(qty)) {
+          parseErrors.push({ row: i + 1, message: `数量「${qtyVal}」を数値に変換できません` })
+        }
+        item.quantity = isNaN(qty) ? '' : qty.toString()
+      }
+      if (columnMap.unit !== undefined) {
+        const unitVal = String(row[columnMap.unit] || '').trim()
+        item.unit = UNIT_OPTIONS.includes(unitVal) ? unitVal : '式'
+      }
+      if (columnMap.unit_price !== undefined) {
+        const priceVal = row[columnMap.unit_price]
+        const price = parseFloat(String(priceVal).replace(/[,，]/g, ''))
+        if (priceVal !== undefined && priceVal !== '' && isNaN(price)) {
+          parseErrors.push({ row: i + 1, message: `単価「${priceVal}」を数値に変換できません` })
+        }
+        item.unit_price = isNaN(price) ? '' : Math.floor(price).toString()
+      }
+      if (columnMap.cost_price !== undefined) {
+        const costVal = row[columnMap.cost_price]
+        const cost = parseFloat(String(costVal).replace(/[,，]/g, ''))
+        item.cost_price = isNaN(cost) ? '' : Math.floor(cost).toString()
+      }
+      if (columnMap.amount !== undefined) {
+        const amtVal = row[columnMap.amount]
+        const amt = parseFloat(String(amtVal).replace(/[,，]/g, ''))
+        item.amount = isNaN(amt) ? 0 : Math.floor(amt)
+      }
+
+      // 金額が空で数量・単価があれば自動計算
+      if (!item.amount && item.quantity && item.unit_price) {
+        const qty = parseFloat(item.quantity) || 0
+        const price = parseFloat(item.unit_price) || 0
+        item.amount = Math.floor(qty * price)
+      }
+
+      // データがある行のみ追加
+      if (hasData) {
+        parsedItems.push(item)
+      }
+    }
+
+    if (parsedItems.length === 0) {
+      showToast('取込可能なデータがありません', 'error')
+      return
+    }
+
+    // プレビュー表示
+    setExcelPreview({ show: true, items: parsedItems, errors: parseErrors })
+  }
+
+  // Excel取込: プレビュー確定
+  const handleExcelConfirm = () => {
+    const newItems = excelPreview.items.map((item, idx) => ({
+      ...item,
+      seq: items.length + idx,
+    }))
+
+    // 既存の空行を除いて追加
+    const existingItems = items.filter(item => item.name.trim())
+    if (existingItems.length === 0) {
+      setItems(newItems.map((item, idx) => ({ ...item, seq: idx })))
+    } else {
+      setItems([...existingItems, ...newItems].map((item, idx) => ({ ...item, seq: idx })))
+    }
+
+    setExcelPreview({ show: false, items: [], errors: [] })
+    showToast(`${newItems.length}件の明細を取り込みました`, 'success')
+  }
+
+  // Excel取込: プレビューキャンセル
+  const handleExcelCancel = () => {
+    setExcelPreview({ show: false, items: [], errors: [] })
   }
 
   // バリデーション（設計書3.1.5）
@@ -451,12 +673,30 @@ export default function QuoteCreatePage() {
         <div className="rounded-2xl p-5" style={{ background: cardBg }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold">明細</h2>
-            <button
-              onClick={handleAddRow}
-              className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
-            >
-              <Plus className="w-4 h-4" /> 行追加
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Excel取込ボタン */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleExcelSelect}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={excelParsing}
+                className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg border border-emerald-500 text-emerald-500 hover:bg-emerald-50 disabled:opacity-50"
+              >
+                <Upload className="w-4 h-4" />
+                {excelParsing ? '読込中...' : 'Excel取込'}
+              </button>
+              <button
+                onClick={handleAddRow}
+                className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
+              >
+                <Plus className="w-4 h-4" /> 行追加
+              </button>
+            </div>
           </div>
 
           {errors.items && (
@@ -645,6 +885,114 @@ export default function QuoteCreatePage() {
           } text-white`}
         >
           {toast.message}
+        </div>
+      )}
+
+      {/* Excel取込プレビューモーダル */}
+      {excelPreview.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div
+            className="w-full max-w-4xl max-h-[90vh] rounded-2xl overflow-hidden flex flex-col"
+            style={{ background: cardBg }}
+          >
+            {/* モーダルヘッダー */}
+            <div className="px-5 py-4 flex items-center justify-between border-b" style={{ borderColor: cardBorder }}>
+              <div className="flex items-center gap-2">
+                <Upload className="w-5 h-5 text-emerald-500" />
+                <h3 className="text-lg font-bold">Excel取込プレビュー</h3>
+              </div>
+              <button onClick={handleExcelCancel} className="p-2 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* エラー表示 */}
+            {excelPreview.errors.length > 0 && (
+              <div className="px-5 py-3 bg-amber-50 border-b border-amber-200">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <div className="font-medium text-amber-700 mb-1">注意事項</div>
+                    <ul className="text-amber-600 space-y-0.5">
+                      {excelPreview.errors.slice(0, 5).map((err, idx) => (
+                        <li key={idx}>
+                          {err.row > 0 && `行${err.row}: `}{err.message}
+                        </li>
+                      ))}
+                      {excelPreview.errors.length > 5 && (
+                        <li>...他 {excelPreview.errors.length - 5} 件</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* プレビューテーブル */}
+            <div className="flex-1 overflow-auto p-5">
+              <div className="text-sm mb-3" style={{ color: textLight }}>
+                {excelPreview.items.length}件の明細を取り込みます
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[700px]">
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${cardBorder}` }}>
+                      <th className="px-2 py-2 text-left font-medium" style={{ color: textLight }}>#</th>
+                      <th className="px-2 py-2 text-left font-medium" style={{ color: textLight }}>分類</th>
+                      <th className="px-2 py-2 text-left font-medium" style={{ color: textLight }}>項目名</th>
+                      <th className="px-2 py-2 text-left font-medium" style={{ color: textLight }}>仕様</th>
+                      <th className="px-2 py-2 text-right font-medium" style={{ color: textLight }}>数量</th>
+                      <th className="px-2 py-2 text-center font-medium" style={{ color: textLight }}>単位</th>
+                      <th className="px-2 py-2 text-right font-medium" style={{ color: textLight }}>単価</th>
+                      <th className="px-2 py-2 text-right font-medium" style={{ color: textLight }}>原価</th>
+                      <th className="px-2 py-2 text-right font-medium" style={{ color: textLight }}>金額</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {excelPreview.items.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: `1px solid ${cardBorder}` }}>
+                        <td className="px-2 py-2" style={{ color: textLight }}>{idx + 1}</td>
+                        <td className="px-2 py-2">{item.category || '-'}</td>
+                        <td className="px-2 py-2 font-medium">{item.name || '-'}</td>
+                        <td className="px-2 py-2">{item.specification || '-'}</td>
+                        <td className="px-2 py-2 text-right">{item.quantity || '-'}</td>
+                        <td className="px-2 py-2 text-center">{item.unit || '-'}</td>
+                        <td className="px-2 py-2 text-right">{item.unit_price ? `¥${parseInt(item.unit_price).toLocaleString()}` : '-'}</td>
+                        <td className="px-2 py-2 text-right">{item.cost_price ? `¥${parseInt(item.cost_price).toLocaleString()}` : '-'}</td>
+                        <td className="px-2 py-2 text-right font-medium text-blue-500">¥{(item.amount || 0).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: `2px solid ${cardBorder}` }}>
+                      <td colSpan={8} className="px-2 py-3 text-right font-bold">合計</td>
+                      <td className="px-2 py-3 text-right font-bold text-blue-500">
+                        ¥{excelPreview.items.reduce((sum, item) => sum + (item.amount || 0), 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* モーダルフッター */}
+            <div className="px-5 py-4 flex gap-3 border-t" style={{ borderColor: cardBorder }}>
+              <button
+                onClick={handleExcelCancel}
+                className="flex-1 py-3 rounded-xl font-medium"
+                style={{ background: inputBg, border: `1px solid ${cardBorder}` }}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleExcelConfirm}
+                className="flex-1 py-3 rounded-xl font-medium bg-emerald-500 text-white hover:bg-emerald-600 flex items-center justify-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" />
+                取り込む
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
