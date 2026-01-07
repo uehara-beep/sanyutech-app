@@ -69,6 +69,7 @@ import ExpenseNewPage from './pages/ExpenseNewPage'
 import MaterialSlipPage from './pages/MaterialSlipPage'
 import MonthlyReportPage from './pages/MonthlyReportPage'
 import OCRPage from './pages/OCRPage'
+import GoogleSchedulePage from './pages/GoogleSchedulePage'
 import HotelSearch from './components/HotelSearch'
 import ProjectDetailPage2 from './pages/ProjectDetailPage'
 
@@ -243,6 +244,7 @@ export default function App() {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/monthly-report" element={<MonthlyReportPage />} />
         <Route path="/business-cards" element={<BusinessCardsPage />} />
+        <Route path="/google-schedule" element={<GoogleSchedulePage />} />
         <Route path="/hotel" element={<HotelSearch />} />
 
         {/* Phase 1: 経理・事務機能 */}
