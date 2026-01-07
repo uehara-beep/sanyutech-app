@@ -59,6 +59,7 @@ import QuoteCreatePage from './pages/QuoteCreatePage'
 import QuoteCreatePageV3 from './pages/sales/QuoteCreatePage'  // 設計書3.1準拠
 import QuotesListPageV3 from './pages/sales/QuotesListPage'  // 設計書準拠見積一覧
 import QuoteDetailPageV3 from './pages/sales/QuoteDetailPage'  // 設計書準拠見積詳細
+import SiteDetailPageV3 from './pages/construction/SiteDetailPage'  // 設計書3.2準拠現場詳細
 import QuoteImportPage from './pages/QuoteImportPage'
 import ClientRankingPage from './pages/ClientRankingPage'
 import WorkersPage from './pages/WorkersPage'
@@ -186,6 +187,8 @@ export default function App() {
 
         {/* 現場 */}
         <Route path="/site/:id" element={<SitePage />} />
+        {/* 設計書3.2準拠の現場詳細画面 */}
+        <Route path="/construction/sites/:id" element={<SiteDetailPageV3 />} />
         <Route path="/weather" element={<WeatherPage />} />
         <Route path="/emergency" element={<EmergencyPage />} />
         <Route path="/checklist" element={<ChecklistPage />} />

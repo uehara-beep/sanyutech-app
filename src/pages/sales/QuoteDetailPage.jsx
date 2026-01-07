@@ -129,7 +129,7 @@ export default function QuoteDetailPage() {
       // 現場詳細へ遷移
       if (result.project_id) {
         setTimeout(() => {
-          navigate(`/projects/${result.project_id}`)
+          navigate(`/construction/sites/${result.project_id}`)
         }, 1500)
       } else {
         // 再取得
@@ -230,7 +230,7 @@ export default function QuoteDetailPage() {
               </span>
               {quote.project_id && (
                 <button
-                  onClick={() => navigate(`/projects/${quote.project_id}`)}
+                  onClick={() => navigate(`/construction/sites/${quote.project_id}`)}
                   className="flex items-center gap-1 text-xs text-blue-500"
                 >
                   <Building2 className="w-3 h-3" />
@@ -370,7 +370,7 @@ export default function QuoteDetailPage() {
 
         {status === 'ordered' && quote.project_id && (
           <button
-            onClick={() => navigate(`/projects/${quote.project_id}`)}
+            onClick={() => navigate(`/construction/sites/${quote.project_id}`)}
             className="w-full py-3 rounded-xl font-medium bg-emerald-500 text-white flex items-center justify-center gap-2"
           >
             <Building2 className="w-4 h-4" />
