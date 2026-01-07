@@ -22,7 +22,7 @@ export default function ConstructionProjectDetailPage() {
 
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('overview') // overview | costs | progress
+  const [activeTab, setActiveTab] = useState('costs') // costs | progress
   const [showCostModal, setShowCostModal] = useState(false)
   const [showProgressModal, setShowProgressModal] = useState(false)
   const [showBudgetModal, setShowBudgetModal] = useState(false)
@@ -68,8 +68,17 @@ export default function ConstructionProjectDetailPage() {
   }
 
   const handleAddCost = async () => {
+    if (!costForm.cost_date) {
+      showToast('日付を入力してください')
+      return
+    }
     if (!costForm.amount) {
       showToast('金額を入力してください')
+      return
+    }
+    const amount = parseInt(costForm.amount)
+    if (amount < 0) {
+      showToast('金額は0以上で入力してください')
       return
     }
     try {
@@ -77,7 +86,7 @@ export default function ConstructionProjectDetailPage() {
         method: 'POST',
         body: JSON.stringify({
           ...costForm,
-          amount: parseInt(costForm.amount),
+          amount,
         }),
       })
       showToast('原価を追加しました')
@@ -90,13 +99,26 @@ export default function ConstructionProjectDetailPage() {
       })
       fetchProject()
     } catch (error) {
-      showToast('原価の追加に失敗しました')
+      if (error.status === 409) {
+        showToast('同一内容の原価が既に登録されています')
+      } else {
+        showToast(error.message || '原価の追加に失敗しました')
+      }
     }
   }
 
   const handleAddProgress = async () => {
+    if (!progressForm.target_month) {
+      showToast('対象月を入力してください')
+      return
+    }
     if (!progressForm.progress_amount) {
       showToast('金額を入力してください')
+      return
+    }
+    const amount = parseInt(progressForm.progress_amount)
+    if (amount < 0) {
+      showToast('金額は0以上で入力してください')
       return
     }
     try {
@@ -104,7 +126,7 @@ export default function ConstructionProjectDetailPage() {
         method: 'POST',
         body: JSON.stringify({
           ...progressForm,
-          progress_amount: parseInt(progressForm.progress_amount),
+          progress_amount: amount,
         }),
       })
       showToast('出来高を追加しました')
@@ -116,7 +138,11 @@ export default function ConstructionProjectDetailPage() {
       })
       fetchProject()
     } catch (error) {
-      showToast('出来高の追加に失敗しました')
+      if (error.status === 409) {
+        showToast('同一内容の出来高が既に登録されています')
+      } else {
+        showToast(error.message || '出来高の追加に失敗しました')
+      }
     }
   }
 
@@ -168,6 +194,15 @@ export default function ConstructionProjectDetailPage() {
     )
   }
 
+  // 進捗率計算
+  const progressRate = project.contract_amount > 0
+    ? (project.progress_total / project.contract_amount * 100)
+    : 0
+  // 実績粗利率計算
+  const actualProfitRate = project.progress_total > 0
+    ? (project.actual_profit / project.progress_total * 100)
+    : 0
+
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
@@ -198,52 +233,80 @@ export default function ConstructionProjectDetailPage() {
           )}
         </Card>
 
-        {/* 数字カード（全員表示OK） */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <Card className="text-center">
-            <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>受注金額</div>
-            <div className="text-lg font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.contract_amount)}</div>
-          </Card>
-          <Card className="text-center">
-            <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>予定原価</div>
-            <div className="text-lg font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.budget_amount)}</div>
-          </Card>
-          <Card className="text-center">
-            <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>予定粗利</div>
-            <div className="text-lg font-bold text-blue-400">
-              {formatCurrency(project.planned_profit_amount)}
-              <span className="text-xs ml-1">({formatRate(project.planned_profit_rate)})</span>
+        {/* サマリー（常時表示・全員閲覧可） */}
+        <Card className="mb-4">
+          <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: currentBg.text }}>
+            📊 工事サマリー
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center mb-3">
+            <div className="rounded-lg p-2" style={{ background: inputBg }}>
+              <div className="text-[10px]" style={{ color: currentBg.textLight }}>契約金額</div>
+              <div className="text-sm font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.contract_amount)}</div>
             </div>
-          </Card>
-          <Card className="text-center">
-            <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>実績原価（累計）</div>
-            <div className="text-lg font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.actual_cost_total)}</div>
-          </Card>
-          <Card className="text-center">
-            <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>出来高（累計）</div>
-            <div className="text-lg font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.progress_total)}</div>
-          </Card>
-          <Card className="text-center">
-            <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>実績粗利</div>
-            <div className={`text-lg font-bold ${project.actual_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {formatCurrency(project.actual_profit)}
+            <div className="rounded-lg p-2" style={{ background: inputBg }}>
+              <div className="text-[10px]" style={{ color: currentBg.textLight }}>累計出来高</div>
+              <div className="text-sm font-bold text-blue-400">{formatCurrency(project.progress_total)}</div>
             </div>
-          </Card>
-        </div>
+            <div className="rounded-lg p-2" style={{ background: inputBg }}>
+              <div className="text-[10px]" style={{ color: currentBg.textLight }}>実績原価</div>
+              <div className="text-sm font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.actual_cost_total)}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-lg p-2" style={{ background: inputBg }}>
+              <div className="text-[10px]" style={{ color: currentBg.textLight }}>実績粗利</div>
+              <div className={`text-sm font-bold ${project.actual_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatCurrency(project.actual_profit)}
+                <span className="text-[10px] ml-1">({formatRate(actualProfitRate)})</span>
+              </div>
+            </div>
+            <div className="rounded-lg p-2" style={{ background: inputBg }}>
+              <div className="text-[10px]" style={{ color: currentBg.textLight }}>進捗率</div>
+              <div className="text-sm font-bold text-orange-400">{formatRate(progressRate)}</div>
+            </div>
+          </div>
+          {/* 進捗バー */}
+          <div className="mt-3">
+            <div className="h-2 rounded-full" style={{ background: inputBg }}>
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all"
+                style={{ width: `${Math.min(progressRate, 100)}%` }}
+              />
+            </div>
+          </div>
+        </Card>
 
-        {/* 予算編集ボタン（adminのみ） */}
+        {/* 予算情報（adminのみ表示） */}
         {isAdmin && (
-          <button
-            onClick={() => setShowBudgetModal(true)}
-            className="w-full py-3 mb-4 rounded-xl text-sm font-bold bg-gradient-to-r from-purple-600 to-purple-500 text-white"
-          >
-            予算編集（Admin）
-          </button>
+          <Card className="mb-4">
+            <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: currentBg.text }}>
+              🔒 予算情報（Admin）
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="rounded-lg p-2" style={{ background: inputBg }}>
+                <div className="text-[10px]" style={{ color: currentBg.textLight }}>予定原価</div>
+                <div className="text-sm font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.budget_amount)}</div>
+              </div>
+              <div className="rounded-lg p-2" style={{ background: inputBg }}>
+                <div className="text-[10px]" style={{ color: currentBg.textLight }}>予定粗利</div>
+                <div className="text-sm font-bold text-purple-400">
+                  {formatCurrency(project.planned_profit_amount)}
+                  <span className="text-[10px] ml-1">({formatRate(project.planned_profit_rate)})</span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowBudgetModal(true)}
+              className="w-full py-2 mt-3 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-purple-500 text-white"
+            >
+              予算編集
+            </button>
+          </Card>
         )}
 
         {/* タブ */}
         <div className="flex gap-2 mb-4">
-          {['overview', 'costs', 'progress'].map(tab => (
+          {['costs', 'progress'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -252,27 +315,10 @@ export default function ConstructionProjectDetailPage() {
               }`}
               style={activeTab !== tab ? { background: inputBg, color: currentBg.textLight } : {}}
             >
-              {tab === 'overview' ? '概要' : tab === 'costs' ? '原価' : '出来高'}
+              {tab === 'costs' ? '原価' : '出来高'}
             </button>
           ))}
         </div>
-
-        {/* 概要タブ */}
-        {activeTab === 'overview' && (
-          <div className="space-y-4">
-            <Card>
-              <div className="text-sm font-bold mb-3" style={{ color: currentBg.text }}>差異分析</div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-xs" style={{ color: currentBg.textLight }}>予定利益と実績利益の差</span>
-                  <span className={`text-xs font-bold ${project.variance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {formatCurrency(project.variance)}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
 
         {/* 原価タブ */}
         {activeTab === 'costs' && (
