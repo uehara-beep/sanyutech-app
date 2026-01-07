@@ -50,7 +50,14 @@ export default function ConstructionProjectDetailPage() {
   })
   const [budgetForm, setBudgetForm] = useState({
     contract_amount: 0,
-    budget_amount: 0,
+    planned_cost_by_category: {
+      labor: 0,
+      material: 0,
+      machine: 0,
+      subcontract: 0,
+      fuel: 0,
+      etc: 0,
+    },
   })
 
   const isAdmin = user?.role === 'admin'
@@ -63,9 +70,16 @@ export default function ConstructionProjectDetailPage() {
     try {
       const data = await authGet(`${API_BASE}/construction/projects/${id}`)
       setProject(data)
+      // カテゴリ別予算をフォームに設定（不足は0で補完）
+      const categoryBudget = { labor: 0, material: 0, machine: 0, subcontract: 0, fuel: 0, etc: 0 }
+      if (data.planned_cost_by_category) {
+        Object.keys(categoryBudget).forEach(key => {
+          categoryBudget[key] = data.planned_cost_by_category[key] || 0
+        })
+      }
       setBudgetForm({
         contract_amount: data.contract_amount || 0,
-        budget_amount: data.budget_amount || 0,
+        planned_cost_by_category: categoryBudget,
       })
     } catch (error) {
       console.error('Fetch error:', error)
@@ -155,12 +169,22 @@ export default function ConstructionProjectDetailPage() {
   }
 
   const handleUpdateBudget = async () => {
+    // カテゴリ別予算のバリデーション（空は0扱い、負は拒否）
+    const categoryBudget = {}
+    for (const key of Object.keys(COST_CATEGORIES)) {
+      const val = parseInt(budgetForm.planned_cost_by_category[key]) || 0
+      if (val < 0) {
+        showToast(`${COST_CATEGORIES[key]}の金額は0以上で入力してください`)
+        return
+      }
+      categoryBudget[key] = val
+    }
     try {
       await authFetch(`${API_BASE}/construction/projects/${id}/budget`, {
         method: 'PATCH',
         body: JSON.stringify({
-          contract_amount: parseInt(budgetForm.contract_amount),
-          budget_amount: parseInt(budgetForm.budget_amount),
+          contract_amount: parseInt(budgetForm.contract_amount) || 0,
+          planned_cost_by_category: categoryBudget,
         }),
       })
       showToast('予算を更新しました')
@@ -284,49 +308,69 @@ export default function ConstructionProjectDetailPage() {
           </div>
         </Card>
 
-        {/* 予算情報（adminのみ表示） */}
+        {/* カテゴリ別 予算/実績/差額（全員表示） */}
+        <Card className="mb-4">
+          <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: currentBg.text }}>
+            📋 カテゴリ別 予算/実績/差額
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr style={{ color: currentBg.textLight }}>
+                  <th className="text-left py-1 pr-2">カテゴリ</th>
+                  <th className="text-right py-1 px-1">予算</th>
+                  <th className="text-right py-1 px-1">実績</th>
+                  <th className="text-right py-1 pl-1">差額</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(COST_CATEGORIES).map(([key, label]) => {
+                  const planned = project.planned_cost_by_category?.[key] || 0
+                  const actual = project.costs_by_category?.[key] || 0
+                  const variance = project.variance_by_category?.[key] || (planned - actual)
+                  return (
+                    <tr key={key} style={{ borderTop: `1px solid ${cardBorder}` }}>
+                      <td className="py-2 pr-2" style={{ color: currentBg.text }}>{label}</td>
+                      <td className="text-right py-2 px-1" style={{ color: currentBg.textLight }}>{formatCurrency(planned)}</td>
+                      <td className="text-right py-2 px-1" style={{ color: currentBg.text }}>{formatCurrency(actual)}</td>
+                      <td className={`text-right py-2 pl-1 font-semibold ${variance < 0 ? 'text-amber-500' : ''}`} style={variance >= 0 ? { color: currentBg.text } : {}}>
+                        {formatCurrency(variance)}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {/* 合計行 */}
+                <tr style={{ borderTop: `2px solid ${cardBorder}` }}>
+                  <td className="py-2 pr-2 font-bold" style={{ color: currentBg.text }}>合計</td>
+                  <td className="text-right py-2 px-1 font-bold" style={{ color: currentBg.textLight }}>{formatCurrency(project.budget_amount)}</td>
+                  <td className="text-right py-2 px-1 font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.actual_cost_total)}</td>
+                  <td className={`text-right py-2 pl-1 font-bold ${(project.budget_amount - project.actual_cost_total) < 0 ? 'text-amber-500' : ''}`} style={(project.budget_amount - project.actual_cost_total) >= 0 ? { color: currentBg.text } : {}}>
+                    {formatCurrency(project.budget_amount - project.actual_cost_total)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* 予算編集ボタン（adminのみ表示） */}
         {isAdmin && (
           <Card className="mb-4">
-            <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: currentBg.text }}>
-              🔒 予算情報（Admin）
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="rounded-lg p-2" style={{ background: inputBg }}>
-                <div className="text-[10px]" style={{ color: currentBg.textLight }}>予定原価</div>
-                <div className="text-sm font-bold" style={{ color: currentBg.text }}>{formatCurrency(project.budget_amount)}</div>
-              </div>
-              <div className="rounded-lg p-2" style={{ background: inputBg }}>
-                <div className="text-[10px]" style={{ color: currentBg.textLight }}>予定粗利</div>
-                <div className="text-sm font-bold text-purple-400">
-                  {formatCurrency(project.planned_profit_amount)}
-                  <span className="text-[10px] ml-1">({formatRate(project.planned_profit_rate)})</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold" style={{ color: currentBg.text }}>🔒 予算管理（Admin）</span>
+                <div className="text-xs" style={{ color: currentBg.textLight }}>
+                  予定粗利: <span className="text-purple-400 font-semibold">{formatCurrency(project.planned_profit_amount)}</span>
+                  <span className="ml-1">({formatRate(project.planned_profit_rate)})</span>
                 </div>
               </div>
+              <button
+                onClick={() => setShowBudgetModal(true)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-purple-500 text-white"
+              >
+                予算編集
+              </button>
             </div>
-
-            {/* カテゴリ別原価内訳 */}
-            {project.costs_by_category && (
-              <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
-                <div className="text-[10px] mb-2" style={{ color: currentBg.textLight }}>カテゴリ別原価</div>
-                <div className="grid grid-cols-3 gap-1 text-center">
-                  {Object.entries(COST_CATEGORIES).map(([key, label]) => (
-                    <div key={key} className="rounded p-1" style={{ background: inputBg }}>
-                      <div className="text-[9px]" style={{ color: currentBg.textLight }}>{label}</div>
-                      <div className="text-[10px] font-bold" style={{ color: currentBg.text }}>
-                        {formatCurrency(project.costs_by_category[key] || 0)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowBudgetModal(true)}
-              className="w-full py-2 mt-3 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-purple-500 text-white"
-            >
-              予算編集
-            </button>
           </Card>
         )}
 
@@ -608,7 +652,7 @@ export default function ConstructionProjectDetailPage() {
             >
               <h3 className="text-lg font-bold mb-4" style={{ color: currentBg.text }}>予算編集（Admin）</h3>
 
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
                 <div>
                   <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>受注金額</label>
                   <input
@@ -621,19 +665,43 @@ export default function ConstructionProjectDetailPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>予定原価</label>
-                  <input
-                    type="number"
-                    value={budgetForm.budget_amount}
-                    onChange={e => setBudgetForm({ ...budgetForm, budget_amount: e.target.value })}
-                    className="w-full rounded-lg px-4 py-3 text-sm"
-                    style={{ background: inputBg, color: currentBg.text }}
-                  />
+                  <label className="text-xs mb-2 block font-semibold" style={{ color: currentBg.text }}>カテゴリ別予算</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(COST_CATEGORIES).map(([key, label]) => (
+                      <div key={key}>
+                        <label className="text-[10px] mb-0.5 block" style={{ color: currentBg.textLight }}>{label}</label>
+                        <input
+                          type="number"
+                          value={budgetForm.planned_cost_by_category[key] || ''}
+                          onChange={e => setBudgetForm({
+                            ...budgetForm,
+                            planned_cost_by_category: {
+                              ...budgetForm.planned_cost_by_category,
+                              [key]: e.target.value
+                            }
+                          })}
+                          placeholder="0"
+                          className="w-full rounded-lg px-3 py-2 text-sm"
+                          style={{ background: inputBg, color: currentBg.text }}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="rounded-lg p-3" style={{ background: inputBg }}>
-                  <div className="text-xs" style={{ color: currentBg.textLight }}>
-                    予定利益（自動計算）: {formatCurrency(parseInt(budgetForm.contract_amount || 0) - parseInt(budgetForm.budget_amount || 0))}
+                  <div className="text-xs space-y-1" style={{ color: currentBg.textLight }}>
+                    <div>
+                      予定原価合計: {formatCurrency(
+                        Object.values(budgetForm.planned_cost_by_category).reduce((sum, v) => sum + (parseInt(v) || 0), 0)
+                      )}
+                    </div>
+                    <div>
+                      予定利益: {formatCurrency(
+                        (parseInt(budgetForm.contract_amount) || 0) -
+                        Object.values(budgetForm.planned_cost_by_category).reduce((sum, v) => sum + (parseInt(v) || 0), 0)
+                      )}
+                    </div>
                   </div>
                 </div>
 
