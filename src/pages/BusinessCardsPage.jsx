@@ -6,9 +6,8 @@ import { API_BASE, authPostFormData } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 const TAGS = [
-  { value: 'client', label: '元請け', color: 'bg-blue-500/20 text-blue-400' },
+  { value: 'sales_target', label: '営業先', color: 'bg-blue-500/20 text-blue-400' },
   { value: 'subcon', label: '協力会社', color: 'bg-green-500/20 text-green-400' },
-  { value: 'vendor', label: '資材', color: 'bg-amber-500/20 text-amber-400' },
   { value: 'other', label: 'その他', color: 'bg-slate-500/20 text-slate-400' },
 ]
 
