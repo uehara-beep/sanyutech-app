@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Header, Card, SectionTitle, Toast } from '../components/common'
-import { API_BASE, authPostFormData } from '../config/api'
+import { Header, Card, Toast } from '../components/common'
+import { API_BASE, authPostFormData, authFetch, authGet } from '../config/api'
 import { useThemeStore, backgroundStyles } from '../store'
 
 const TAGS = [
@@ -29,22 +29,30 @@ export default function BusinessCardsPage() {
   const [activeTag, setActiveTag] = useState('')
   const [showFavorites, setShowFavorites] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const [step, setStep] = useState('capture') // capture | form | detail
   const [scanning, setScanning] = useState(false)
   const [selectedCard, setSelectedCard] = useState(null)
   const [toast, setToast] = useState({ show: false, message: '' })
 
+  // 画像URL
+  const [frontImageUrl, setFrontImageUrl] = useState('')
+  const [backImageUrl, setBackImageUrl] = useState('')
+
+  // 会社マスタ
+  const [companies, setCompanies] = useState([])
+  const [companySearch, setCompanySearch] = useState('')
+  const [companyType, setCompanyType] = useState('prime')
+  const [showNewCompany, setShowNewCompany] = useState(false)
+  const [newCompanyName, setNewCompanyName] = useState('')
+
   const [form, setForm] = useState({
     company_name: '',
     person_name: '',
-    department: '',
-    position: '',
     phone: '',
-    mobile: '',
     email: '',
-    address: '',
-    url: '',
     tag: 'other',
-    memo: '',
+    linked_company_type: null,
+    linked_company_id: null,
   })
 
   useEffect(() => {
@@ -58,12 +66,9 @@ export default function BusinessCardsPage() {
       if (activeTag) params.append('tag', activeTag)
       if (showFavorites) params.append('favorite_only', 'true')
 
-      const res = await fetch(`${API_BASE}/business-cards/?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setCards(data.cards || [])
-        setGrouped(data.grouped || {})
-      }
+      const data = await authGet(`${API_BASE}/business-cards/?${params}`)
+      setCards(data.cards || [])
+      setGrouped(data.grouped || {})
     } catch (error) {
       console.error('Fetch error:', error)
     } finally {
@@ -71,63 +76,150 @@ export default function BusinessCardsPage() {
     }
   }
 
-  const handlePhotoUpload = async (e) => {
+  // 会社マスタ検索
+  const searchCompanies = async (query, type) => {
+    try {
+      const params = new URLSearchParams()
+      if (query) params.append('query', query)
+      if (type) params.append('type', type)
+      const data = await authGet(`${API_BASE}/companies/?${params}`)
+      setCompanies(data || [])
+    } catch (error) {
+      console.error('Company search error:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (step === 'form') {
+      searchCompanies(companySearch, companyType)
+    }
+  }, [companySearch, companyType, step])
+
+  // 画像アップロード
+  const uploadImage = async (file, side) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('side', side)
+    try {
+      const result = await authPostFormData(`${API_BASE}/business-cards/upload-image?side=${side}`, formData)
+      return result.url
+    } catch (error) {
+      console.error('Upload error:', error)
+      return null
+    }
+  }
+
+  // 表面撮影
+  const handleFrontCapture = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     setScanning(true)
-    setShowModal(true)
+    const url = await uploadImage(file, 'front')
+    if (url) {
+      setFrontImageUrl(url)
 
-    try {
-      // 画像をOCR APIに送信
+      // OCR実行
       const formData = new FormData()
       formData.append('file', file)
-
-      const result = await authPostFormData(`${API_BASE}/ocr/business-card`, formData)
-
-      // フォームデータを設定（成功・失敗どちらでもdata構造は返される）
-      if (result.data) {
-        setForm(result.data)
+      try {
+        const result = await authPostFormData(`${API_BASE}/ocr/business-card`, formData)
+        if (result.success) {
+          setForm(prev => ({
+            ...prev,
+            company_name: result.company_name || '',
+            person_name: result.name || '',
+            phone: result.phone || '',
+            email: result.email || '',
+          }))
+          showToast('名刺を読み取りました')
+        } else {
+          showToast(result.message || 'OCR失敗。手動で入力してください')
+        }
+      } catch (error) {
+        showToast('OCR処理に失敗しました')
       }
+    }
+    setScanning(false)
+  }
 
-      if (result.success) {
-        showToast('名刺を読み取りました。内容を確認してください。')
-      } else {
-        // OCR失敗時：メッセージを表示し、空フォームで手動入力を促す
-        showToast(result.message || 'OCR処理に失敗しました。手動で入力してください。')
-      }
+  // 裏面撮影
+  const handleBackCapture = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setScanning(true)
+    const url = await uploadImage(file, 'back')
+    if (url) {
+      setBackImageUrl(url)
+      showToast('裏面を登録しました')
+    }
+    setScanning(false)
+  }
+
+  // 新規会社作成
+  const handleCreateCompany = async () => {
+    if (!newCompanyName.trim()) {
+      showToast('会社名を入力してください')
+      return
+    }
+    try {
+      const result = await authFetch(`${API_BASE}/companies/`, {
+        method: 'POST',
+        body: JSON.stringify({ name: newCompanyName, type: companyType })
+      })
+      setForm(prev => ({
+        ...prev,
+        company_name: result.name,
+        linked_company_type: result.type,
+        linked_company_id: result.id,
+      }))
+      showToast('会社マスタを作成しました')
+      setShowNewCompany(false)
+      setNewCompanyName('')
+      searchCompanies('', companyType)
     } catch (error) {
-      console.error('OCR Error:', error)
-      showToast('通信エラーが発生しました。手動で入力してください。')
-    } finally {
-      setScanning(false)
+      showToast('会社作成に失敗しました')
     }
   }
 
+  // 会社選択
+  const handleSelectCompany = (company) => {
+    setForm(prev => ({
+      ...prev,
+      company_name: company.name,
+      linked_company_type: company.type,
+      linked_company_id: company.id,
+    }))
+    showToast(`${company.name}を選択しました`)
+  }
+
+  // 保存
   const handleSubmit = async () => {
     if (!form.person_name) {
       showToast('氏名は必須です')
       return
     }
+    if (!frontImageUrl || !backImageUrl) {
+      showToast('表裏両方の画像が必要です')
+      return
+    }
 
     try {
+      const payload = {
+        ...form,
+        front_image_url: frontImageUrl,
+        back_image_url: backImageUrl,
+      }
       const url = selectedCard
         ? `${API_BASE}/business-cards/${selectedCard.id}`
         : `${API_BASE}/business-cards/`
       const method = selectedCard ? 'PUT' : 'POST'
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-
-      if (res.ok) {
-        showToast(selectedCard ? '更新しました' : '登録しました')
-        setShowModal(false)
-        resetForm()
-        fetchCards()
-      }
+      await authFetch(url, { method, body: JSON.stringify(payload) })
+      showToast(selectedCard ? '更新しました' : '登録しました')
+      closeModal()
+      fetchCards()
     } catch (error) {
       showToast('エラーが発生しました')
     }
@@ -136,7 +228,7 @@ export default function BusinessCardsPage() {
   const handleToggleFavorite = async (cardId, e) => {
     e.stopPropagation()
     try {
-      await fetch(`${API_BASE}/business-cards/${cardId}/favorite`, { method: 'PUT' })
+      await authFetch(`${API_BASE}/business-cards/${cardId}/favorite`, { method: 'PUT' })
       fetchCards()
     } catch (error) {
       console.error('Error:', error)
@@ -146,48 +238,66 @@ export default function BusinessCardsPage() {
   const handleDelete = async (cardId) => {
     if (!confirm('この名刺を削除しますか？')) return
     try {
-      await fetch(`${API_BASE}/business-cards/${cardId}`, { method: 'DELETE' })
+      await authFetch(`${API_BASE}/business-cards/${cardId}`, { method: 'DELETE' })
       showToast('削除しました')
-      setSelectedCard(null)
+      closeModal()
       fetchCards()
     } catch (error) {
       showToast('削除に失敗しました')
     }
   }
 
-  const openCardDetail = (card) => {
-    setSelectedCard(card)
-    setForm({
-      company_name: card.company_name || '',
-      person_name: card.person_name || '',
-      department: card.department || '',
-      position: card.position || '',
-      phone: card.phone || '',
-      mobile: card.mobile || '',
-      email: card.email || '',
-      address: card.address || '',
-      url: card.url || '',
-      tag: card.tag || 'other',
-      memo: card.memo || '',
-    })
+  // 詳細表示
+  const openCardDetail = async (card) => {
+    try {
+      const detail = await authGet(`${API_BASE}/business-cards/${card.id}`)
+      setSelectedCard(detail)
+      setFrontImageUrl(detail.front_image_url || '')
+      setBackImageUrl(detail.back_image_url || '')
+      setForm({
+        company_name: detail.company_name || '',
+        person_name: detail.person_name || '',
+        phone: detail.phone || '',
+        email: detail.email || '',
+        tag: detail.tag || 'other',
+        linked_company_type: detail.linked_company_type,
+        linked_company_id: detail.linked_company_id,
+      })
+      setStep('detail')
+      setShowModal(true)
+    } catch (error) {
+      showToast('詳細取得に失敗しました')
+    }
+  }
+
+  // 新規登録開始
+  const startNewCard = () => {
+    resetForm()
+    setStep('capture')
     setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    resetForm()
   }
 
   const resetForm = () => {
     setForm({
       company_name: '',
       person_name: '',
-      department: '',
-      position: '',
       phone: '',
-      mobile: '',
       email: '',
-      address: '',
-      url: '',
       tag: 'other',
-      memo: '',
+      linked_company_type: null,
+      linked_company_id: null,
     })
+    setFrontImageUrl('')
+    setBackImageUrl('')
     setSelectedCard(null)
+    setStep('capture')
+    setShowNewCompany(false)
+    setNewCompanyName('')
   }
 
   const showToast = (message) => {
@@ -205,6 +315,13 @@ export default function BusinessCardsPage() {
     return found ? found.label : 'その他'
   }
 
+  // 画像URL生成（バックエンドから取得）
+  const getImageSrc = (url) => {
+    if (!url) return ''
+    if (url.startsWith('http')) return url
+    return `${API_BASE.replace('/api', '')}${url}`
+  }
+
   return (
     <div className="min-h-screen pb-24" style={{ background: currentBg.bg }}>
       <Header
@@ -216,16 +333,12 @@ export default function BusinessCardsPage() {
 
       <div className="px-5 py-4">
         {/* 名刺撮影ボタン */}
-        <label className="flex items-center justify-center gap-2 py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-sm font-bold cursor-pointer text-white">
+        <button
+          onClick={startNewCard}
+          className="w-full flex items-center justify-center gap-2 py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-sm font-bold text-white"
+        >
           📷 名刺を撮影して登録
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handlePhotoUpload}
-          />
-        </label>
+        </button>
 
         {/* 検索 */}
         <div className="relative mb-4">
@@ -233,7 +346,7 @@ export default function BusinessCardsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="会社名・氏名・メモで検索"
+            placeholder="会社名・氏名で検索"
             className="w-full rounded-xl px-4 py-3 pl-10 text-sm"
             style={{ background: inputBg, color: currentBg.text }}
           />
@@ -274,7 +387,7 @@ export default function BusinessCardsPage() {
           ))}
         </div>
 
-        {/* 名刺一覧（会社別グループ） */}
+        {/* 名刺一覧 */}
         {loading ? (
           <div className="text-center py-8" style={{ color: currentBg.textLight }}>読み込み中...</div>
         ) : Object.keys(grouped).length === 0 ? (
@@ -289,7 +402,7 @@ export default function BusinessCardsPage() {
               <div className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: currentBg.textLight }}>
                 <span className="text-lg">🏢</span>
                 {company}
-                <span className="text-xs" style={{ color: currentBg.textLight }}>({companyCards.length})</span>
+                <span className="text-xs">({companyCards.length})</span>
               </div>
               {companyCards.map((card, i) => (
                 <motion.div
@@ -310,7 +423,7 @@ export default function BusinessCardsPage() {
                           {card.is_favorite && <span>⭐</span>}
                         </div>
                         <div className="text-xs truncate" style={{ color: currentBg.textLight }}>
-                          {[card.department, card.position].filter(Boolean).join(' / ')}
+                          {card.phone || card.email || '-'}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -325,36 +438,6 @@ export default function BusinessCardsPage() {
                         </button>
                       </div>
                     </div>
-                    {/* クイックアクション */}
-                    <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
-                      {card.phone && (
-                        <a
-                          href={`tel:${card.phone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex-1 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-xs text-center"
-                        >
-                          📞 電話
-                        </a>
-                      )}
-                      {card.email && (
-                        <a
-                          href={`mailto:${card.email}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex-1 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-xs text-center"
-                        >
-                          ✉️ メール
-                        </a>
-                      )}
-                      {card.mobile && (
-                        <a
-                          href={`tel:${card.mobile}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex-1 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-xs text-center"
-                        >
-                          📱 携帯
-                        </a>
-                      )}
-                    </div>
                   </Card>
                 </motion.div>
               ))}
@@ -363,7 +446,7 @@ export default function BusinessCardsPage() {
         )}
       </div>
 
-      {/* 登録・編集モーダル */}
+      {/* モーダル */}
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -371,7 +454,7 @@ export default function BusinessCardsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => { setShowModal(false); resetForm(); setScanning(false) }}
+            onClick={closeModal}
           >
             <motion.div
               className="absolute left-0 right-0 rounded-t-2xl flex flex-col"
@@ -389,22 +472,83 @@ export default function BusinessCardsPage() {
               {/* ヘッダー */}
               <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0" style={{ borderBottom: `1px solid ${cardBorder}` }}>
                 <h3 className="text-lg font-bold" style={{ color: currentBg.text }}>
-                  {scanning ? '🔍 名刺を読み取り中...' : selectedCard ? '📇 名刺を編集' : '📇 名刺を登録'}
+                  {step === 'capture' ? '📷 名刺撮影' : step === 'detail' ? '📇 名刺詳細' : '📝 名刺情報入力'}
                 </h3>
-                <button onClick={() => { setShowModal(false); resetForm(); setScanning(false) }} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
+                <button onClick={closeModal} className="text-2xl" style={{ color: currentBg.textLight }}>×</button>
               </div>
 
-              {/* スクロール可能なコンテンツ */}
-              <div className="flex-1 overflow-y-auto px-5 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-              {scanning ? (
-                <div className="text-center py-16">
-                  <div className="text-6xl mb-4 animate-pulse">📇</div>
-                  <div style={{ color: currentBg.textLight }}>AIが名刺を解析しています...</div>
-                  <div className="text-xs mt-2" style={{ color: currentBg.textLight }}>会社名・氏名・連絡先を自動認識</div>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-4 py-4">
+              {/* コンテンツ */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+
+                {/* 撮影ステップ */}
+                {step === 'capture' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-center" style={{ color: currentBg.textLight }}>
+                      名刺の表と裏を撮影してください
+                    </p>
+
+                    {/* 表面 */}
+                    <div className="rounded-xl p-4" style={{ background: inputBg }}>
+                      <div className="text-sm font-bold mb-2" style={{ color: currentBg.text }}>表面（必須）</div>
+                      {frontImageUrl ? (
+                        <div className="relative">
+                          <img src={getImageSrc(frontImageUrl)} alt="表面" className="w-full h-40 object-cover rounded-lg" />
+                          <span className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">✓ 撮影済</span>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg cursor-pointer" style={{ borderColor: cardBorder }}>
+                          <span className="text-4xl mb-2">📷</span>
+                          <span className="text-sm" style={{ color: currentBg.textLight }}>タップして撮影</span>
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFrontCapture} />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* 裏面 */}
+                    <div className="rounded-xl p-4" style={{ background: inputBg }}>
+                      <div className="text-sm font-bold mb-2" style={{ color: currentBg.text }}>裏面（必須）</div>
+                      {backImageUrl ? (
+                        <div className="relative">
+                          <img src={getImageSrc(backImageUrl)} alt="裏面" className="w-full h-40 object-cover rounded-lg" />
+                          <span className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">✓ 撮影済</span>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg cursor-pointer" style={{ borderColor: cardBorder }}>
+                          <span className="text-4xl mb-2">📷</span>
+                          <span className="text-sm" style={{ color: currentBg.textLight }}>タップして撮影</span>
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleBackCapture} />
+                        </label>
+                      )}
+                    </div>
+
+                    {scanning && (
+                      <div className="text-center py-4">
+                        <div className="text-2xl animate-pulse mb-2">🔍</div>
+                        <div className="text-sm" style={{ color: currentBg.textLight }}>処理中...</div>
+                      </div>
+                    )}
+
+                    {frontImageUrl && backImageUrl && !scanning && (
+                      <button
+                        onClick={() => setStep('form')}
+                        className="w-full py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-blue-500"
+                      >
+                        次へ：情報を入力
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* フォーム入力ステップ */}
+                {step === 'form' && (
+                  <div className="space-y-4">
+                    {/* 画像プレビュー */}
+                    <div className="flex gap-2">
+                      {frontImageUrl && <img src={getImageSrc(frontImageUrl)} alt="表" className="w-1/2 h-20 object-cover rounded-lg" />}
+                      {backImageUrl && <img src={getImageSrc(backImageUrl)} alt="裏" className="w-1/2 h-20 object-cover rounded-lg" />}
+                    </div>
+
+                    {/* OCR結果 / 手入力フォーム */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
                         <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>会社名</label>
@@ -414,10 +558,9 @@ export default function BusinessCardsPage() {
                           onChange={(e) => setForm({ ...form, company_name: e.target.value })}
                           className="w-full rounded-lg px-4 py-3 text-sm"
                           style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="株式会社サンプル"
                         />
                       </div>
-                      <div>
+                      <div className="col-span-2">
                         <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>氏名 *</label>
                         <input
                           type="text"
@@ -425,29 +568,6 @@ export default function BusinessCardsPage() {
                           onChange={(e) => setForm({ ...form, person_name: e.target.value })}
                           className="w-full rounded-lg px-4 py-3 text-sm"
                           style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="山田 太郎"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>役職</label>
-                        <input
-                          type="text"
-                          value={form.position}
-                          onChange={(e) => setForm({ ...form, position: e.target.value })}
-                          className="w-full rounded-lg px-4 py-3 text-sm"
-                          style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="部長"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>部署</label>
-                        <input
-                          type="text"
-                          value={form.department}
-                          onChange={(e) => setForm({ ...form, department: e.target.value })}
-                          className="w-full rounded-lg px-4 py-3 text-sm"
-                          style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="営業部"
                         />
                       </div>
                       <div>
@@ -458,117 +578,231 @@ export default function BusinessCardsPage() {
                           onChange={(e) => setForm({ ...form, phone: e.target.value })}
                           className="w-full rounded-lg px-4 py-3 text-sm"
                           style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="03-1234-5678"
                         />
                       </div>
                       <div>
-                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>携帯番号</label>
-                        <input
-                          type="tel"
-                          value={form.mobile}
-                          onChange={(e) => setForm({ ...form, mobile: e.target.value })}
-                          className="w-full rounded-lg px-4 py-3 text-sm"
-                          style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="090-1234-5678"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>メールアドレス</label>
+                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>メール</label>
                         <input
                           type="email"
                           value={form.email}
                           onChange={(e) => setForm({ ...form, email: e.target.value })}
                           className="w-full rounded-lg px-4 py-3 text-sm"
                           style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="example@company.co.jp"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>住所</label>
-                        <input
-                          type="text"
-                          value={form.address}
-                          onChange={(e) => setForm({ ...form, address: e.target.value })}
-                          className="w-full rounded-lg px-4 py-3 text-sm"
-                          style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="東京都千代田区..."
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>URL</label>
-                        <input
-                          type="url"
-                          value={form.url}
-                          onChange={(e) => setForm({ ...form, url: e.target.value })}
-                          className="w-full rounded-lg px-4 py-3 text-sm"
-                          style={{ background: inputBg, color: currentBg.text }}
-                          placeholder="https://example.com"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>タグ</label>
-                        <div className="flex gap-2 flex-wrap">
-                          {TAGS.map(tag => (
-                            <button
-                              key={tag.value}
-                              type="button"
-                              onClick={() => setForm({ ...form, tag: tag.value })}
-                              className={`px-3 py-2 rounded-lg text-xs font-semibold ${
-                                form.tag === tag.value ? tag.color : ''
-                              }`}
-                              style={form.tag !== tag.value ? { background: inputBg, color: currentBg.textLight } : {}}
-                            >
-                              {tag.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>メモ</label>
-                        <textarea
-                          value={form.memo}
-                          onChange={(e) => setForm({ ...form, memo: e.target.value })}
-                          className="w-full rounded-lg px-4 py-3 text-sm resize-none"
-                          style={{ background: inputBg, color: currentBg.text }}
-                          rows={2}
-                          placeholder="メモを入力"
                         />
                       </div>
                     </div>
+
+                    {/* 会社マスタ紐付け */}
+                    <div className="rounded-xl p-4" style={{ background: inputBg }}>
+                      <div className="text-sm font-bold mb-3" style={{ color: currentBg.text }}>
+                        会社マスタ紐付け
+                        {form.linked_company_id && (
+                          <span className="ml-2 text-green-400 text-xs">✓ 紐付け済</span>
+                        )}
+                      </div>
+
+                      {/* タイプ切替 */}
+                      <div className="flex gap-2 mb-3">
+                        <button
+                          onClick={() => setCompanyType('prime')}
+                          className={`flex-1 py-2 rounded-lg text-xs font-semibold ${companyType === 'prime' ? 'bg-blue-500 text-white' : ''}`}
+                          style={companyType !== 'prime' ? { background: cardBg, color: currentBg.textLight } : {}}
+                        >
+                          元請け
+                        </button>
+                        <button
+                          onClick={() => setCompanyType('subcon')}
+                          className={`flex-1 py-2 rounded-lg text-xs font-semibold ${companyType === 'subcon' ? 'bg-green-500 text-white' : ''}`}
+                          style={companyType !== 'subcon' ? { background: cardBg, color: currentBg.textLight } : {}}
+                        >
+                          協力会社
+                        </button>
+                      </div>
+
+                      {/* 検索 */}
+                      <input
+                        type="text"
+                        value={companySearch}
+                        onChange={(e) => setCompanySearch(e.target.value)}
+                        placeholder="会社名で検索..."
+                        className="w-full rounded-lg px-3 py-2 text-sm mb-2"
+                        style={{ background: cardBg, color: currentBg.text }}
+                      />
+
+                      {/* 会社リスト */}
+                      <div className="max-h-32 overflow-y-auto space-y-1 mb-2">
+                        {companies.map(c => (
+                          <button
+                            key={c.id}
+                            onClick={() => handleSelectCompany(c)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm ${form.linked_company_id === c.id ? 'bg-blue-500/20 text-blue-400' : ''}`}
+                            style={form.linked_company_id !== c.id ? { color: currentBg.text } : {}}
+                          >
+                            {c.name}
+                          </button>
+                        ))}
+                        {companies.length === 0 && (
+                          <div className="text-xs text-center py-2" style={{ color: currentBg.textLight }}>該当なし</div>
+                        )}
+                      </div>
+
+                      {/* 新規作成 */}
+                      {!showNewCompany ? (
+                        <button
+                          onClick={() => setShowNewCompany(true)}
+                          className="w-full py-2 rounded-lg text-xs font-semibold border border-dashed"
+                          style={{ borderColor: cardBorder, color: currentBg.textLight }}
+                        >
+                          ＋ 新規でマスタ作成
+                        </button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newCompanyName}
+                            onChange={(e) => setNewCompanyName(e.target.value)}
+                            placeholder="会社名を入力"
+                            className="flex-1 rounded-lg px-3 py-2 text-sm"
+                            style={{ background: cardBg, color: currentBg.text }}
+                          />
+                          <button
+                            onClick={handleCreateCompany}
+                            className="px-4 py-2 rounded-lg text-xs font-semibold bg-blue-500 text-white"
+                          >
+                            作成
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* タグ */}
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>タグ</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {TAGS.map(tag => (
+                          <button
+                            key={tag.value}
+                            type="button"
+                            onClick={() => setForm({ ...form, tag: tag.value })}
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${form.tag === tag.value ? tag.color : ''}`}
+                            style={form.tag !== tag.value ? { background: inputBg, color: currentBg.textLight } : {}}
+                          >
+                            {tag.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </>
-              )}
+                )}
+
+                {/* 詳細表示ステップ */}
+                {step === 'detail' && selectedCard && (
+                  <div className="space-y-4">
+                    {/* 画像 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>表面</div>
+                        {frontImageUrl ? (
+                          <img src={getImageSrc(frontImageUrl)} alt="表面" className="w-full h-32 object-cover rounded-lg" />
+                        ) : (
+                          <div className="w-full h-32 rounded-lg flex items-center justify-center text-2xl" style={{ background: inputBg }}>📷</div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs mb-1" style={{ color: currentBg.textLight }}>裏面</div>
+                        {backImageUrl ? (
+                          <img src={getImageSrc(backImageUrl)} alt="裏面" className="w-full h-32 object-cover rounded-lg" />
+                        ) : (
+                          <div className="w-full h-32 rounded-lg flex items-center justify-center text-2xl" style={{ background: inputBg }}>📷</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 情報 */}
+                    <div className="rounded-xl p-4" style={{ background: inputBg }}>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs" style={{ color: currentBg.textLight }}>会社名</div>
+                          <div className="font-semibold" style={{ color: currentBg.text }}>{selectedCard.company_name || '-'}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs" style={{ color: currentBg.textLight }}>氏名</div>
+                          <div className="font-semibold" style={{ color: currentBg.text }}>{selectedCard.person_name || '-'}</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-xs" style={{ color: currentBg.textLight }}>電話</div>
+                            <div style={{ color: currentBg.text }}>{selectedCard.phone || '-'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs" style={{ color: currentBg.textLight }}>メール</div>
+                            <div className="truncate" style={{ color: currentBg.text }}>{selectedCard.email || '-'}</div>
+                          </div>
+                        </div>
+                        {selectedCard.linked_company && (
+                          <div>
+                            <div className="text-xs" style={{ color: currentBg.textLight }}>紐付け会社</div>
+                            <div className="flex items-center gap-2" style={{ color: currentBg.text }}>
+                              <span className={`px-2 py-0.5 rounded text-[10px] ${selectedCard.linked_company.type === 'prime' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                                {selectedCard.linked_company.type === 'prime' ? '元請' : '協力'}
+                              </span>
+                              {selectedCard.linked_company.name}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* クイックアクション */}
+                    <div className="flex gap-2">
+                      {selectedCard.phone && (
+                        <a href={`tel:${selectedCard.phone}`} className="flex-1 py-3 bg-emerald-500/20 text-emerald-400 rounded-xl text-sm text-center font-semibold">
+                          📞 電話
+                        </a>
+                      )}
+                      {selectedCard.email && (
+                        <a href={`mailto:${selectedCard.email}`} className="flex-1 py-3 bg-blue-500/20 text-blue-400 rounded-xl text-sm text-center font-semibold">
+                          ✉️ メール
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* 下部固定ボタンエリア */}
-              {!scanning && (
-                <div
-                  className="flex-shrink-0 flex items-center gap-3 px-5 py-4"
-                  style={{
-                    background: cardBg,
-                    borderTop: `1px solid ${cardBorder}`,
-                  }}
-                >
+              {/* フッター */}
+              {step === 'form' && (
+                <div className="flex-shrink-0 flex items-center gap-3 px-5 py-4" style={{ background: cardBg, borderTop: `1px solid ${cardBorder}` }}>
                   <button
-                    onClick={() => { setShowModal(false); resetForm() }}
+                    onClick={() => setStep('capture')}
                     className="flex-1 py-3 rounded-xl text-sm font-bold"
                     style={{ background: inputBg, color: currentBg.text }}
                   >
-                    キャンセル
+                    戻る
                   </button>
-                  {selectedCard && (
-                    <button
-                      onClick={() => handleDelete(selectedCard.id)}
-                      className="py-3 px-4 rounded-xl text-sm font-bold bg-red-500/20 text-red-400"
-                    >
-                      削除
-                    </button>
-                  )}
                   <button
                     onClick={handleSubmit}
                     className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-blue-500"
                   >
-                    {selectedCard ? '更新する' : '登録する'}
+                    登録する
+                  </button>
+                </div>
+              )}
+
+              {step === 'detail' && (
+                <div className="flex-shrink-0 flex items-center gap-3 px-5 py-4" style={{ background: cardBg, borderTop: `1px solid ${cardBorder}` }}>
+                  <button
+                    onClick={() => handleDelete(selectedCard.id)}
+                    className="py-3 px-4 rounded-xl text-sm font-bold bg-red-500/20 text-red-400"
+                  >
+                    削除
+                  </button>
+                  <button
+                    onClick={closeModal}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold"
+                    style={{ background: inputBg, color: currentBg.text }}
+                  >
+                    閉じる
                   </button>
                 </div>
               )}
