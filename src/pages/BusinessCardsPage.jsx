@@ -85,12 +85,16 @@ export default function BusinessCardsPage() {
 
       const result = await authPostFormData(`${API_BASE}/ocr/business-card`, formData)
 
-      if (result.success && result.data) {
+      // フォームデータを設定（成功・失敗どちらでもdata構造は返される）
+      if (result.data) {
         setForm(result.data)
-        showToast('名刺を読み取りました')
+      }
+
+      if (result.success) {
+        showToast('名刺を読み取りました。内容を確認してください。')
       } else {
-        // エラー時はフォームを空で表示（手動入力を促す）
-        showToast(result.error || 'OCR処理に失敗しました。手動で入力してください。')
+        // OCR失敗時：メッセージを表示し、空フォームで手動入力を促す
+        showToast(result.message || 'OCR処理に失敗しました。手動で入力してください。')
       }
     } catch (error) {
       console.error('OCR Error:', error)
