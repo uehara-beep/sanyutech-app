@@ -5,7 +5,15 @@ import { Header, Card, Toast } from '../components/common'
 import { API_BASE, authGet, authFetch } from '../config/api'
 import { useThemeStore, useAuthStore, backgroundStyles } from '../store'
 
-const COST_CATEGORIES = ['材料', '外注', '労務', '機械', 'その他']
+// 原価カテゴリ定義（API側と同期）
+const COST_CATEGORIES = {
+  labor: '労務',
+  material: '材料',
+  machine: '重機',
+  subcontract: '外注',
+  fuel: '燃料',
+  etc: 'その他',
+}
 
 export default function ConstructionProjectDetailPage() {
   const navigate = useNavigate()
@@ -31,7 +39,7 @@ export default function ConstructionProjectDetailPage() {
   // フォーム
   const [costForm, setCostForm] = useState({
     cost_date: new Date().toISOString().split('T')[0],
-    cost_category: '材料',
+    cost_category: 'material',  // デフォルト: 材料
     amount: '',
     note: '',
   })
@@ -93,7 +101,7 @@ export default function ConstructionProjectDetailPage() {
       setShowCostModal(false)
       setCostForm({
         cost_date: new Date().toISOString().split('T')[0],
-        cost_category: '材料',
+        cost_category: 'material',
         amount: '',
         note: '',
       })
@@ -295,6 +303,24 @@ export default function ConstructionProjectDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* カテゴリ別原価内訳 */}
+            {project.costs_by_category && (
+              <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${cardBorder}` }}>
+                <div className="text-[10px] mb-2" style={{ color: currentBg.textLight }}>カテゴリ別原価</div>
+                <div className="grid grid-cols-3 gap-1 text-center">
+                  {Object.entries(COST_CATEGORIES).map(([key, label]) => (
+                    <div key={key} className="rounded p-1" style={{ background: inputBg }}>
+                      <div className="text-[9px]" style={{ color: currentBg.textLight }}>{label}</div>
+                      <div className="text-[10px] font-bold" style={{ color: currentBg.text }}>
+                        {formatCurrency(project.costs_by_category[key] || 0)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={() => setShowBudgetModal(true)}
               className="w-full py-2 mt-3 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-purple-500 text-white"
@@ -337,11 +363,13 @@ export default function ConstructionProjectDetailPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-xs" style={{ color: currentBg.textLight }}>{cost.cost_date}</div>
-                        <div className="font-semibold text-sm" style={{ color: currentBg.text }}>{cost.cost_category}</div>
-                        {cost.note && <div className="text-xs" style={{ color: currentBg.textLight }}>{cost.note}</div>}
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold" style={{ color: currentBg.text }}>{formatCurrency(cost.amount)}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-400">
+                            {cost.category_label || COST_CATEGORIES[cost.cost_category] || cost.cost_category}
+                          </span>
+                          <span className="font-semibold text-sm" style={{ color: currentBg.text }}>{formatCurrency(cost.amount)}</span>
+                        </div>
+                        {cost.note && <div className="text-xs mt-1" style={{ color: currentBg.textLight }}>{cost.note}</div>}
                       </div>
                     </div>
                   </Card>
@@ -423,18 +451,18 @@ export default function ConstructionProjectDetailPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>区分</label>
+                  <label className="text-xs mb-1 block" style={{ color: currentBg.textLight }}>区分（必須）</label>
                   <div className="flex gap-2 flex-wrap">
-                    {COST_CATEGORIES.map(cat => (
+                    {Object.entries(COST_CATEGORIES).map(([key, label]) => (
                       <button
-                        key={cat}
-                        onClick={() => setCostForm({ ...costForm, cost_category: cat })}
+                        key={key}
+                        onClick={() => setCostForm({ ...costForm, cost_category: key })}
                         className={`px-3 py-2 rounded-lg text-xs font-semibold ${
-                          costForm.cost_category === cat ? 'bg-orange-500/20 text-orange-400' : ''
+                          costForm.cost_category === key ? 'bg-orange-500/20 text-orange-400' : ''
                         }`}
-                        style={costForm.cost_category !== cat ? { background: inputBg, color: currentBg.textLight } : {}}
+                        style={costForm.cost_category !== key ? { background: inputBg, color: currentBg.textLight } : {}}
                       >
-                        {cat}
+                        {label}
                       </button>
                     ))}
                   </div>
